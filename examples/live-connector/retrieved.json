@@ -1,0 +1,53 @@
+[
+  {
+    "id": "MED:42710003",
+    "title": "Evaluating retrieval-augmented generation versus long-context input for clinical reasoning over electronic health records.",
+    "abstract": "Objective To evaluate whether retrieval-augmented generation (RAG) can serve as an efficient alternative to long-context prompting for clinical reasoning over electronic health records (EHRs). Materials and methods We defined 3 EHR-based tasks that are replicable across health systems and vary in reasoning complexity: (1) extracting imaging procedures (modality, date, and anatomic site), (2) generating timelines of therapeutic antibiotic use, and (3) identifying the key diagnoses for a hospitalization. Using real inpatient clinical notes from a US academic health system, we evaluated 3 large language models (GPT-5.4-mini, Mistral Medium 3, DeepSeek V3.1) with varying amounts of provided context, comparing targeted retrieval to using the most recent clinical notes. Results For Imaging Procedures, RAG strongly outperformed recent-note inputs and exceeded long-context performance (by 0.17-9.83 F1 across all models) using fewer than 8K tokens. Similar benefits were observed for Antibiotic Timelines, where  Discussion RAG demonstrated strong token efficiency across tasks, with the clearest and most consistent gains observed for imaging extraction and antibiotic timeline reconstruction. Diagnosis generation proved the most challenging task, suggesting ceiling effects imposed by documentation variability and evaluation constraints. Conclusion Our results suggest that RAG remains a competitive and efficient approach for clinical tasks over large amounts of EHR, even as newer models become capable of handling increasingly longer amounts of text.",
+    "year": "2026",
+    "doi": "10.1093/jamia/ocag139",
+    "provenance": [
+      {
+        "connector": "europe_pmc",
+        "record_id": "MED:42710003",
+        "url": "https://europepmc.org/article/MED/42710003",
+        "query": "\"retrieval augmented generation\" AND \"clinical\"",
+        "retrieved_at": "2026-09-12T08:39:12.646440+00:00",
+        "raw_sha256": "e8e04ec19bbbb84389157c5e63e496dca91d69f74157ec81b21be928484a4698"
+      }
+    ]
+  },
+  {
+    "id": "MED:42723042",
+    "title": "A framework for extraction of clinical information from radiological mammography reports using large language models and retrieval augmented generation.",
+    "abstract": "Background Extracting structured information from free-text radiology reports is essential for downstream clinical analysis and decision support. In mammography, this challenge is amplified by heterogeneous writing styles, the absence of standardized terminology across institutions, and limited availability of annotated Spanish datasets. Large language models (LLMs) offer a compelling alternative by enabling few-shot generalization without task-specific fine-tuning. Methods We propose a structured Retrieval-Augmented Generation (RAG) framework that leverages annotated mammography reports as in-context demonstrations, enabling joint named entity and relation extraction without task-specific fine-tuning. The framework is evaluated on Spanish BI-RADS-style mammography reports and achieves performance comparable to fine-tuned BETO models in low-resource settings, while significantly reducing training and deployment overhead. Results In NER, GPT-based few-shot models achieved competitive performance (0.89-0.94 F[Formula: see text]) relative to the fine-tuned BETO baseline (0.97 F[Formula: see text]), despite requiring no task-specific training. In RE, LLMs showed moderate performance (up to 0.78 F[Formula: see text]), remaining below the supervised BETO model (0.99 F[Formula: see text]), reflecting the greater sensitivity of RE to boundary errors and cross-sentence context. Inference costs were low (fractions of a cent per report) and latency remained within seconds, enabling practical deployment scenarios. Local open-weight models preserved privacy and runtime efficiency but exhibited substantially lower accuracy. Conclusion Few-shot RAG combined with modern LLMs provides a viable, data-efficient alternative for structuring Spanish mammography reports, particularly in low-resource or rapid-deployment settings. While fine-tuned encoders remain preferable for high-accuracy RE, the proposed framework offers a practical balance between performance, operational cost, and accessibility. A remaining limitation is the need for an initial annotated subset to populate the RAG store; future work will explore weak supervision, multimodal extensions, and cross-site generalization.",
+    "year": "2026",
+    "doi": "10.1186/s12911-026-03633-8",
+    "provenance": [
+      {
+        "connector": "europe_pmc",
+        "record_id": "MED:42723042",
+        "url": "https://europepmc.org/article/MED/42723042",
+        "query": "\"retrieval augmented generation\" AND \"clinical\"",
+        "retrieved_at": "2026-09-12T08:39:12.646440+00:00",
+        "raw_sha256": "e8e04ec19bbbb84389157c5e63e496dca91d69f74157ec81b21be928484a4698"
+      }
+    ]
+  },
+  {
+    "id": "MED:42642958",
+    "title": "Evidence-Informed Occupational Therapy Decision Support Using Graph Retrieval-Augmented Generation.",
+    "abstract": "Occupational therapy clinical decision-making requires support that is both evidence-informed and traceable. To develop and evaluate a clinical decision-support system (CDSS) for occupational therapy using the Japanese Association of Occupational Therapists (JAOT) Case Report Corpus. A total of 3,023 cases were included, with 90% used as a reference case set and 10% as a test case set. A knowledge graph linking assessment findings, goals, and intervention plans was constructed from the reference case set. Using GPT-5-mini, intervention plans were generated from assessment findings under five conditions: no reference information, random reference cases, keyword-based retrieval of similar cases, embedding-based retrieval of similar cases, and GraphRAG. Generated intervention plans were evaluated using the Retrieval-Augmented Generation Assessment (RAGAS) Faithfulness metric, and models were compared using paired  t -tests. GraphRAG showed significantly higher faithfulness than the other reference-based models. GraphRAG may provide case-based and traceable support for occupational therapy decision-making.",
+    "year": "2026",
+    "doi": "10.1177/15394492261476597",
+    "provenance": [
+      {
+        "connector": "europe_pmc",
+        "record_id": "MED:42642958",
+        "url": "https://europepmc.org/article/MED/42642958",
+        "query": "\"retrieval augmented generation\" AND \"clinical\"",
+        "retrieved_at": "2026-09-12T08:39:12.646440+00:00",
+        "raw_sha256": "e8e04ec19bbbb84389157c5e63e496dca91d69f74157ec81b21be928484a4698"
+      }
+    ]
+  }
+]

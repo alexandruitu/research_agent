@@ -1,0 +1,19 @@
+{
+  "contract": {
+    "topic": "retrieval augmented generation",
+    "max_papers": 12,
+    "mode": "demo",
+    "scope": "abstract_only"
+  },
+  "models": {
+    "all": "synthetic-demo-v1"
+  },
+  "prompt_version": "m1.1",
+  "score_version": "m1.1",
+  "packages": {
+    "langgraph": "1.2.11",
+    "langgraph-checkpoint-sqlite": "3.1.1",
+    "pydantic": "2.13.5",
+    "langchain": "1.4.0"
+  }
+}

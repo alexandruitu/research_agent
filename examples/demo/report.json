@@ -1,0 +1,1515 @@
+{
+  "manifest": {
+    "contract": {
+      "topic": "retrieval augmented generation",
+      "max_papers": 12,
+      "mode": "demo",
+      "scope": "abstract_only"
+    },
+    "models": {
+      "all": "synthetic-demo-v1"
+    },
+    "prompt_version": "m1.1",
+    "score_version": "m1.1",
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-checkpoint-sqlite": "3.1.1",
+      "pydantic": "2.13.5",
+      "langchain": "1.4.0"
+    }
+  },
+  "state": {
+    "contract": {
+      "topic": "retrieval augmented generation",
+      "max_papers": 12,
+      "mode": "demo",
+      "scope": "abstract_only"
+    },
+    "plan": {
+      "queries": [
+        "retrieval augmented generation"
+      ],
+      "rationale": "Synthetic demo query; no scientific search performed."
+    },
+    "discovered": [
+      {
+        "id": "demo:1",
+        "title": "SYNTHETIC DEMO 1: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 1 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:1",
+            "url": "urn:demo:1",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "494f2016ec8c7f621b299fa097ac2a7f81f8972d3432e4fb6781574d232d18bb"
+          }
+        ]
+      },
+      {
+        "id": "demo:2",
+        "title": "SYNTHETIC DEMO 2: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 2 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:2",
+            "url": "urn:demo:2",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "ac921d67c5184de4f5da14c6e54aba01d8feeb8d29bc66ceee78b2aae88ba64d"
+          }
+        ]
+      },
+      {
+        "id": "demo:3",
+        "title": "SYNTHETIC DEMO 3: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 3 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:3",
+            "url": "urn:demo:3",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "a7e822c6f4bf7f151603841838623d2eb6c9fa83a982729b7a42c5af4e8b4ec6"
+          }
+        ]
+      },
+      {
+        "id": "demo:4",
+        "title": "SYNTHETIC DEMO 4: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 4 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:4",
+            "url": "urn:demo:4",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "0913fbf92d09ca410a8d5b5fb63f39f792aa2708e73827c8e629c08b73710c29"
+          }
+        ]
+      },
+      {
+        "id": "demo:5",
+        "title": "SYNTHETIC DEMO 5: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 5 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:5",
+            "url": "urn:demo:5",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "8cdf2264ed4369c5c0c6335f8a3ddced3910b79231add8338d742680bd4cb7be"
+          }
+        ]
+      },
+      {
+        "id": "demo:6",
+        "title": "SYNTHETIC DEMO 6: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 6 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:6",
+            "url": "urn:demo:6",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "59068761423b47c622adc390823ad7cbbae1ce06d55409cb0cfa63c80b967bb1"
+          }
+        ]
+      },
+      {
+        "id": "demo:7",
+        "title": "SYNTHETIC DEMO 7: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 7 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:7",
+            "url": "urn:demo:7",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "b12fd46abf583fec13e4b305926a5c24385dce15083dc4d61612a9e9a8f227bc"
+          }
+        ]
+      },
+      {
+        "id": "demo:8",
+        "title": "SYNTHETIC DEMO 8: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 8 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:8",
+            "url": "urn:demo:8",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "a4699a86d06a20a1f7b44e1a2e1b385485193e2ea7026b94cf5a129795daec83"
+          }
+        ]
+      },
+      {
+        "id": "demo:9",
+        "title": "SYNTHETIC DEMO 9: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 9 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:9",
+            "url": "urn:demo:9",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "e478c5a14c5f695c2061567083584ac3ef3836ef6eb4df4e3d01b5ca32a7efc0"
+          }
+        ]
+      },
+      {
+        "id": "demo:10",
+        "title": "SYNTHETIC DEMO 10: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 10 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:10",
+            "url": "urn:demo:10",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "b571a83a81de1a46c3e12f99e851a735d157290fe9c255f81fab6a8a9f4f0dc2"
+          }
+        ]
+      },
+      {
+        "id": "demo:11",
+        "title": "SYNTHETIC DEMO 11: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 11 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:11",
+            "url": "urn:demo:11",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "3a55e401be3091692f26d55a30b44517bfe9e5a396a318f431dc9fba56f8218d"
+          }
+        ]
+      },
+      {
+        "id": "demo:12",
+        "title": "SYNTHETIC DEMO 12: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 12 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:12",
+            "url": "urn:demo:12",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "ac9144ef5ad59dcc3284f7b639f5baeb7dda9e9243f6dd8e4425af0970ee0e65"
+          }
+        ]
+      }
+    ],
+    "papers": [
+      {
+        "id": "demo:1",
+        "title": "SYNTHETIC DEMO 1: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 1 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:1",
+            "url": "urn:demo:1",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "494f2016ec8c7f621b299fa097ac2a7f81f8972d3432e4fb6781574d232d18bb"
+          }
+        ]
+      },
+      {
+        "id": "demo:2",
+        "title": "SYNTHETIC DEMO 2: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 2 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:2",
+            "url": "urn:demo:2",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "ac921d67c5184de4f5da14c6e54aba01d8feeb8d29bc66ceee78b2aae88ba64d"
+          }
+        ]
+      },
+      {
+        "id": "demo:3",
+        "title": "SYNTHETIC DEMO 3: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 3 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:3",
+            "url": "urn:demo:3",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "a7e822c6f4bf7f151603841838623d2eb6c9fa83a982729b7a42c5af4e8b4ec6"
+          }
+        ]
+      },
+      {
+        "id": "demo:4",
+        "title": "SYNTHETIC DEMO 4: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 4 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:4",
+            "url": "urn:demo:4",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "0913fbf92d09ca410a8d5b5fb63f39f792aa2708e73827c8e629c08b73710c29"
+          }
+        ]
+      },
+      {
+        "id": "demo:5",
+        "title": "SYNTHETIC DEMO 5: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 5 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:5",
+            "url": "urn:demo:5",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "8cdf2264ed4369c5c0c6335f8a3ddced3910b79231add8338d742680bd4cb7be"
+          }
+        ]
+      },
+      {
+        "id": "demo:6",
+        "title": "SYNTHETIC DEMO 6: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 6 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:6",
+            "url": "urn:demo:6",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "59068761423b47c622adc390823ad7cbbae1ce06d55409cb0cfa63c80b967bb1"
+          }
+        ]
+      },
+      {
+        "id": "demo:7",
+        "title": "SYNTHETIC DEMO 7: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 7 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:7",
+            "url": "urn:demo:7",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "b12fd46abf583fec13e4b305926a5c24385dce15083dc4d61612a9e9a8f227bc"
+          }
+        ]
+      },
+      {
+        "id": "demo:8",
+        "title": "SYNTHETIC DEMO 8: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 8 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:8",
+            "url": "urn:demo:8",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "a4699a86d06a20a1f7b44e1a2e1b385485193e2ea7026b94cf5a129795daec83"
+          }
+        ]
+      },
+      {
+        "id": "demo:9",
+        "title": "SYNTHETIC DEMO 9: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 9 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:9",
+            "url": "urn:demo:9",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "e478c5a14c5f695c2061567083584ac3ef3836ef6eb4df4e3d01b5ca32a7efc0"
+          }
+        ]
+      },
+      {
+        "id": "demo:10",
+        "title": "SYNTHETIC DEMO 10: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 10 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:10",
+            "url": "urn:demo:10",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "b571a83a81de1a46c3e12f99e851a735d157290fe9c255f81fab6a8a9f4f0dc2"
+          }
+        ]
+      },
+      {
+        "id": "demo:11",
+        "title": "SYNTHETIC DEMO 11: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 11 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:11",
+            "url": "urn:demo:11",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "3a55e401be3091692f26d55a30b44517bfe9e5a396a318f431dc9fba56f8218d"
+          }
+        ]
+      },
+      {
+        "id": "demo:12",
+        "title": "SYNTHETIC DEMO 12: retrieval augmented generation evaluation",
+        "abstract": "Synthetic study 12 evaluated retrieval augmented generation on a toy dataset. The reported accuracy increased in this simulated experiment. External validation was not performed.",
+        "year": "2026",
+        "doi": "",
+        "provenance": [
+          {
+            "connector": "synthetic_fixture",
+            "record_id": "demo:12",
+            "url": "urn:demo:12",
+            "query": "retrieval augmented generation",
+            "retrieved_at": "2026-09-12T00:00:00+00:00",
+            "raw_sha256": "ac9144ef5ad59dcc3284f7b639f5baeb7dda9e9243f6dd8e4425af0970ee0e65"
+          }
+        ]
+      }
+    ],
+    "screens": {
+      "demo:1": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:2": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:3": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:4": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:5": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:6": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:7": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:8": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:9": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:10": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:11": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      },
+      "demo:12": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only."
+      }
+    },
+    "evidence": {
+      "demo:1": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 1 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:2": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 2 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:3": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 3 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:4": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 4 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:5": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 5 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:6": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 6 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:7": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 7 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:8": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 8 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:9": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 9 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:10": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 10 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:11": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 11 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      },
+      "demo:12": {
+        "claims": [
+          {
+            "statement": "Synthetic toy evaluation described.",
+            "quote": "Synthetic study 12 evaluated retrieval augmented generation on a toy dataset."
+          }
+        ],
+        "study_design": "Synthetic experiment",
+        "limitations": [
+          "Simulated data; no scientific inference permitted."
+        ]
+      }
+    },
+    "reviews_a": {
+      "demo:1": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:2": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:3": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:4": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:5": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:6": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:7": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:8": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:9": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:10": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:11": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:12": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 2,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      }
+    },
+    "reviews_b": {
+      "demo:1": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:2": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:3": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:4": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:5": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:6": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:7": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:8": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:9": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:10": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:11": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      },
+      "demo:12": {
+        "verdict": "include",
+        "relevance": 3,
+        "methods": 0,
+        "support": 2,
+        "strengths": [
+          "Synthetic fixture contains an explicit toy evaluation."
+        ],
+        "weaknesses": [
+          "No real study; these scores are test data."
+        ],
+        "assessment": "SIMULATED assessment, not scientific evaluation.",
+        "takeaways": [
+          "This record verifies pipeline mechanics only."
+        ]
+      }
+    },
+    "decisions": {
+      "demo:1": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:2": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:3": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:4": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:5": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:6": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:7": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:8": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:9": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:10": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:11": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      },
+      "demo:12": {
+        "review": {
+          "verdict": "include",
+          "relevance": 3,
+          "methods": 2,
+          "support": 2,
+          "strengths": [
+            "Synthetic fixture contains an explicit toy evaluation."
+          ],
+          "weaknesses": [
+            "No real study; these scores are test data."
+          ],
+          "assessment": "SIMULATED assessment, not scientific evaluation.",
+          "takeaways": [
+            "This record verifies pipeline mechanics only."
+          ]
+        },
+        "reason": "Synthetic adjudication exercises the disagreement path.",
+        "adjudicated": true
+      }
+    },
+    "ranking": [
+      {
+        "paper_id": "demo:1",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:10",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:11",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:12",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:2",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:3",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:4",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:5",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:6",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      },
+      {
+        "paper_id": "demo:7",
+        "score": 60.0,
+        "decision": {
+          "review": {
+            "verdict": "include",
+            "relevance": 3,
+            "methods": 2,
+            "support": 2,
+            "strengths": [
+              "Synthetic fixture contains an explicit toy evaluation."
+            ],
+            "weaknesses": [
+              "No real study; these scores are test data."
+            ],
+            "assessment": "SIMULATED assessment, not scientific evaluation.",
+            "takeaways": [
+              "This record verifies pipeline mechanics only."
+            ]
+          },
+          "reason": "Synthetic adjudication exercises the disagreement path.",
+          "adjudicated": true
+        }
+      }
+    ]
+  }
+}
