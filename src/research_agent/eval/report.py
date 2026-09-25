@@ -41,7 +41,7 @@ def load_records(gold, store, evaluator, jev, allow_mixed=False):
         )
     if missing:
         raise ReportError(
-            f"{missing} cached call(s) missing; run `research-eval screen` for this gold set first "
+            f"{missing} candidate(s) have missing cached calls; run `research-eval screen` for this gold set first "
             "(a prompt-version change also invalidates the cache)"
         )
     if len(versions) > 1 and not allow_mixed:
@@ -69,11 +69,15 @@ def _provider(models, role):
     return model.split(":")[0] if model and ":" in model else None
 
 
-def _agreement(run_dir, manifest):
+def _agreement(run_dir, manifest, gold):
     path = Path(run_dir) / "agreement.json"
     if not path.exists():
         return None
     papers = json.loads(path.read_text())["papers"]
+    if not papers:
+        return None
+    if set(papers) - {c.id for c in gold.candidates}:
+        raise ReportError("agreement.json does not belong to this gold set; re-run `research-eval agreement`")
     ids = sorted(papers)
     a = [papers[i]["review_a"] for i in ids]
     b = [papers[i]["review_b"] for i in ids]
@@ -105,16 +109,27 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
     warnings = []
     if len(versions) > 1:
         warnings.append(f"Mixed Jev model versions in this run: {versions}.")
-    if best is None:
+    if not any(r["label"] == "include" for r in records):
+        warnings.append("No SR-included paper with an abstract was screened; recall is undefined.")
+    elif best is None:
         warnings.append(f"No threshold pair reaches recall >= {target_recall}.")
     holdout = None
     if holdout_dir and best:
-        _m, other, other_records, _v = _load_run(holdout_dir, allow_mixed)
+        try:
+            _m, other, other_records, other_versions = _load_run(holdout_dir, allow_mixed)
+        except (ReportError, ValueError) as exc:
+            raise ReportError(f"holdout run {holdout_dir}: {exc}") from exc
+        if len(other_versions) > 1 or other_versions != versions:
+            warnings.append(
+                f"Holdout Jev model versions {other_versions} differ from the main run's {versions} "
+                "(or are mixed); the recommended pair may not transfer."
+            )
         thresholds = JevThresholds(best["min_confidence"], best["exclude_min_confidence"])
         out = evaluate(other_records, "cascade", thresholds)
         holdout = {
             "gold": other.name,
             "n": len(other_records),
+            "jev_model_versions": other_versions,
             "thresholds": {
                 "min_confidence": best["min_confidence"],
                 "exclude_min_confidence": best["exclude_min_confidence"],
@@ -159,8 +174,10 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
         "screen_vs_gold": cohen_kappa(
             ["excluded" if r["llm"] == "exclude" else "kept" for r in records],
             ["kept" if r["label"] == "include" else "excluded" for r in records],
-        ),
-        "agreement": _agreement(run_dir, manifest),
+        )
+        if records
+        else None,
+        "agreement": _agreement(run_dir, manifest, gold),
         "warnings": warnings,
     }
 
@@ -173,14 +190,16 @@ def fmt_rate(r):
 
 
 def _fmt_kappa(k):
+    """Kappa next to raw agreement and class prevalence, since kappa collapses under skewed classes."""
+    prevalence = ", ".join(f"{label} {value:.2f}" for label, value in k["prevalence"].items())
+    context = f"agreement {k['agreement']:.2f}; prevalence {prevalence}"
     if k["kappa"] is None:
-        return (
-            f"n/a ({k['reason']}); agreement {k['agreement']:.2f}"
-            if "agreement" in k
-            else f"n/a ({k['reason']})"
-        )
-    text = f"{k['kappa']:.3f}"
-    return text + (f"; agreement {k['agreement']:.2f}" if "agreement" in k else "")
+        return f"n/a ({k['reason']}); {context}"
+    return f"{round(k['kappa'], 3) + 0.0:.3f}; {context}"  # + 0.0 turns -0.0 into 0.0
+
+
+def _count_pct(count, total):
+    return f"{count} ({100 * count / total:.1f}%)" if total else f"{count} (n/a)"
 
 
 def render_markdown(report):
@@ -208,13 +227,25 @@ def render_markdown(report):
             f"exclude >= {report['default_thresholds']['exclude_min_confidence']}."
         ),
         "",
-        "| strategy | recall | missed | LLM screen calls saved |",
-        "|---|---|---|---|",
+        "| strategy | recall | missed | auto-included | auto-excluded | sent to LLM | LLM screen calls saved |",
+        "|---|---|---|---|---|---|---|",
     ]
     for name, s in report["strategies"].items():
+        sent = _count_pct(s["escalated"], c["screened"])
+        if name == "jev_only":
+            sent += " undecided (kept, no LLM look) [1]"
         out.append(
-            f"| {name} | {fmt_rate(s['recall'])} | {len(s['missed'])} | {s['calls_saved']} of {c['screened']} |"
+            f"| {name} | {fmt_rate(s['recall'])} | {len(s['missed'])} "
+            f"| {_count_pct(s['auto_include'], c['screened'])} | {_count_pct(s['auto_exclude'], c['screened'])} "
+            f"| {sent} | {s['calls_saved']} of {c['screened']} |"
         )
+    out += [
+        "",
+        (
+            "[1] jev_only makes no LLM calls: undecided papers are kept without any LLM look, "
+            "so its recall is not comparable with cascade."
+        ),
+    ]
     out += ["", "## Missed positives", ""]
     any_missed = False
     for name, s in report["strategies"].items():
@@ -255,22 +286,24 @@ def render_markdown(report):
             f"`{h['gold']}` (n={h['n']}): recall {fmt_rate(h['recall'])}, {h['calls_saved']} calls saved.",
         ]
     sg = report["screen_vs_gold"]
-    out += [
-        "",
-        "## LLM screen vs SR label",
-        "",
-        (
+    out += ["", "## LLM screen vs SR label", ""]
+    if sg is None:
+        out.append("n/a (no candidate with an abstract was screened).")
+    else:
+        out.append(
             f"Cohen's kappa {_fmt_kappa(sg)} (n={sg['n']}). Caution: SR-not-included papers may be on topic, "
             "so a low kappa is expected; recall is the headline metric."
-        ),
-    ]
+        )
     if report["agreement"]:
         a = report["agreement"]
         out += [
             "",
             "## Reviewer agreement",
             "",
-            f"n={a['n']} · same model family: {a['same_family']} · adjudication rate {fmt_rate(a['adjudication_rate'])}",
+            (
+                f"n={a['n']} · same model family: {'unknown' if a['same_family'] is None else a['same_family']} "
+                f"· adjudication rate {fmt_rate(a['adjudication_rate'])}"
+            ),
             f"- verdict kappa: {_fmt_kappa(a['verdict'])}",
         ]
         out += [f"- {key} weighted kappa: {_fmt_kappa(k)}" for key, k in a["scores"].items()]

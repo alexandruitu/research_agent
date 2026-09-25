@@ -78,6 +78,14 @@ def test_weighted_kappa():
     assert near == pytest.approx(0.7692, abs=1e-3)
 
 
+def test_weighted_kappa_reports_raw_agreement_and_prevalence():
+    result = weighted_kappa([0, 1, 2, 3, 4, 2], [1, 2, 2, 3, 3, 2])
+    assert result["agreement"] == pytest.approx(0.5)
+    assert result["prevalence"] == pytest.approx({0: 1 / 12, 1: 2 / 12, 2: 5 / 12, 3: 3 / 12, 4: 1 / 12})
+    constant = weighted_kappa([2, 2, 2], [2, 2, 2])
+    assert constant["agreement"] == 1.0 and constant["prevalence"] == {2: 1.0}
+
+
 def test_weighted_kappa_rejects_bad_scores_and_levels():
     with pytest.raises(ValueError):
         weighted_kappa([0, 5], [0, 1])

@@ -70,9 +70,16 @@ def weighted_kappa(a, b, levels=range(5)):
         weight = ((i - j) / (k - 1)) ** 2
         num += weight * observed[i][j]
         den += weight * rows[i] * cols[j]
+    result = {
+        "n": n,
+        "agreement": sum(x == y for x, y in zip(a, b, strict=True)) / n,
+        "prevalence": {
+            level: (a.count(level) + b.count(level)) / (2 * n) for level in levels if level in a or level in b
+        },
+    }
     if den == 0:
-        return {"n": n, "kappa": None, "reason": "single class: kappa undefined"}
-    return {"n": n, "kappa": 1 - num / den, "reason": None}
+        return {**result, "kappa": None, "reason": "single class: kappa undefined"}
+    return {**result, "kappa": 1 - num / den, "reason": None}
 
 
 INCLUDE_GRID = [round(i / 10, 1) for i in range(1, 10)]
