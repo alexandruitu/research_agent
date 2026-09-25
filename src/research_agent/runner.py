@@ -14,6 +14,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from .agents import PROMPT_VERSION, Evaluator, live_models
 from .connectors import DemoConnector, EuropePMC
 from .graph import build_graph
+from .jev import DEFAULT_MODEL, JEV_SCREEN_VERSION, JevScreener, JevThresholds
 from .report import write_report
 from .schemas import Contract
 from .storage import Store
@@ -134,7 +135,11 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
             models = models or (live_models() if contract.mode == "live" else {})
             manifest = {
                 "contract": contract.model_dump(),
-                "models": models or {"all": "synthetic-demo-v1"},
+                "models": {
+                    **(models or {"all": "synthetic-demo-v1"}),
+                    **({"jev": DEFAULT_MODEL} if contract.jev else {}),
+                },
+                "jev_screen_version": JEV_SCREEN_VERSION if contract.jev else None,
                 "prompt_version": PROMPT_VERSION,
                 "score_version": "m1.1",
                 "packages": {
@@ -149,10 +154,17 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
             store = Store(path)
             evaluator = Evaluator(store, contract.mode, models)
             connector = DemoConnector(store) if contract.mode == "demo" else EuropePMC(store)
+            jev = (
+                JevScreener.from_env(
+                    store, JevThresholds(contract.jev_min_confidence, contract.jev_exclude_min_confidence)
+                )
+                if contract.jev
+                else None
+            )
             config = {"configurable": {"thread_id": "research-v1"}, "max_concurrency": 2}
             with SqliteSaver.from_conn_string(str(path / "checkpoints.sqlite")) as saver:
                 graph = build_graph(
-                    connector, evaluator, saver, [stop_after] if stop_after else [], progress.observe
+                    connector, evaluator, saver, [stop_after] if stop_after else [], progress.observe, jev
                 )
                 snapshot = graph.get_state(config)
                 # Reconstruct committed progress rather than trusting a previous process's display state.

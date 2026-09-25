@@ -13,13 +13,29 @@ def main():
     parser.add_argument("--mode", choices=["demo", "live"], default="demo")
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--max-papers", type=int, default=12)
+    parser.add_argument("--jev", action="store_true", help="Jev classifier as screening tier 1 (live only)")
+    parser.add_argument("--jev-min-confidence", type=float, default=0.6, help="auto-include threshold")
+    parser.add_argument(
+        "--jev-exclude-min-confidence", type=float, default=0.9, help="auto-exclude threshold (stricter)"
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--stop-after", choices=["discover", "extract", "adjudicate"])
     args = parser.parse_args()
     load_dotenv()
     if not args.resume and not args.topic:
         parser.error("Topic is required for a new run")
-    contract = Contract(topic=args.topic, mode=args.mode, max_papers=args.max_papers) if args.topic else None
+    contract = (
+        Contract(
+            topic=args.topic,
+            mode=args.mode,
+            max_papers=args.max_papers,
+            jev=args.jev,
+            jev_min_confidence=args.jev_min_confidence,
+            jev_exclude_min_confidence=args.jev_exclude_min_confidence,
+        )
+        if args.topic
+        else None
+    )
     try:
         result = run_research(
             args.run_dir,

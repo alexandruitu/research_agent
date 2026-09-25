@@ -32,7 +32,7 @@ def score(review):
     return round(100 * (0.4 * review["relevance"] + 0.3 * review["methods"] + 0.3 * review["support"]) / 4, 2)
 
 
-def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, observer=None):
+def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, observer=None, jev=None):
     def plan(s):
         return {"plan": evaluator.ask("plan", Plan, s["contract"]).model_dump()}
 
@@ -50,17 +50,35 @@ def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, o
         return {"papers": [p.model_dump() for p in papers[: s["contract"]["max_papers"]]]}
 
     def screen(s):
-        results = {}
+        topic, results = s["contract"]["topic"], {}
         for paper in s["papers"]:
-            results[paper["id"]] = (
-                evaluator.ask(
-                    "screen", Screen, {"topic": s["contract"]["topic"], "paper": paper}
-                ).model_dump()
-                if paper["abstract"]
-                else Screen(
-                    decision="uncertain", reason="No abstract available; retained in audit, unranked."
-                ).model_dump()
-            )
+            if not paper["abstract"]:
+                results[paper["id"]] = {
+                    **Screen(
+                        decision="uncertain", reason="No abstract available; retained in audit, unranked."
+                    ).model_dump(),
+                    "tier": "rule",
+                }
+                continue
+            # Tier 1 (optional): Jev decides only when confident; otherwise the LLM sees the same
+            # payload as without Jev (evidence, never Jev's conclusion).
+            verdict = jev.screen(topic, paper) if jev else None
+            if verdict and verdict["decision"] != "escalate":
+                entry = {
+                    "decision": verdict["decision"],
+                    "reason": "Jev: "
+                    + ", ".join(f"{q} p={p:.2f}" for q, p in verdict["probabilities"].items())
+                    + f" ({verdict['model_version']})",
+                    "tier": "jev",
+                }
+            else:
+                entry = {
+                    **evaluator.ask("screen", Screen, {"topic": topic, "paper": paper}).model_dump(),
+                    "tier": "llm",
+                }
+            if verdict:
+                entry["jev"] = verdict
+            results[paper["id"]] = entry
         return {"screens": results}
 
     def extract(s):
