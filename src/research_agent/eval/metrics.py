@@ -113,6 +113,7 @@ def evaluate(records, strategy, thresholds):
         if r["label"] == "include" and d == "exclude"
     ]
     n = len(records)
+    kept = [r for r, d, _t in decided if d != "exclude"]
     if strategy == "llm_only":
         auto_include = auto_exclude = 0
         escalated, calls_saved = n, 0
@@ -128,6 +129,9 @@ def evaluate(records, strategy, thresholds):
         "auto_exclude": auto_exclude,
         "escalated": escalated,
         "calls_saved": calls_saved,
+        # Downstream cost: kept papers go on to extraction and both reviewers.
+        "kept": len(kept),
+        "kept_negatives": sum(r["label"] == "not_included" for r in kept),
     }
 
 
@@ -148,15 +152,20 @@ def sweep(records, includes=INCLUDE_GRID, excludes=EXCLUDE_GRID):
                 "auto_include": out["auto_include"],
                 "auto_exclude": out["auto_exclude"],
                 "escalated": out["escalated"],
+                "kept": out["kept"],
+                "kept_negatives": out["kept_negatives"],
             }
         )
     return rows
 
 
 def recommend(rows, target):
-    """Most calls saved with point-estimate recall >= target; ties: fewer missed, stricter exclude.
+    """Most calls saved with point-estimate recall >= target; ties: fewer missed, then the stricter
+    include threshold (fewer papers forwarded on Jev's word alone), then the stricter exclude one.
     None when no pair meets the target: never silently pick the 'least bad' pair."""
     ok = [r for r in rows if r["recall"]["value"] is not None and r["recall"]["value"] >= target]
     if not ok:
         return None
-    return min(ok, key=lambda r: (-r["calls_saved"], r["missed"], -r["exclude_min_confidence"]))
+    return min(
+        ok, key=lambda r: (-r["calls_saved"], r["missed"], -r["min_confidence"], -r["exclude_min_confidence"])
+    )

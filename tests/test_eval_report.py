@@ -66,7 +66,8 @@ def test_recommended_pair_needs_the_stricter_exclude_bar(run_dir):
     report = build_report(run_dir, target_recall=0.98)
     best = report["recommended"]
     assert best["recall"]["value"] == 1.0 and best["exclude_min_confidence"] >= 0.95
-    assert best["min_confidence"] == 0.1 and best["calls_saved"] == 5
+    # ties on calls_saved prefer the stricter include threshold (was 0.1 with the old tie-break)
+    assert best["min_confidence"] == 0.8 and best["calls_saved"] == 5
     assert any("untested on held-out data" in w for w in report["warnings"])
 
 
@@ -127,7 +128,7 @@ def test_edited_gold_file_is_rejected(run_dir, tmp_path):
         build_report(run_dir)
 
 
-# Holdout data where the pair recommended on the main run (0.1, 0.95) behaves differently:
+# Holdout data where the pair recommended on the main run (0.8, 0.95) behaves differently:
 # MED:2 is auto-excluded by Jev (conf 0.96) and MED:3 is escalated and excluded by the LLM.
 HOLDOUT_P = {1: 0.99, 2: 0.02, 3: 0.5, 4: 0.6, 5: 0.01, 6: 0.5, 7: 0.96, 8: 0.5, 9: 0.95, 12: 0.04}
 HOLDOUT_EXCLUDE = {"MED:3", "MED:8"}
@@ -142,10 +143,10 @@ def test_holdout_applies_the_recommended_pair_to_a_second_run(tmp_path):
     report = build_report(main, holdout_dir=holdout_run(tmp_path / "b"))
     h = report["holdout"]
     assert h["gold"] == "other" and h["n"] == 12
-    assert h["thresholds"] == {"min_confidence": 0.1, "exclude_min_confidence": 0.95}
+    assert h["thresholds"] == {"min_confidence": 0.8, "exclude_min_confidence": 0.95}
     assert (h["recall"]["k"], h["recall"]["n"]) == (2, 4)
     assert [m["id"] for m in h["missed"]] == ["MED:2", "MED:3"]
-    assert h["calls_saved"] == 6  # auto-include MED:1,4,7,9; auto-exclude MED:2,5
+    assert h["calls_saved"] == 5  # auto-include MED:1,7,9 (MED:4 escalates at 0.8); auto-exclude MED:2,5
     assert h["jev_model_versions"] == ["jev-1.13.0"]
     assert not any("untested on held-out data" in w for w in report["warnings"])
     assert not any("Holdout Jev model versions" in w for w in report["warnings"])
@@ -344,3 +345,81 @@ def test_markdown_renders_unknown_family_and_no_negative_zero(run_dir, tmp_path)
     text = render_markdown(report)
     assert "same model family: unknown" in text
     assert "-0.000" not in text and "Cohen's kappa 0.000" in text
+
+
+def test_holdout_run_must_use_a_different_gold_set(run_dir):
+    with pytest.raises(ReportError, match="holdout run uses the same gold set; it must be a different SR"):
+        build_report(run_dir, holdout_dir=run_dir)
+
+
+def test_markdown_shows_kept_and_kept_negatives_and_the_cost_note(run_dir):
+    report = build_report(run_dir)
+    cascade = report["strategies"]["cascade"]
+    assert (cascade["kept"], cascade["kept_negatives"]) == (6, 3)  # kept: 1, 2, 4, 9, 10, 11
+    text = render_markdown(report)
+    assert "| kept | kept non-included |" in text  # strategies table and sweep table
+    row = {ln.split("|")[1].strip(): ln for ln in text.splitlines() if ln.startswith("| ")}
+    assert row["llm_only"].rstrip().endswith("| 10 | 6 |")
+    assert (
+        "calls saved counts only screening calls; papers kept are forwarded to extraction and both "
+        "reviewers, so a loose include threshold can forward more negatives than llm_only"
+    ) in text
+
+
+# Every positive is confidently included by Jev; every negative gets p=0.9 from Jev but is excluded by the LLM.
+# A loose include threshold saves the most calls yet forwards all 8 negatives (llm_only forwards none).
+LOOSE_P = {**dict.fromkeys(range(1, 5), 0.97), **dict.fromkeys(range(5, 13), 0.9)}
+
+
+def test_warns_when_the_recommended_pair_forwards_more_negatives_than_llm_only(tmp_path):
+    negatives = {f"MED:{i}" for i in range(5, 13)}
+    run = screened_run(tmp_path, jev_p=LOOSE_P, llm_exclude=negatives)
+    report = build_report(run)
+    assert report["strategies"]["llm_only"]["kept_negatives"] == 0
+    assert report["recommended"]["kept_negatives"] == 8
+    expected = (
+        "The recommended pair forwards more non-included papers than llm_only (8 vs 0); "
+        "consider a stricter include threshold."
+    )
+    assert expected in report["warnings"]
+    assert expected in render_markdown(report)
+
+
+def test_no_forwarding_warning_when_the_pair_forwards_no_more_than_llm_only(run_dir):
+    report = build_report(run_dir)
+    assert not any("forwards more non-included" in w for w in report["warnings"])
+
+
+def test_markdown_marks_recommended_and_default_rows_and_formats_probabilities(run_dir):
+    report = build_report(run_dir)
+    text = render_markdown(report)
+    lines = text.splitlines()
+    assert sum("<-- recommended" in ln for ln in lines) == 1
+    assert sum("<-- default" in ln for ln in lines) == 1
+    assert next(ln for ln in lines if "<-- recommended" in ln).startswith("| 0.8 | 0.95 |")
+    assert next(ln for ln in lines if "<-- default" in ln).startswith("| 0.6 | 0.9 |")
+    assert "Jev topic_match=0.03" in text and "p={" not in text
+
+
+def test_default_row_can_also_be_the_recommended_one(run_dir):
+    report = build_report(run_dir)
+    report["recommended"] = next(
+        r for r in report["sweep"] if (r["min_confidence"], r["exclude_min_confidence"]) == (0.6, 0.9)
+    )
+    both = [ln for ln in render_markdown(report).splitlines() if "<-- recommended" in ln]
+    assert len(both) == 1 and "<-- default" in both[0]
+
+
+def test_run_metadata_is_recorded_in_json_and_markdown(run_dir):
+    report = build_report(run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert report["run"] == {
+        "prompt_version": manifest["prompt_version"],
+        "jev_screen_version": manifest["jev_screen_version"],
+        "models": manifest["models"],
+    }
+    assert f"Run: prompt {manifest['prompt_version']}" in render_markdown(report)
+    with_models(run_dir, {"screen": "a:x", "review_a": "b:y"})
+    text = render_markdown(build_report(run_dir))
+    assert "models: review_a=b:y, screen=a:x" in text
+    assert render_markdown(build_report(run_dir)) == text  # deterministic

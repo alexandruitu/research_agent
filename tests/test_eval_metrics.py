@@ -130,14 +130,17 @@ def test_evaluate_cascade_counts_misses_and_workload():
     assert out["missed"][0]["tier"] == "jev"
     assert (out["auto_include"], out["auto_exclude"], out["escalated"]) == (3, 2, 3)
     assert out["calls_saved"] == 5
+    assert (out["kept"], out["kept_negatives"]) == (4, 1)  # kept: 1, 2, 4, 7; MED:7 is not SR-included
 
 
 def test_llm_only_and_jev_only_baselines():
     llm = evaluate(RECORDS, "llm_only", JevThresholds())
     assert llm["recall"]["k"] == 4 and llm["calls_saved"] == 0
+    assert (llm["kept"], llm["kept_negatives"]) == (6, 2)  # everything but the two LLM excludes
     jev = evaluate(RECORDS, "jev_only", JevThresholds())
     assert [m["id"] for m in jev["missed"]] == ["MED:3"]  # 'escalate' counts as kept
     assert jev["calls_saved"] == 8
+    assert (jev["kept"], jev["kept_negatives"]) == (6, 3)  # undecided papers are kept
     with pytest.raises(ValueError):
         evaluate(RECORDS, "nonsense", JevThresholds())
 
@@ -146,6 +149,7 @@ def test_sweep_respects_constraint_and_recall_is_monotone_in_exclude_threshold()
     rows = sweep(RECORDS)
     assert len(rows) == 53
     assert all(r["exclude_min_confidence"] >= r["min_confidence"] for r in rows)
+    assert all({"kept", "kept_negatives"} <= r.keys() and r["kept"] >= r["kept_negatives"] for r in rows)
     for include in INCLUDE_GRID:
         excludes = [r["exclude_min_confidence"] for r in rows if r["min_confidence"] == include]
         assert excludes == sorted(excludes)
@@ -183,6 +187,10 @@ def test_recommend_tie_breaks():
     # (b) tied on calls_saved and missed: stricter (higher) exclude threshold wins
     strict, lax = row(1.0, 0, 5, 0.6, 0.99), row(1.0, 0, 5, 0.6, 0.9)
     assert recommend([lax, strict], target=0.9) is strict
+    # (b2) tied on calls_saved and missed: the stricter (higher) INCLUDE threshold wins, whatever the exclude one
+    loose, tight = row(1.0, 0, 5, 0.2, 0.99), row(1.0, 0, 5, 0.6, 0.9)
+    assert recommend([loose, tight], target=0.9) is tight
+    assert recommend([tight, loose], target=0.9) is tight
     # (c) a row with undefined recall is never chosen, even if it saves the most calls
     undefined, ok = row(None, 0, 9, 0.6, 0.99), row(1.0, 0, 1, 0.6, 0.9)
     assert recommend([undefined, ok], target=0.9) is ok

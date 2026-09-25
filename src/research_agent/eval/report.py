@@ -100,6 +100,13 @@ def _agreement(run_dir, manifest, gold):
 def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=False):
     run_dir = Path(run_dir)
     manifest, gold, records, versions = _load_run(run_dir, allow_mixed)
+    if holdout_dir:
+        try:
+            same = read_manifest(holdout_dir)["gold_sha256"] == manifest["gold_sha256"]
+        except ValueError as exc:
+            raise ReportError(f"holdout run {holdout_dir}: {exc}") from exc
+        if same:
+            raise ReportError("holdout run uses the same gold set; it must be a different SR")
     default = JevThresholds()
     strategies = {name: evaluate(records, name, default) for name in STRATEGIES}
     rows = sweep(records)
@@ -113,6 +120,12 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
         warnings.append("No SR-included paper with an abstract was screened; recall is undefined.")
     elif best is None:
         warnings.append(f"No threshold pair reaches recall >= {target_recall}.")
+    if best and best["kept_negatives"] > strategies["llm_only"]["kept_negatives"]:
+        warnings.append(
+            f"The recommended pair forwards more non-included papers than llm_only "
+            f"({best['kept_negatives']} vs {strategies['llm_only']['kept_negatives']}); "
+            "consider a stricter include threshold."
+        )
     holdout = None
     if holdout_dir and best:
         try:
@@ -149,6 +162,11 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
             "topic": gold.topic,
             "query": gold.query,
             "sha256": gold.content_sha256,
+        },
+        "run": {
+            "prompt_version": manifest["prompt_version"],
+            "jev_screen_version": manifest["jev_screen_version"],
+            "models": manifest["models"],
         },
         "jev_model_versions": versions,
         "counts": {
@@ -202,12 +220,23 @@ def _count_pct(count, total):
     return f"{count} ({100 * count / total:.1f}%)" if total else f"{count} (n/a)"
 
 
+def _run_line(run):
+    models = ", ".join(f"{role}={model}" for role, model in sorted(run["models"].items())) or "none recorded"
+    return f"Run: prompt {run['prompt_version']} · jev-screen {run['jev_screen_version']} · models: {models}"
+
+
+def _probabilities(probabilities):
+    return ", ".join(f"{question}={p:.2f}" for question, p in probabilities.items())
+
+
 def render_markdown(report):
     g, c = report["gold"], report["counts"]
     out = [
         f"# Eval report: {g['name']}",
         "",
         f"{g['citation']} · topic: {g['topic']} · gold `{g['sha256'][:12]}`",
+        "",
+        _run_line(report["run"]),
         "",
     ]
     out += [
@@ -227,8 +256,11 @@ def render_markdown(report):
             f"exclude >= {report['default_thresholds']['exclude_min_confidence']}."
         ),
         "",
-        "| strategy | recall | missed | auto-included | auto-excluded | sent to LLM | LLM screen calls saved |",
-        "|---|---|---|---|---|---|---|",
+        (
+            "| strategy | recall | missed | auto-included | auto-excluded | sent to LLM "
+            "| LLM screen calls saved | kept | kept non-included |"
+        ),
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for name, s in report["strategies"].items():
         sent = _count_pct(s["escalated"], c["screened"])
@@ -237,7 +269,7 @@ def render_markdown(report):
         out.append(
             f"| {name} | {fmt_rate(s['recall'])} | {len(s['missed'])} "
             f"| {_count_pct(s['auto_include'], c['screened'])} | {_count_pct(s['auto_exclude'], c['screened'])} "
-            f"| {sent} | {s['calls_saved']} of {c['screened']} |"
+            f"| {sent} | {s['calls_saved']} of {c['screened']} | {s['kept']} | {s['kept_negatives']} |"
         )
     out += [
         "",
@@ -252,7 +284,7 @@ def render_markdown(report):
         for m in s["missed"]:
             any_missed = True
             out.append(
-                f"- **{name}**: {m['id']} · {m['title']} · Jev p={m['probabilities']} · decided by {m['tier']}"
+                f"- **{name}**: {m['id']} · {m['title']} · Jev {_probabilities(m['probabilities'])} · decided by {m['tier']}"
             )
     if not any_missed:
         out.append("None at the default thresholds.")
@@ -260,20 +292,35 @@ def render_markdown(report):
         "",
         "## Threshold sweep",
         "",
-        "| include >= | exclude >= | recall | missed | calls saved |",
-        "|---|---|---|---|---|",
+        "| include >= | exclude >= | recall | missed | calls saved | kept | kept non-included | note |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    for r in report["sweep"]:
-        out.append(
-            f"| {r['min_confidence']} | {r['exclude_min_confidence']} | {fmt_rate(r['recall'])} | "
-            f"{r['missed']} | {r['calls_saved']} |"
-        )
     best = report["recommended"]
+    default = report["default_thresholds"]
+    for r in report["sweep"]:
+        pair = (r["min_confidence"], r["exclude_min_confidence"])
+        marks = []
+        if best and pair == (best["min_confidence"], best["exclude_min_confidence"]):
+            marks.append("<-- recommended")
+        if pair == (default["min_confidence"], default["exclude_min_confidence"]):
+            marks.append("<-- default")
+        out.append(
+            f"| {pair[0]} | {pair[1]} | {fmt_rate(r['recall'])} | {r['missed']} | {r['calls_saved']} "
+            f"| {r['kept']} | {r['kept_negatives']} | {' '.join(marks)} |"
+        )
+    out += [
+        "",
+        (
+            "Note: calls saved counts only screening calls; papers kept are forwarded to extraction and both "
+            "reviewers, so a loose include threshold can forward more negatives than llm_only."
+        ),
+    ]
     out += ["", f"**Recommended (recall >= {report['target_recall']}):** "]
     if best:
         out[-1] += (
             f"include >= {best['min_confidence']}, exclude >= {best['exclude_min_confidence']} "
-            f"(recall {fmt_rate(best['recall'])}, {best['calls_saved']} calls saved)."
+            f"(recall {fmt_rate(best['recall'])}, {best['calls_saved']} calls saved, "
+            f"{best['kept']} kept of which {best['kept_negatives']} not SR-included)."
         )
     else:
         out[-1] += "none: no pair reaches the target."
