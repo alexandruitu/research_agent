@@ -39,7 +39,9 @@ def run_agreement(gold, run_dir, evaluator, limit=40, seed=0):
         }
     path = Path(run_dir) / "agreement.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(
         json.dumps({"seed": seed, "limit": limit, "papers": papers}, ensure_ascii=False, indent=2)
     )
+    temporary.replace(path)
     return path

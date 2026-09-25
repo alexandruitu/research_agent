@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from eval_helpers import make_gold
 
 from research_agent.agents import Evaluator
@@ -31,3 +32,51 @@ def test_run_agreement_writes_reviews_and_adjudication(tmp_path):
     entry = data["papers"]["MED:1"]
     assert entry["label"] == "include" and entry["adjudicated"] is True  # demo A/B methods differ by 2
     assert entry["review_a"]["verdict"] == "include" and "relevance" in entry["review_b"]
+
+
+def _count(store, role):
+    with store.connect() as db:
+        return db.execute("SELECT count(*) FROM calls WHERE role=?", (role,)).fetchone()[0]
+
+
+def test_extract_failure_propagates_and_leaves_no_agreement_file(tmp_path):
+    gold = make_gold(n=4, positive_ids=(1,))
+    gold.candidates[0].abstract = "No sentence break and no final period"  # demo quote is not a substring
+    with pytest.raises(ValueError, match="not an exact span"):
+        run_agreement(gold, tmp_path, Evaluator(Store(tmp_path)), limit=1)
+    assert not (tmp_path / "agreement.json").exists()
+
+
+def test_failing_role_propagates_and_leaves_no_agreement_file(tmp_path):
+    class Broken(Evaluator):
+        def _demo(self, role, payload):
+            if role == "extract":
+                raise RuntimeError("model down")
+            return super()._demo(role, payload)
+
+    with pytest.raises(RuntimeError, match="model down"):
+        run_agreement(make_gold(n=4, positive_ids=(1,)), tmp_path, Broken(Store(tmp_path)), limit=1)
+    assert not (tmp_path / "agreement.json").exists()
+
+
+def test_disagreement_records_an_adjudicate_call(tmp_path):
+    store = Store(tmp_path)
+    path = run_agreement(make_gold(n=4, positive_ids=(1,)), tmp_path, Evaluator(store), limit=1)
+    assert _count(store, "adjudicate") > 0
+    assert all(p["adjudicated"] for p in json.loads(path.read_text())["papers"].values())
+
+
+def test_agreeing_reviewers_make_no_adjudicate_call(tmp_path):
+    class Agree(Evaluator):
+        def _demo(self, role, payload):
+            return super()._demo("review_a" if role == "review_b" else role, payload)
+
+    store = Store(tmp_path)
+    path = run_agreement(make_gold(n=4, positive_ids=(1,)), tmp_path, Agree(store), limit=1)
+    assert _count(store, "adjudicate") == 0
+    assert not any(p["adjudicated"] for p in json.loads(path.read_text())["papers"].values())
+
+
+def test_agreement_json_is_written_atomically(tmp_path):
+    run_agreement(make_gold(n=4, positive_ids=(1,)), tmp_path, Evaluator(Store(tmp_path)), limit=1)
+    assert [p.name for p in tmp_path.glob("agreement.json*")] == ["agreement.json"]

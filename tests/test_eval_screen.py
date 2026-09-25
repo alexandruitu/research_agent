@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from eval_helpers import StubEvaluator, jev_client, make_gold
 
@@ -57,12 +59,14 @@ def test_manifest_roundtrip(tmp_path):
         gold_path=tmp_path / "g.json",
         gold=gold,
         mode="demo",
-        models={},
+        models={"screen": "m-1"},
         jev_model="jev-latest",
         screened={"screened": 3, "jev_model_versions": ["jev-1.13.0"]},
     )
     m = read_manifest(tmp_path / "run")
     assert m["gold_sha256"] == gold.content_sha256 and m["mode"] == "demo"
     assert m["jev_model_versions"] == ["jev-1.13.0"] and m["prompt_version"] == PROMPT_VERSION
+    assert Path(m["gold_path"]).is_absolute() and m["gold_path"] == str((tmp_path / "g.json").resolve())
+    assert m["models"] == {"screen": "m-1"}
     with pytest.raises(ValueError, match="no eval run"):
         read_manifest(tmp_path / "missing")
