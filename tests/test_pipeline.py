@@ -259,3 +259,58 @@ def test_live_adapter_structured_output_and_cache(tmp_path, monkeypatch):
     second = evaluator.ask("plan", Plan, {"topic": "test"})
     assert first == second
     assert len(calls) == 1
+
+
+def test_quote_matching_tolerates_unicode_whitespace_and_snaps_to_exact_span():
+    from research_agent.agents import snap_evidence
+
+    abstract = "Threshold of ≤ 0.80 defined significance. Second  sentence here."
+    evidence = Evidence(
+        claims=[
+            Claim(statement="a", quote="Threshold of ≤ 0.80 defined significance."),
+            Claim(statement="b", quote="Second sentence here."),
+        ],
+        study_design="x",
+        limitations=["y"],
+    )
+    snapped = snap_evidence(evidence, abstract)
+    assert snapped.claims[0].quote == "Threshold of ≤ 0.80 defined significance."
+    assert snapped.claims[1].quote == "Second  sentence here."
+    validate_evidence(snapped, abstract)  # snapped quotes are exact substrings
+    bad = Evidence(
+        claims=[Claim(statement="c", quote="Invented sentence text")], study_design="x", limitations=["y"]
+    )
+    with pytest.raises(ValueError, match="exact span"):
+        snap_evidence(bad, abstract)
+
+
+def _live_evaluator(tmp_path, monkeypatch, model):
+    import langchain.chat_models
+
+    monkeypatch.setattr(langchain.chat_models, "init_chat_model", lambda *a, **k: model)
+    return Evaluator(Store(tmp_path), "live", {"plan": "test:model"})
+
+
+def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch):
+    from research_agent.schemas import Plan
+
+    class Flaky:
+        def __init__(self, failures):
+            self.failures, self.calls = failures, 0
+
+        def with_structured_output(self, schema):
+            return self
+
+        def invoke(self, messages):
+            self.calls += 1
+            if self.calls <= self.failures:
+                Plan.model_validate({"queries": "not a list"})  # raises ValidationError
+            return Plan(queries=["q"], rationale="ok")
+
+    model = Flaky(2)
+    assert _live_evaluator(tmp_path, monkeypatch, model).ask("plan", Plan, {"topic": "t"}).queries == ["q"]
+    assert model.calls == 3
+    model = Flaky(3)
+    with pytest.raises(ValidationError):
+        _live_evaluator(tmp_path / "x", monkeypatch, model).ask("plan", Plan, {"topic": "t"})
+    assert model.calls == 3
