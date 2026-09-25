@@ -4,9 +4,9 @@ import json
 import re
 
 import httpx
-from research_agent.eval.gold import GoldCandidate, GoldSet
 
 from research_agent.agents import Evaluator
+from research_agent.eval.gold import GoldCandidate, GoldSet
 from research_agent.schemas import Screen
 
 
