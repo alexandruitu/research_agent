@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Model(BaseModel):
@@ -12,6 +12,18 @@ class Contract(Model):
     max_papers: int = Field(default=12, ge=1, le=30)
     mode: Literal["demo", "live"] = "demo"
     scope: Literal["abstract_only"] = "abstract_only"
+    # Jev screening tier (cascade ahead of the LLM screen). Asymmetric: recall over precision.
+    jev: bool = False
+    jev_min_confidence: float = Field(default=0.6, ge=0, le=1)
+    jev_exclude_min_confidence: float = Field(default=0.9, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _jev_needs_live(self):
+        if self.jev and self.mode != "live":
+            raise ValueError("Jev screening requires live mode")
+        if self.jev_exclude_min_confidence < self.jev_min_confidence:
+            raise ValueError("jev_exclude_min_confidence must be >= jev_min_confidence")
+        return self
 
 
 class Plan(Model):
