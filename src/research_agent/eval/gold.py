@@ -27,7 +27,7 @@ class StudyRef(Model):
     @field_validator("doi", "title", "year", mode="before")
     @classmethod
     def _text(cls, value):
-        return "" if value is None else str(value)
+        return "" if value is None else str(value).strip()
 
     @model_validator(mode="after")
     def _identifiable(self):
@@ -37,7 +37,7 @@ class StudyRef(Model):
 
 
 class SRSpec(Model):
-    name: str = Field(pattern=r"^[A-Za-z0-9._-]+$")
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     citation: str
     topic: str = Field(min_length=3)
     query: str = Field(min_length=3)
@@ -94,9 +94,11 @@ def write_gold(gold, path):
 
 
 def load_gold(path):
-    gold = GoldSet.model_validate_json(Path(path).read_text())
-    if gold.version != GOLD_VERSION:
-        raise GoldIntegrityError(f"unsupported gold version {gold.version}")
+    data = json.loads(Path(path).read_text())
+    version = data.get("version") if isinstance(data, dict) else None
+    if version != GOLD_VERSION:
+        raise GoldIntegrityError(f"unsupported gold version {version}")
+    gold = GoldSet.model_validate(data)
     if gold.content_sha256 != content_hash(gold):
         raise GoldIntegrityError("gold file changed after it was frozen; rebuild it with build-gold")
     return gold

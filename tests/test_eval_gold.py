@@ -1,12 +1,15 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from research_agent.eval.gold import (
     GoldCandidate,
     GoldIntegrityError,
     GoldSet,
+    SRSpec,
     StudyRef,
+    UnmatchedStudy,
     gold_paper,
     load_gold,
     load_sr_spec,
@@ -54,7 +57,7 @@ def test_unknown_field_is_rejected(tmp_path):
     data = json.loads(path.read_text())
     data["candidates"][0]["surprise"] = 1
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         load_gold(path)
 
 
@@ -85,3 +88,38 @@ def test_gold_paper_matches_the_pipeline_paper_shape():
     paper = gold_paper(g.candidates[0], g)
     assert Paper.model_validate(paper.model_dump()) == paper
     assert paper.provenance[0].connector == "gold" and paper.provenance[0].query == "ctffr"
+
+
+@pytest.mark.parametrize("name", [".", "..", ".hidden", "-x", ""])
+def test_sr_name_must_be_a_safe_file_stem(name):
+    with pytest.raises(ValidationError):
+        SRSpec(name=name, citation="T", topic="topic", query="query", included=[StudyRef(doi="10.1/a")])
+
+
+def test_study_ref_strips_whitespace():
+    assert StudyRef(doi="  10.1/a  ").doi == "10.1/a"
+    with pytest.raises(ValueError):
+        StudyRef(doi="  ", title=" ")
+
+
+def test_future_version_is_an_integrity_error_not_a_validation_error(tmp_path):
+    path = tmp_path / "toy.json"
+    write_gold(gold(), path)
+    data = json.loads(path.read_text())
+    data["version"] = 2
+    data["candidates"][0]["new_in_v2"] = 1
+    path.write_text(json.dumps(data))
+    with pytest.raises(GoldIntegrityError, match="unsupported gold version"):
+        load_gold(path)
+
+
+@pytest.mark.parametrize("field", ["unresolved", "ambiguous"])
+def test_hash_covers_unresolved_and_ambiguous(tmp_path, field):
+    g = gold().model_copy(update={field: [UnmatchedStudy(reference=StudyRef(doi="10.1/x"))]})
+    path = tmp_path / "toy.json"
+    write_gold(g, path)
+    data = json.loads(path.read_text())
+    data[field][0]["reference"]["doi"] = "10.1/y"
+    path.write_text(json.dumps(data))
+    with pytest.raises(GoldIntegrityError):
+        load_gold(path)

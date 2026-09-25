@@ -1,6 +1,7 @@
 """Match SR-included studies to Europe PMC records and build a frozen gold set."""
 
 import re
+import unicodedata
 from datetime import UTC, datetime
 
 from ..connectors import deduplicate, normalize_doi
@@ -12,14 +13,15 @@ class GoldBuildError(RuntimeError):
 
 
 def norm_title(title):
-    return re.sub(r"\W+", " ", title.casefold()).strip()
+    return re.sub(r"\W+", " ", unicodedata.normalize("NFKC", title).casefold()).strip()
 
 
 def matches(ref, paper):
     """DOI equality when both sides have a DOI (conflicting DOIs never match); else title (+ year)."""
     if ref.doi and paper.doi:
         return normalize_doi(ref.doi) == normalize_doi(paper.doi)
-    if ref.title and norm_title(ref.title) == norm_title(paper.title):
+    title = norm_title(ref.title)
+    if title and title == norm_title(paper.title):
         return not ref.year or ref.year == paper.year
     return False
 
@@ -27,7 +29,8 @@ def matches(ref, paper):
 def lookup_query(ref):
     if ref.doi:
         return f'DOI:"{normalize_doi(ref.doi)}"'
-    return f'TITLE:"{ref.title.replace(chr(34), " ")}"'
+    title = re.sub(r'["\\]', " ", ref.title)
+    return f'TITLE:"{title}"'
 
 
 def resolve_study(ref, pool, connector):
@@ -57,31 +60,45 @@ def _candidate(paper, label, via):
     )
 
 
+def _record_ids(paper):
+    return {paper.id, *(source.record_id for source in paper.provenance)}
+
+
 def build_gold(spec, connector, max_candidates=200, built_at=None):
     pool = deduplicate(connector.search(spec.query, max_candidates))
-    positives, unresolved, ambiguous = {}, [], []
+    pool_records = set().union(*(_record_ids(p) for p in pool)) if pool else set()
+    resolved, lookups, unresolved, ambiguous = [], [], [], []
     for ref in spec.included:
         paper, via, status, ids = resolve_study(ref, pool, connector)
         if status == "resolved":
-            positives.setdefault(paper.id, (paper, via))
+            resolved.append(paper)
+            if via == "lookup":
+                lookups.append(paper)
         elif status == "ambiguous":
             ambiguous.append(UnmatchedStudy(reference=ref, matches=ids))
         else:
             unresolved.append(UnmatchedStudy(reference=ref))
-    if not positives:
+    if not resolved:
         raise GoldBuildError("no included study could be resolved; nothing to measure")
-    candidates = {
-        p.id: _candidate(p, "include" if p.id in positives else "not_included", "query") for p in pool
-    }
-    for paper_id, (paper, via) in positives.items():
-        candidates[paper_id] = _candidate(paper, "include", via)
+    # A lookup hit can be the same paper as a pool record (or as another lookup hit): merge them all.
+    merged = deduplicate(pool + lookups)
+    merged_id = {record: m.id for m in merged for record in _record_ids(m)}
+    positives = {merged_id[p.id] for p in resolved}
+    candidates = [
+        _candidate(
+            m,
+            "include" if m.id in positives else "not_included",
+            "query" if _record_ids(m) & pool_records else "lookup",
+        )
+        for m in merged
+    ]
     return GoldSet(
         name=spec.name,
         citation=spec.citation,
         topic=spec.topic,
         query=spec.query,
         built_at=built_at or datetime.now(UTC).isoformat(),
-        candidates=[candidates[i] for i in sorted(candidates)],
+        candidates=candidates,
         unresolved=unresolved,
         ambiguous=ambiguous,
     )
