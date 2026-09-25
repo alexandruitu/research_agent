@@ -7,10 +7,11 @@ M1 (acest cod, generat inițial cu Codex) e verificat doar în mod demo; niciun 
 
 ## Comenzi
 - Instalare: `python3.12 -m venv .venv && . .venv/bin/activate && pip install -e '.[dev,live,ui]'`
-- Teste: `pytest -q` (18 teste) · Lint: `ruff check .`
+- Teste: `pytest -q` · Lint: `ruff check .`
 - Demo: `research-agent "topic" --mode demo --run-dir runs/demo`
 - Live: `research-agent "topic" --mode live --max-papers 5 --run-dir runs/live-01` (cere `.env`)
 - UI: `research-ui`
+- Eval: `research-eval --help` · `build-gold` · `screen` · `agreement` · `report` (vezi README, secțiunea Evaluare)
 
 ## Principii (nu le încălca)
 - Etapele deterministe (search, dedup, verificare citate, scoring) rămân cod, nu agenți.
@@ -19,6 +20,7 @@ M1 (acest cod, generat inițial cu Codex) e verificat doar în mod demo; niciun 
 - Fail closed: erori de rețea/schema/citate opresc run-ul, checkpoint păstrat.
 - Prompturile sunt versionate (`PROMPT_VERSION`); cache-ul apelurilor (`calls` în research.sqlite)
   e Raw Layer-ul pentru viitorul Research Wiki.
+- Etapele de măsurare rulează offline din cache (Raw Layer); report nu apelează niciodată API-uri.
 - Chei doar în `.env` (gitignored). Nu loga și nu comite chei.
 
 ## Roadmap
@@ -28,7 +30,7 @@ M1 (acest cod, generat inițial cu Codex) e verificat doar în mod demo; niciun 
    Praguri asimetrice (recall contează mai mult). Cache verdicte + versiunea modelului în audit.
    Trimite evidence, nu concluzii. MCP opțional: github.com/itsmostafa/system-one-connector
 3. Conectori OpenAlex (snowballing, afilieri) și arXiv (preprinturi MICCAI/cs.CV); Europe PMC există.
-4. Eval harness: gold set din review-uri sistematice publicate → recall screening, kappa revieweri.
+4. Eval harness: implementat (`research-eval`); urmează un run real pe 1–2 SR-uri open-access și calibrarea pragurilor Jev.
 5. Scoring pe checklist (CLAIM, TRIPOD+AI) cu citat per item, scor calculat în cod; red flags
    data leakage (split pe imagini vs pacienți, lipsă validare externă).
 6. Research Wiki (patterns, logs, skill-impact) + Research Skills cu gating pe gold set (WikiSkill,

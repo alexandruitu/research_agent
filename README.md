@@ -136,6 +136,51 @@ Milestone 3: mai multe conectoare, paginare/date, workers dinamici per lucrare �
 Ulterior se poate înlocui Store cu PostgreSQL și adăuga embeddings; exportul `Paper`/`Evidence`/
 `Decision` este punctul de extensie pentru consumatori downstream, fără a-i implementa acum.
 
+## Evaluare (research-eval)
+
+`research-eval` măsoară screening-ul față de un review sistematic (SR) publicat: lucrările incluse
+în SR sunt pozitivele, restul candidaților găsiți de același query sunt negativele. Toate apelurile
+modelelor se salvează în cache-ul SQLite al run-ului, iar `report` rulează offline din cache
+(nu apelează niciodată API-uri) și poate reface cascada la orice pereche de praguri Jev.
+
+```sh
+research-eval build-gold sr_specs/x.yaml -o gold/x.json
+research-eval screen gold/x.json --run-dir runs/eval-x --mode live
+research-eval agreement gold/x.json --run-dir runs/eval-x --limit 40
+research-eval report runs/eval-x --target-recall 0.98
+```
+
+- `build-gold`: rezolvă studiile SR în Europe PMC și îngheață setul gold (hash de conținut).
+- `screen`: Jev și screening-ul LLM pe fiecare candidat cu abstract; reluabil, fără apeluri repetate.
+- `agreement`: reviewer A/B pe toate pozitivele plus `--limit` negative eșantionate (seed fix);
+  folosește aceleași modele ca `screen`.
+- `report`: scrie `metrics.md` și `metrics.json` în directorul run-ului. `--holdout` primește
+  un al doilea run, deja screenat, pe alt SR.
+
+Format `sr.yaml`:
+
+```yaml
+name: ctffr-sr
+citation: Autor et al. 2026
+topic: deep learning CT-FFR
+query: ("fractional flow reserve" AND "deep learning")
+included:
+  - doi: 10.1000/p1
+  - title: Titlul unui studiu fără DOI
+    year: 2024
+```
+
+Ce se măsoară: recall de retrieval și de screening (cu interval Wilson 95%), lista pozitivelor
+ratate, sweep de praguri Jev (include/exclude) cu recomandare pentru un recall țintă, kappa între
+revieweri A și B (alături de acordul brut și prevalență). Erorile opresc comanda și se scriu în
+`errors.log` în directorul run-ului (tip și mesaj, fără chei).
+
+Limite:
+- Precizia nu e metrica principală: „inclus în SR” reflectă criterii aplicate pe full-text,
+  nu pe abstract, deci negativele nu sunt negative certe.
+- Pragurile recomandate sunt netestate fără `--holdout` (se potrivesc pe același SR).
+- Dacă reviewerii A și B sunt din aceeași familie de modele, kappa e umflat (corelația erorilor).
+
 ## Documentație consultată
 
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
