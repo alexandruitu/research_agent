@@ -28,7 +28,15 @@ def run_screen(gold, store, evaluator, jev, progress=None):
     return {"screened": done, "jev_model_versions": sorted(versions)}
 
 
+def check_run_dir(run_dir, gold):
+    """One run dir holds one gold set: a resume of the same gold is fine, a different gold is refused."""
+    path = Path(run_dir) / MANIFEST
+    if path.exists() and json.loads(path.read_text()).get("gold_sha256") != gold.content_sha256:
+        raise ValueError("run dir already holds a run for a different gold set; use a new --run-dir")
+
+
 def write_manifest(run_dir, *, gold_path, gold, mode, models, jev_model, screened):
+    check_run_dir(run_dir, gold)
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     data = {

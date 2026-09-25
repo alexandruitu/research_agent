@@ -120,3 +120,48 @@ def test_dotenv_is_loaded_only_when_requested(tmp_path, monkeypatch):
     assert loaded == []
     cli.main(["report", str(tmp_path / "nope")])
     assert loaded == [".env"]
+
+
+def test_screen_into_a_run_dir_of_another_gold_set_stops_before_any_api_call(tmp_path, monkeypatch):
+    first = write_gold(make_gold(n=4, positive_ids=(1,), name="one"), tmp_path / "one.json")
+    write_gold(make_gold(n=4, positive_ids=(1,), name="two"), tmp_path / "two.json")
+    run = tmp_path / "run"
+    write_manifest(
+        run,
+        gold_path=tmp_path / "one.json",
+        gold=first,
+        mode="demo",
+        models={},
+        jev_model="jev-latest",
+        screened={"screened": 4, "jev_model_versions": []},
+    )
+    client = jev_client({})
+    monkeypatch.setattr(cli, "make_jev", lambda store: JevScreener(store, "k", client=client))
+    args = ["screen", str(tmp_path / "two.json"), "--run-dir", str(run), "--mode", "demo"]
+    assert cli.main(args, dotenv=False) == 1
+    assert "different gold set" in (run / "errors.log").read_text()
+    assert client.calls == []
+    assert (
+        cli.main(
+            ["screen", str(tmp_path / "one.json"), "--run-dir", str(run), "--mode", "demo"], dotenv=False
+        )
+        == 0
+    )
+
+
+def test_errors_log_redacts_api_key_values(tmp_path, monkeypatch):
+    secret = "sk-test-0123456789abcdef"
+    monkeypatch.setenv("TYPESAFE_API_KEY", secret)
+    monkeypatch.setenv("SHORT_API_KEY", "abc")  # too short to redact: would mangle ordinary text
+    monkeypatch.setenv("OTHER_TOKEN", "should-stay-visible")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"401 for Bearer {secret} (abc) should-stay-visible")
+
+    monkeypatch.setattr(cli, "build_report", boom)
+    run = tmp_path / "run"
+    run.mkdir()
+    assert cli.main(["report", str(run)], dotenv=False) == 1
+    log = (run / "errors.log").read_text()
+    assert secret not in log and "Bearer ***" in log
+    assert "(abc)" in log and "should-stay-visible" in log and log.startswith("RuntimeError: ")

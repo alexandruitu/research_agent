@@ -70,3 +70,26 @@ def test_manifest_roundtrip(tmp_path):
     assert m["models"] == {"screen": "m-1"}
     with pytest.raises(ValueError, match="no eval run"):
         read_manifest(tmp_path / "missing")
+
+
+def _manifest(run, gold, path):
+    return write_manifest(
+        run,
+        gold_path=path,
+        gold=gold,
+        mode="demo",
+        models={},
+        jev_model="jev-latest",
+        screened={"screened": 1, "jev_model_versions": []},
+    )
+
+
+def test_run_dir_holding_a_different_gold_set_is_refused(tmp_path):
+    first = write_gold(make_gold(name="one"), tmp_path / "one.json")
+    second = write_gold(make_gold(name="two"), tmp_path / "two.json")
+    run = tmp_path / "run"
+    _manifest(run, first, tmp_path / "one.json")
+    _manifest(run, first, tmp_path / "one.json")  # same gold: a resume, allowed
+    with pytest.raises(ValueError, match="different gold set; use a new --run-dir"):
+        _manifest(run, second, tmp_path / "two.json")
+    assert read_manifest(run)["gold_sha256"] == first.content_sha256  # the old manifest is untouched

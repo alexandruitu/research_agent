@@ -150,12 +150,22 @@ research-eval agreement gold/x.json --run-dir runs/eval-x --limit 40
 research-eval report runs/eval-x --target-recall 0.98
 ```
 
-- `build-gold`: rezolvă studiile SR în Europe PMC și îngheață setul gold (hash de conținut).
+- `build-gold`: rezolvă studiile SR în Europe PMC și îngheață setul gold (hash de conținut);
+  `--max-candidates` (implicit 200) limitează numărul de candidați.
 - `screen`: Jev și screening-ul LLM pe fiecare candidat cu abstract; reluabil, fără apeluri repetate.
+  Cere `TYPESAFE_API_KEY` în `.env`, chiar și cu `--mode demo`. Un director de run acceptă un singur
+  gold set; pentru alt gold folosește alt `--run-dir`.
 - `agreement`: reviewer A/B pe toate pozitivele plus `--limit` negative eșantionate (seed fix);
   folosește aceleași modele ca `screen`.
 - `report`: scrie `metrics.md` și `metrics.json` în directorul run-ului. `--holdout` primește
-  un al doilea run, deja screenat, pe alt SR.
+  directorul unui run, deja screenat, pe un ALT SR (același gold e refuzat). Dacă run-ul are
+  răspunsuri Jev de la versiuni diferite ale modelului, `report` se oprește, iar
+  `--allow-mixed-jev-versions` îl forțează.
+
+Rulează comenzile din rădăcina repo-ului: `.env` se citește din directorul curent.
+CLI-ul principal `research-agent` are nivelul Jev în cascadă: `--jev` (doar live),
+`--jev-min-confidence` (auto-include, implicit 0.6) și `--jev-exclude-min-confidence`
+(auto-exclude, implicit 0.9, trebuie să fie cel puțin cât primul).
 
 Format `sr.yaml`:
 

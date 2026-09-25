@@ -1,6 +1,7 @@
 """research-eval: build gold sets, screen them, run reviewer agreement, and report offline."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from .agreement import run_agreement
 from .gold import load_gold, load_sr_spec, write_gold
 from .report import build_report, write_report
 from .resolve import build_gold
-from .screen import read_manifest, run_screen, write_manifest
+from .screen import check_run_dir, read_manifest, run_screen, write_manifest
 
 
 # Seams for tests: the real network clients are created only here.
@@ -44,6 +45,7 @@ def cmd_build_gold(args):
 
 def cmd_screen(args):
     gold = load_gold(args.gold)
+    check_run_dir(args.run_dir, gold)  # before any API call
     store = Store(args.run_dir)
     evaluator, jev = make_evaluator(store, args.mode), make_jev(store)
 
@@ -130,6 +132,14 @@ def build_parser():
     return parser
 
 
+def redact(message):
+    """Replace the value of every *_API_KEY environment variable (if >= 8 chars) with ***."""
+    for name, value in os.environ.items():
+        if name.endswith("_API_KEY") and len(value) >= 8:
+            message = message.replace(value, "***")
+    return message
+
+
 def log_dir(args):
     return Path(args.out).parent if args.command == "build-gold" else Path(args.run_dir)
 
@@ -143,7 +153,7 @@ def main(argv=None, dotenv=True):
     except Exception as exc:  # noqa: BLE001 -- CLI boundary: log type + message, never keys
         directory = log_dir(args)
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / "errors.log").write_text(f"{type(exc).__name__}: {str(exc)[:2000]}\n")
+        (directory / "errors.log").write_text(f"{type(exc).__name__}: {redact(str(exc))[:2000]}\n")
         print(
             f"research-eval stopped ({type(exc).__name__}); details in {directory / 'errors.log'}",
             file=sys.stderr,

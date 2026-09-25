@@ -3,7 +3,8 @@
 Framework de cercetare multi-agent, auditabil și cumulativ, pentru imagistică medicală AI
 (CT, MR, US, angiografie). Obiectiv: topic → căutare → deduplicare → screening → review
 adversarial → scoring determinist → Top 10, apoi nivel de business value.
-M1 (acest cod, generat inițial cu Codex) e verificat doar în mod demo; niciun run live încă.
+M1 (acest cod, generat inițial cu Codex) a rulat în demo și într-un run live mic (`runs/live-01`, 5 lucrări,
+nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `research-eval`).
 
 ## Comenzi
 - Instalare: `python3.12 -m venv .venv && . .venv/bin/activate && pip install -e '.[dev,live,ui]'`
@@ -24,11 +25,11 @@ M1 (acest cod, generat inițial cu Codex) e verificat doar în mod demo; niciun 
 - Chei doar în `.env` (gitignored). Nu loga și nu comite chei.
 
 ## Roadmap
-1. M1.5 — primul run live pe un topic din domeniu (ex. deep learning CT-FFR), 5 lucrări.
-2. Nivel Jev (TypeSafe, `POST https://api.typesafe.ai/v1/systemone`, `TYPESAFE_API_KEY`) la
-   screening: criterii ca întrebări `noul`/`choice`/`score`, `min_confidence` → escaladare la LLM.
-   Praguri asimetrice (recall contează mai mult). Cache verdicte + versiunea modelului în audit.
-   Trimite evidence, nu concluzii. MCP opțional: github.com/itsmostafa/system-one-connector
+1. M1.5 — făcut: primul run live pe un topic din domeniu, 5 lucrări (`runs/live-01`).
+2. Nivel Jev (TypeSafe, `TYPESAFE_API_KEY`) la screening: IMPLEMENTAT (`--jev`, cascadă cu escaladare la LLM,
+   praguri asimetrice `--jev-min-confidence`/`--jev-exclude-min-confidence`, probabilități brute în cache
+   cu versiunea modelului). Rămâne: calibrarea pragurilor cu `research-eval` pe un gold set real.
+   MCP opțional: github.com/itsmostafa/system-one-connector
 3. Conectori OpenAlex (snowballing, afilieri) și arXiv (preprinturi MICCAI/cs.CV); Europe PMC există.
 4. Eval harness: implementat (`research-eval`); urmează un run real pe 1–2 SR-uri open-access și calibrarea pragurilor Jev.
 5. Scoring pe checklist (CLAIM, TRIPOD+AI) cu citat per item, scor calculat în cod; red flags
