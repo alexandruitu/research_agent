@@ -175,7 +175,10 @@ class JevScreener:
                 try:
                     response = client.post(ENDPOINT, json=body, headers=headers)
                     response.raise_for_status()
-                    return response.json()
+                    try:
+                        return response.json()
+                    except ValueError:
+                        raise JevError("Unexpected Jev response (not JSON)") from None
                 except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                     retryable = (
                         not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code in RETRYABLE

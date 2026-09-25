@@ -3,6 +3,7 @@
 import os
 import unicodedata
 
+from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
 from .connectors import digest
@@ -73,8 +74,9 @@ class Evaluator:
                 try:
                     result = structured.invoke(messages)
                     break
-                except ValidationError:
-                    # Tool-calling models occasionally emit a nested field as a JSON string.
+                except (ValidationError, OutputParserException):
+                    # langchain-anthropic raises OutputParserException for a schema mismatch or truncated JSON;
+                    # tool-calling models occasionally emit a nested field as a JSON string.
                     # Retry the identical request; still fail closed once attempts run out.
                     if attempt == SCHEMA_ATTEMPTS - 1:
                         raise
@@ -120,30 +122,48 @@ def validate_evidence(evidence, abstract):
             raise ValueError("Evidence quote is not an exact span in the retrieved abstract")
 
 
+def _chunks(text):
+    """Grapheme-ish chunks: a base character plus the combining marks that follow it."""
+    start = 0
+    for i in range(1, len(text)):
+        if not unicodedata.combining(text[i]):
+            yield start, i
+            start = i
+    if text:
+        yield start, len(text)
+
+
 def _fold(text):
-    """NFKC + collapsed whitespace, with a map from folded index back to the original index."""
-    folded, origin = [], []
-    for i, char in enumerate(text):
-        for c in unicodedata.normalize("NFKC", char):
-            c = " " if c.isspace() else c
-            if c == " " and folded and folded[-1] == " ":
+    """NFKC per chunk (so NFD/NFC and ligatures agree), format characters dropped (soft hyphen,
+    zero-width), whitespace collapsed. Every folded character maps back to the start and end of the
+    chunk it came from, so a snapped span always begins and ends on chunk boundaries."""
+    folded, starts, ends = [], [], []
+    for begin, end in _chunks(text):
+        for c in unicodedata.normalize("NFKC", text[begin:end]):
+            if unicodedata.category(c) == "Cf":
                 continue
+            if c.isspace():
+                if folded and folded[-1] == " ":
+                    ends[-1] = end  # the collapsed run stays inside the span
+                    continue
+                c = " "
             folded.append(c)
-            origin.append(i)
-    return "".join(folded), origin
+            starts.append(begin)
+            ends.append(end)
+    return "".join(folded), starts, ends
 
 
 def snap_evidence(evidence, abstract):
     """Models often normalise typography (thin space, NBSP). Match modulo whitespace/Unicode form,
     then store the abstract's own text so every quote stays an exact substring of the source."""
-    folded, origin = _fold(abstract)
+    folded, starts, ends = _fold(abstract)
     claims = []
     for claim in evidence.claims:
-        quote, _ = _fold(claim.quote.strip())
+        quote = _fold(claim.quote.strip())[0]
         start = folded.find(quote) if quote else -1
         if start < 0:
             raise ValueError("Evidence quote is not an exact span in the retrieved abstract")
-        span = abstract[origin[start] : origin[start + len(quote) - 1] + 1]
+        span = abstract[starts[start] : ends[start + len(quote) - 1]]
         claims.append(claim.model_copy(update={"quote": span}))
     return evidence.model_copy(update={"claims": claims})
 

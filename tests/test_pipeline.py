@@ -291,7 +291,23 @@ def _live_evaluator(tmp_path, monkeypatch, model):
     return Evaluator(Store(tmp_path), "live", {"plan": "test:model"})
 
 
-def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch):
+def _validation_error():
+    from research_agent.schemas import Plan
+
+    try:
+        Plan.model_validate({"queries": "not a list"})
+    except ValidationError as exc:
+        return exc
+
+
+def _parser_exception():
+    from langchain_core.exceptions import OutputParserException
+
+    return OutputParserException("Failed to parse Plan from completion (truncated JSON)")
+
+
+@pytest.mark.parametrize("make_error", [_validation_error, _parser_exception])
+def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch, make_error):
     from research_agent.schemas import Plan
 
     class Flaky:
@@ -305,14 +321,14 @@ def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch)
         def invoke(self, messages):
             self.calls += 1
             if self.calls <= self.failures:
-                Plan.model_validate({"queries": "not a list"})  # raises ValidationError
+                raise make_error()
             return Plan(queries=["q"], rationale="ok")
 
     model = Flaky(2)
     assert _live_evaluator(tmp_path, monkeypatch, model).ask("plan", Plan, {"topic": "t"}).queries == ["q"]
     assert model.calls == 3
     model = Flaky(3)
-    with pytest.raises(ValidationError):
+    with pytest.raises(type(make_error())):
         _live_evaluator(tmp_path / "x", monkeypatch, model).ask("plan", Plan, {"topic": "t"})
     assert model.calls == 3
 
@@ -328,3 +344,48 @@ def test_offline_evaluator_serves_cache_and_raises_on_miss(tmp_path):
     assert offline.ask("screen", Screen, payload).decision == "include"
     with pytest.raises(MissingCall):
         offline.ask("screen", Screen, {"topic": "other", "paper": {"id": "x"}})
+
+
+def _snap(abstract, quote):
+    from research_agent.agents import snap_evidence
+
+    evidence = Evidence(claims=[Claim(statement="a", quote=quote)], study_design="x", limitations=["y"])
+    snapped = snap_evidence(evidence, abstract)
+    validate_evidence(snapped, abstract)
+    return snapped.claims[0].quote
+
+
+def test_quote_matching_is_grapheme_aware_for_combining_sequences():
+    import unicodedata
+
+    nfc = "Sørensen café method used here today."
+    nfd = unicodedata.normalize("NFD", nfc)
+    assert nfd != nfc
+    # Abstract decomposed, quote precomposed, and the reverse.
+    assert _snap(nfd, unicodedata.normalize("NFC", "café method used here")) == (
+        unicodedata.normalize("NFD", "café method used here")
+    )
+    assert _snap(nfc, unicodedata.normalize("NFD", "café method used here")) == "café method used here"
+
+
+def test_snapped_span_starts_and_ends_on_grapheme_chunk_boundaries():
+    import unicodedata
+
+    abstract = unicodedata.normalize("NFD", "Le café est bon.")
+    assert (
+        _snap(abstract, unicodedata.normalize("NFC", "é est bon.")) == "e\u0301 est bon."
+    )  # not a bare mark
+    assert (
+        _snap(abstract, unicodedata.normalize("NFC", "Le café est")) == "Le cafe\u0301 est"
+    )  # keeps the mark
+
+
+def test_quote_matching_ignores_format_characters():
+    assert _snap("Deep vessel\u00adsegmentation works.", "vesselsegmentation works.") == (
+        "vessel\u00adsegmentation works."
+    )
+    assert _snap("A zero\u200bwidth case.", "zerowidth case.") == "zero\u200bwidth case."
+
+
+def test_quote_matching_handles_ligature_inside_a_quote():
+    assert _snap("The \ufb01ne \ufb02ow was measured.", "The fine flow was") == "The \ufb01ne \ufb02ow was"

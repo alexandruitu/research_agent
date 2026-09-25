@@ -281,3 +281,16 @@ def test_cached_probabilities_read_without_http(tmp_path):
     assert probabilities == {"topic_match": 0.7} and version == "jev-1.13.0"
     with pytest.raises(MissingCall):
         offline.cached_probabilities("another topic", PAPER)
+
+
+def test_non_json_200_body_fails_closed_without_retry(tmp_path):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200, text="<html>gateway</html>")
+
+    s = JevScreener(Store(tmp_path), "k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    with pytest.raises(JevError, match="not JSON"):
+        s.screen(TOPIC, PAPER)
+    assert len(calls) == 1
