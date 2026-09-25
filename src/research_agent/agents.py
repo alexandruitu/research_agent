@@ -61,7 +61,9 @@ class Evaluator:
             from .connectors import canonical_json
 
             llm = init_chat_model(model, timeout=60, max_retries=2, max_tokens=2500)
-            structured = llm.with_structured_output(schema)
+            # Native constrained decoding: schema-valid by construction (forced tool calling drifted on
+            # nested fields, and is unsupported on some newer Claude models).
+            structured = llm.with_structured_output(schema, method="json_schema")
             messages = [("system", SYSTEM + "\n" + INSTRUCTIONS[role]), ("human", canonical_json(payload))]
             for attempt in range(SCHEMA_ATTEMPTS):
                 try:

@@ -244,8 +244,8 @@ def test_live_adapter_structured_output_and_cache(tmp_path, monkeypatch):
     calls = []
 
     class FakeModel:
-        def with_structured_output(self, schema):
-            assert schema is Plan
+        def with_structured_output(self, schema, method=None):
+            assert schema is Plan and method == "json_schema"
             return self
 
         def invoke(self, messages):
@@ -298,7 +298,8 @@ def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch)
         def __init__(self, failures):
             self.failures, self.calls = failures, 0
 
-        def with_structured_output(self, schema):
+        def with_structured_output(self, schema, method=None):
+            assert method == "json_schema"
             return self
 
         def invoke(self, messages):
