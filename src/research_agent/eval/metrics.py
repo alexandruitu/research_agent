@@ -52,6 +52,10 @@ def weighted_kappa(a, b, levels=range(5)):
     _check_pairs(a, b)
     levels = list(levels)
     k = len(levels)
+    if k < 2:
+        raise ValueError("weighted kappa needs at least two levels")
+    if not set(a) <= set(levels) or not set(b) <= set(levels):
+        raise ValueError(f"scores must all be in levels {levels}")
     index = {value: i for i, value in enumerate(levels)}
     n = len(a)
     observed = [[0.0] * k for _ in range(k)]
