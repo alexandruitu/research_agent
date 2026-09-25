@@ -1,0 +1,285 @@
+"""Offline metrics from cached calls. No network, no API keys, no new model calls."""
+
+import json
+from pathlib import Path
+
+from ..agents import Evaluator
+from ..jev import JevScreener, JevThresholds
+from ..schemas import Screen
+from ..storage import MissingCall, Store
+from .gold import gold_paper, load_gold
+from .metrics import STRATEGIES, cohen_kappa, evaluate, rate, recommend, sweep, weighted_kappa
+from .screen import read_manifest
+
+
+class ReportError(RuntimeError):
+    """The report cannot be computed faithfully (missing calls, mixed model versions, stale gold)."""
+
+
+def load_records(gold, store, evaluator, jev, allow_mixed=False):
+    """Cached Jev probabilities + LLM screen decision for every candidate with an abstract."""
+    records, versions, missing = [], set(), 0
+    for candidate in gold.candidates:
+        if not candidate.abstract:
+            continue
+        paper = gold_paper(candidate, gold).model_dump()
+        try:
+            probabilities, version = jev.cached_probabilities(gold.topic, paper)
+            llm = evaluator.ask("screen", Screen, {"topic": gold.topic, "paper": paper}).decision
+        except MissingCall:
+            missing += 1
+            continue
+        versions.add(version)
+        records.append(
+            {
+                "id": candidate.id,
+                "title": candidate.title,
+                "label": candidate.label,
+                "probabilities": probabilities,
+                "llm": llm,
+            }
+        )
+    if missing:
+        raise ReportError(
+            f"{missing} cached call(s) missing; run `research-eval screen` for this gold set first "
+            "(a prompt-version change also invalidates the cache)"
+        )
+    if len(versions) > 1 and not allow_mixed:
+        raise ReportError(
+            f"Jev model versions differ across cached calls ({sorted(versions)}); "
+            "re-screen, or pass --allow-mixed-jev-versions"
+        )
+    return records, sorted(versions)
+
+
+def _load_run(run_dir, allow_mixed):
+    manifest = read_manifest(run_dir)
+    gold = load_gold(manifest["gold_path"])
+    if gold.content_sha256 != manifest["gold_sha256"]:
+        raise ReportError("gold file changed since this run was screened; re-run `research-eval screen`")
+    store = Store(run_dir)
+    evaluator = Evaluator(store, manifest["mode"], manifest["models"], offline=True)
+    jev = JevScreener(store, "offline", model=manifest["jev_model"])
+    records, versions = load_records(gold, store, evaluator, jev, allow_mixed)
+    return manifest, gold, records, versions
+
+
+def _provider(models, role):
+    model = models.get(role)
+    return model.split(":")[0] if model and ":" in model else None
+
+
+def _agreement(run_dir, manifest):
+    path = Path(run_dir) / "agreement.json"
+    if not path.exists():
+        return None
+    papers = json.loads(path.read_text())["papers"]
+    ids = sorted(papers)
+    a = [papers[i]["review_a"] for i in ids]
+    b = [papers[i]["review_b"] for i in ids]
+    provider_a, provider_b = (
+        _provider(manifest["models"], "review_a"),
+        _provider(manifest["models"], "review_b"),
+    )
+    return {
+        "n": len(ids),
+        "verdict": cohen_kappa([r["verdict"] for r in a], [r["verdict"] for r in b]),
+        "scores": {
+            key: weighted_kappa([r[key] for r in a], [r[key] for r in b])
+            for key in ("relevance", "methods", "support")
+        },
+        "adjudication_rate": rate(sum(papers[i]["adjudicated"] for i in ids), len(ids)),
+        "same_family": None if None in (provider_a, provider_b) else provider_a == provider_b,
+    }
+
+
+def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=False):
+    run_dir = Path(run_dir)
+    manifest, gold, records, versions = _load_run(run_dir, allow_mixed)
+    default = JevThresholds()
+    strategies = {name: evaluate(records, name, default) for name in STRATEGIES}
+    rows = sweep(records)
+    best = recommend(rows, target_recall)
+    positives = [c for c in gold.candidates if c.label == "include"]
+    total = len(positives) + len(gold.unresolved) + len(gold.ambiguous)
+    warnings = []
+    if len(versions) > 1:
+        warnings.append(f"Mixed Jev model versions in this run: {versions}.")
+    if best is None:
+        warnings.append(f"No threshold pair reaches recall >= {target_recall}.")
+    holdout = None
+    if holdout_dir and best:
+        _m, other, other_records, _v = _load_run(holdout_dir, allow_mixed)
+        thresholds = JevThresholds(best["min_confidence"], best["exclude_min_confidence"])
+        out = evaluate(other_records, "cascade", thresholds)
+        holdout = {
+            "gold": other.name,
+            "n": len(other_records),
+            "thresholds": {
+                "min_confidence": best["min_confidence"],
+                "exclude_min_confidence": best["exclude_min_confidence"],
+            },
+            "recall": out["recall"],
+            "missed": out["missed"],
+            "calls_saved": out["calls_saved"],
+        }
+    else:
+        if holdout_dir:
+            warnings.append("--holdout ignored: there is no recommended pair to apply.")
+        warnings.append("Recommended thresholds are untested on held-out data (no usable --holdout run).")
+    return {
+        "gold": {
+            "name": gold.name,
+            "citation": gold.citation,
+            "topic": gold.topic,
+            "query": gold.query,
+            "sha256": gold.content_sha256,
+        },
+        "jev_model_versions": versions,
+        "counts": {
+            "candidates": len(gold.candidates),
+            "screened": len(records),
+            "positives_total": total,
+            "positives_resolved": len(positives),
+            "positives_screened": sum(r["label"] == "include" for r in records),
+            "positives_no_abstract": sum(1 for c in positives if not c.abstract),
+            "unresolved": len(gold.unresolved),
+            "ambiguous": len(gold.ambiguous),
+        },
+        "retrieval_recall": rate(sum(c.via == "query" for c in positives), total),
+        "default_thresholds": {
+            "min_confidence": default.min_confidence,
+            "exclude_min_confidence": default.exclude_min_confidence,
+        },
+        "strategies": strategies,
+        "sweep": rows,
+        "target_recall": target_recall,
+        "recommended": best,
+        "holdout": holdout,
+        "screen_vs_gold": cohen_kappa(
+            ["excluded" if r["llm"] == "exclude" else "kept" for r in records],
+            ["kept" if r["label"] == "include" else "excluded" for r in records],
+        ),
+        "agreement": _agreement(run_dir, manifest),
+        "warnings": warnings,
+    }
+
+
+def fmt_rate(r):
+    if r["value"] is None:
+        return f"n/a ({r['reason']})"
+    low, high = r["ci"]
+    return f"{r['value']:.3f} ({r['k']}/{r['n']}; 95% CI {low:.3f}-{high:.3f})"
+
+
+def _fmt_kappa(k):
+    if k["kappa"] is None:
+        return (
+            f"n/a ({k['reason']}); agreement {k['agreement']:.2f}"
+            if "agreement" in k
+            else f"n/a ({k['reason']})"
+        )
+    text = f"{k['kappa']:.3f}"
+    return text + (f"; agreement {k['agreement']:.2f}" if "agreement" in k else "")
+
+
+def render_markdown(report):
+    g, c = report["gold"], report["counts"]
+    out = [
+        f"# Eval report: {g['name']}",
+        "",
+        f"{g['citation']} · topic: {g['topic']} · gold `{g['sha256'][:12]}`",
+        "",
+    ]
+    out += [
+        "## Retrieval recall",
+        "",
+        (
+            f"{fmt_rate(report['retrieval_recall'])} of SR-included studies were found by the search query "
+            f"(unresolved: {c['unresolved']}, ambiguous: {c['ambiguous']} count as misses)."
+        ),
+        "",
+        "## Screening recall",
+        "",
+        (
+            f"Kept = not excluded. Denominator: {c['positives_screened']} SR-included papers with an abstract "
+            f"({c['positives_no_abstract']} without abstract are not screened). "
+            f"Jev thresholds: include >= {report['default_thresholds']['min_confidence']}, "
+            f"exclude >= {report['default_thresholds']['exclude_min_confidence']}."
+        ),
+        "",
+        "| strategy | recall | missed | LLM screen calls saved |",
+        "|---|---|---|---|",
+    ]
+    for name, s in report["strategies"].items():
+        out.append(
+            f"| {name} | {fmt_rate(s['recall'])} | {len(s['missed'])} | {s['calls_saved']} of {c['screened']} |"
+        )
+    out += ["", "## Missed positives", ""]
+    any_missed = False
+    for name, s in report["strategies"].items():
+        for m in s["missed"]:
+            any_missed = True
+            out.append(
+                f"- **{name}**: {m['id']} · {m['title']} · Jev p={m['probabilities']} · decided by {m['tier']}"
+            )
+    if not any_missed:
+        out.append("None at the default thresholds.")
+    out += [
+        "",
+        "## Threshold sweep",
+        "",
+        "| include >= | exclude >= | recall | missed | calls saved |",
+        "|---|---|---|---|---|",
+    ]
+    for r in report["sweep"]:
+        out.append(
+            f"| {r['min_confidence']} | {r['exclude_min_confidence']} | {fmt_rate(r['recall'])} | "
+            f"{r['missed']} | {r['calls_saved']} |"
+        )
+    best = report["recommended"]
+    out += ["", f"**Recommended (recall >= {report['target_recall']}):** "]
+    if best:
+        out[-1] += (
+            f"include >= {best['min_confidence']}, exclude >= {best['exclude_min_confidence']} "
+            f"(recall {fmt_rate(best['recall'])}, {best['calls_saved']} calls saved)."
+        )
+    else:
+        out[-1] += "none: no pair reaches the target."
+    if report["holdout"]:
+        h = report["holdout"]
+        out += [
+            "",
+            "## Holdout",
+            "",
+            f"`{h['gold']}` (n={h['n']}): recall {fmt_rate(h['recall'])}, {h['calls_saved']} calls saved.",
+        ]
+    sg = report["screen_vs_gold"]
+    out += [
+        "",
+        "## LLM screen vs SR label",
+        "",
+        (
+            f"Cohen's kappa {_fmt_kappa(sg)} (n={sg['n']}). Caution: SR-not-included papers may be on topic, "
+            "so a low kappa is expected; recall is the headline metric."
+        ),
+    ]
+    if report["agreement"]:
+        a = report["agreement"]
+        out += [
+            "",
+            "## Reviewer agreement",
+            "",
+            f"n={a['n']} · same model family: {a['same_family']} · adjudication rate {fmt_rate(a['adjudication_rate'])}",
+            f"- verdict kappa: {_fmt_kappa(a['verdict'])}",
+        ]
+        out += [f"- {key} weighted kappa: {_fmt_kappa(k)}" for key, k in a["scores"].items()]
+    if report["warnings"]:
+        out += ["", "## Warnings", ""] + [f"- {w}" for w in report["warnings"]]
+    return "\n".join(out) + "\n"
+
+
+def write_report(run_dir, report):
+    run_dir = Path(run_dir)
+    (run_dir / "metrics.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    (run_dir / "metrics.md").write_text(render_markdown(report))
