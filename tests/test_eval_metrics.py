@@ -1,6 +1,6 @@
 import pytest
 
-from research_agent.eval.metrics import rate, wilson
+from research_agent.eval.metrics import cohen_kappa, rate, weighted_kappa, wilson
 
 
 def test_wilson_known_values():
@@ -22,3 +22,38 @@ def test_rate_carries_interval_and_handles_zero_denominator():
     assert r["ci"][0] < 0.9 < r["ci"][1]
     empty = rate(0, 0)
     assert empty["value"] is None and empty["ci"] is None and "zero" in empty["reason"]
+
+
+def test_cohen_kappa_textbook_example():
+    a = ["yes"] * 25 + ["no"] * 25
+    # 20 both yes, 5 A-yes/B-no, 10 A-no/B-yes, 15 both no
+    b = ["yes"] * 20 + ["no"] * 5 + ["yes"] * 10 + ["no"] * 15
+    r = cohen_kappa(a, b)
+    assert r["agreement"] == pytest.approx(0.7)
+    assert r["kappa"] == pytest.approx(0.4)
+    assert r["prevalence"]["yes"] == pytest.approx(0.55)
+    assert r["prevalence"]["no"] == pytest.approx(0.45)
+
+
+def test_cohen_kappa_single_class_is_none_with_reason():
+    r = cohen_kappa(["x", "x"], ["x", "x"])
+    assert r["kappa"] is None and "single class" in r["reason"]
+    assert r["agreement"] == 1.0
+
+
+def test_cohen_kappa_rejects_bad_input():
+    with pytest.raises(ValueError):
+        cohen_kappa([], [])
+    with pytest.raises(ValueError):
+        cohen_kappa(["a"], ["a", "b"])
+
+
+def test_weighted_kappa():
+    assert weighted_kappa([0, 1, 2, 3, 4], [0, 1, 2, 3, 4])["kappa"] == pytest.approx(1.0)
+    assert weighted_kappa([0, 4, 0, 4], [4, 0, 4, 0])["kappa"] == pytest.approx(-1.0)
+    constant = weighted_kappa([2, 2, 2], [2, 2, 2])
+    assert constant["kappa"] is None and "single class" in constant["reason"]
+    # An off-by-one costs less than an off-by-three.
+    near = weighted_kappa([0, 1, 2, 3, 4, 2], [1, 2, 2, 3, 3, 2])["kappa"]
+    far = weighted_kappa([0, 1, 2, 3, 4, 2], [3, 4, 2, 0, 1, 2])["kappa"]
+    assert near > far
