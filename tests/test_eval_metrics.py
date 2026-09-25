@@ -136,8 +136,11 @@ def test_llm_only_and_jev_only_baselines():
 
 def test_sweep_respects_constraint_and_recall_is_monotone_in_exclude_threshold():
     rows = sweep(RECORDS)
+    assert len(rows) == 53
     assert all(r["exclude_min_confidence"] >= r["min_confidence"] for r in rows)
     for include in INCLUDE_GRID:
+        excludes = [r["exclude_min_confidence"] for r in rows if r["min_confidence"] == include]
+        assert excludes == sorted(excludes)
         recalls = [r["recall"]["value"] for r in rows if r["min_confidence"] == include]
         assert recalls == sorted(recalls)  # rows are ordered by ascending exclude threshold
 
@@ -153,3 +156,26 @@ def test_recommend_picks_most_calls_saved_meeting_target():
 def test_recommend_says_none_when_no_pair_meets_target():
     rows = sweep([rec(1, "include", 0.5, llm="exclude")])
     assert recommend(rows, target=0.98) is None
+
+
+def row(recall, missed, calls_saved, include, exclude):
+    return {
+        "recall": {"value": recall},
+        "missed": missed,
+        "calls_saved": calls_saved,
+        "min_confidence": include,
+        "exclude_min_confidence": exclude,
+    }
+
+
+def test_recommend_tie_breaks():
+    # (a) equal calls_saved: fewer missed wins
+    fewer, more = row(1.0, 0, 5, 0.6, 0.9), row(1.0, 1, 5, 0.6, 0.99)
+    assert recommend([more, fewer], target=0.9) is fewer
+    # (b) tied on calls_saved and missed: stricter (higher) exclude threshold wins
+    strict, lax = row(1.0, 0, 5, 0.6, 0.99), row(1.0, 0, 5, 0.6, 0.9)
+    assert recommend([lax, strict], target=0.9) is strict
+    # (c) a row with undefined recall is never chosen, even if it saves the most calls
+    undefined, ok = row(None, 0, 9, 0.6, 0.99), row(1.0, 0, 1, 0.6, 0.9)
+    assert recommend([undefined, ok], target=0.9) is ok
+    assert recommend([undefined], target=0.9) is None
