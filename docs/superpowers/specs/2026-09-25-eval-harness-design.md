@@ -49,6 +49,8 @@ from inside it would couple the two and re-fetch data each run).
 | `report.py` | Offline metrics from cached calls → `metrics.json`, `metrics.md` |
 | `cli.py` | `research-eval` entry point |
 
+`build_gold` and `GoldBuildError` live in `resolve.py`.
+
 Reused, not rewritten: `Store`, `Evaluator`, `JevScreener`, `EuropePMC`, `digest`. Two small additions
 to existing code:
 
@@ -60,6 +62,8 @@ not reimplemented.
 
 ## Inputs and file formats
 
+`gold/` and `evals/` are git-ignored; `sr_specs/*.yaml` are committed.
+
 **`sr.yaml`** (hand-written, one per SR): `name`, `citation`, `topic`, `query`, `included`: list of
 `{doi?, title?, year?}` (at least one of `doi` or `title`).
 
@@ -67,7 +71,9 @@ not reimplemented.
 `built_at`, `content_sha256`, `candidates[]`, `unresolved[]`, `ambiguous[]`. Each candidate:
 `id`, `doi`, `title`, `abstract`, `year`, `label` (`include` | `not_included`), `label_source`
 (`sr_included_list` now; `expert` later, overriding the SR label per paper), `flags[]`
-(e.g. `no_abstract`). Frozen means abstracts are stored in the file; later commands never touch the
+(e.g. `no_abstract`), `via` (`query` | `lookup`: whether the record came from the topic query or from a
+direct lookup of an SR-included study). Retrieval recall counts only `via == "query"` positives as found.
+Frozen means abstracts are stored in the file; later commands never touch the
 network for content.
 
 ## Commands
@@ -76,8 +82,8 @@ network for content.
 |---|---|---|
 | `research-eval build-gold sr.yaml -o gold/x.json [--max-candidates 200]` | Resolve the included list, add the query's other results as `not_included`, freeze | Europe PMC only |
 | `research-eval screen gold/x.json --run-dir evals/x` | Jev and LLM screen on **every** candidate, cached; writes run manifest | N Jev + N LLM calls |
-| `research-eval agreement gold/x.json --run-dir evals/x --limit 40` | Reviewers A and B on all positives plus a sample of negatives (fixed seed 0, recorded) | 2 calls/paper |
-| `research-eval report evals/x [--holdout other.json] [--target-recall 0.98] [--allow-mixed-jev-versions]` | Offline; reads cached calls only | free |
+| `research-eval agreement gold/x.json --run-dir evals/x --limit 40` | Reviewers A and B on all positives with an abstract plus `--limit N` sampled negatives (default 40; fixed seed 0, recorded); reads mode and models from the run manifest, so it takes no `--mode` | 2 calls/paper |
+| `research-eval report evals/x [--holdout evals/other] [--target-recall 0.98] [--allow-mixed-jev-versions]` | Offline; reads cached calls only | free |
 
 Running the LLM screen on every candidate (not only escalated ones) is what lets `report` replay the
 cascade at any threshold pair without new calls.
@@ -100,8 +106,8 @@ matching the pipeline.
    missed count, calls saved. **Recommended pair** = most calls saved with point-estimate recall ≥
    target (default 0.98); ties → fewer missed, then stricter exclude threshold. If no pair meets the
    target the report says so; it never picks the "least bad" pair silently.
-6. **Overfitting guard**: the sweep tunes on the papers it scores. `--holdout` applies the chosen pair
-   to a second SR. Without a holdout the report states the thresholds are untested on held-out data.
+6. **Overfitting guard**: the sweep tunes on the papers it scores. `--holdout evals/other` takes the **run directory**
+   of a second, already-screened SR and applies the chosen pair to it. Without a holdout the report states the thresholds are untested on held-out data.
 7. **Agreement** (from `agreement`): Cohen's κ reviewer A vs B on verdict (include/uncertain/exclude);
    quadratic-weighted κ on each 0–4 score; κ of the LLM screen (include+uncertain → kept) vs SR label;
    adjudication rate. Raw % agreement and class prevalence sit next to every κ. Reviewers from the same
