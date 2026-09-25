@@ -1,6 +1,17 @@
 import pytest
 
-from research_agent.eval.metrics import cohen_kappa, rate, weighted_kappa, wilson
+from research_agent.eval.metrics import (
+    INCLUDE_GRID,
+    cascade_decision,
+    cohen_kappa,
+    evaluate,
+    rate,
+    recommend,
+    sweep,
+    weighted_kappa,
+    wilson,
+)
+from research_agent.jev import JevThresholds
 
 
 def test_wilson_known_values():
@@ -74,3 +85,71 @@ def test_weighted_kappa_rejects_bad_scores_and_levels():
         weighted_kappa([0, 1], [0, 9])
     with pytest.raises(ValueError):
         weighted_kappa([1, 1], [1, 1], levels=[1])
+
+
+def rec(i, label, p, llm="include"):
+    return {
+        "id": f"MED:{i}",
+        "title": f"Paper {i}",
+        "label": label,
+        "probabilities": {"topic_match": p},
+        "llm": llm,
+    }
+
+
+RECORDS = [
+    rec(1, "include", 0.97),  # jev include
+    rec(2, "include", 0.50),  # escalate -> llm include
+    rec(3, "include", 0.03),  # jev exclude at default thresholds: the miss
+    rec(4, "include", 0.90),
+    rec(5, "not_included", 0.01),
+    rec(6, "not_included", 0.50, llm="exclude"),
+    rec(7, "not_included", 0.95),
+    rec(8, "not_included", 0.50, llm="exclude"),
+]
+
+
+def test_cascade_uses_jev_when_confident_else_llm():
+    t = JevThresholds()
+    assert cascade_decision({"q": 0.97}, "exclude", t) == ("include", "jev")
+    assert cascade_decision({"q": 0.5}, "exclude", t) == ("exclude", "llm")
+
+
+def test_evaluate_cascade_counts_misses_and_workload():
+    out = evaluate(RECORDS, "cascade", JevThresholds())
+    assert (out["recall"]["k"], out["recall"]["n"]) == (3, 4)
+    assert [m["id"] for m in out["missed"]] == ["MED:3"]
+    assert out["missed"][0]["tier"] == "jev"
+    assert (out["auto_include"], out["auto_exclude"], out["escalated"]) == (3, 2, 3)
+    assert out["calls_saved"] == 5
+
+
+def test_llm_only_and_jev_only_baselines():
+    llm = evaluate(RECORDS, "llm_only", JevThresholds())
+    assert llm["recall"]["k"] == 4 and llm["calls_saved"] == 0
+    jev = evaluate(RECORDS, "jev_only", JevThresholds())
+    assert [m["id"] for m in jev["missed"]] == ["MED:3"]  # 'escalate' counts as kept
+    assert jev["calls_saved"] == 8
+    with pytest.raises(ValueError):
+        evaluate(RECORDS, "nonsense", JevThresholds())
+
+
+def test_sweep_respects_constraint_and_recall_is_monotone_in_exclude_threshold():
+    rows = sweep(RECORDS)
+    assert all(r["exclude_min_confidence"] >= r["min_confidence"] for r in rows)
+    for include in INCLUDE_GRID:
+        recalls = [r["recall"]["value"] for r in rows if r["min_confidence"] == include]
+        assert recalls == sorted(recalls)  # rows are ordered by ascending exclude threshold
+
+
+def test_recommend_picks_most_calls_saved_meeting_target():
+    rows = sweep(RECORDS)
+    best = recommend(rows, target=0.98)
+    assert best["recall"]["value"] == 1.0
+    assert best["exclude_min_confidence"] >= 0.95  # p=0.03 needs the stricter exclude bar
+    assert all(r["calls_saved"] <= best["calls_saved"] for r in rows if r["recall"]["value"] >= 0.98)
+
+
+def test_recommend_says_none_when_no_pair_meets_target():
+    rows = sweep([rec(1, "include", 0.5, llm="exclude")])
+    assert recommend(rows, target=0.98) is None

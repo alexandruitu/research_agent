@@ -3,6 +3,8 @@
 import math
 from itertools import product
 
+from ..jev import JevThresholds, decide_from_probabilities
+
 Z95 = 1.959964
 
 
@@ -71,3 +73,83 @@ def weighted_kappa(a, b, levels=range(5)):
     if den == 0:
         return {"n": n, "kappa": None, "reason": "single class: kappa undefined"}
     return {"n": n, "kappa": 1 - num / den, "reason": None}
+
+
+INCLUDE_GRID = [round(i / 10, 1) for i in range(1, 10)]
+EXCLUDE_GRID = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+STRATEGIES = ("llm_only", "jev_only", "cascade")
+
+
+def cascade_decision(probabilities, llm_decision, thresholds):
+    """The shipped cascade: a confident Jev verdict decides, otherwise the LLM screen does."""
+    verdict = decide_from_probabilities(probabilities, thresholds)
+    return (verdict, "jev") if verdict != "escalate" else (llm_decision, "llm")
+
+
+def _decide(record, strategy, thresholds):
+    if strategy == "llm_only":
+        return record["llm"], "llm"
+    if strategy == "jev_only":
+        return decide_from_probabilities(record["probabilities"], thresholds), "jev"
+    if strategy == "cascade":
+        return cascade_decision(record["probabilities"], record["llm"], thresholds)
+    raise ValueError(f"unknown strategy {strategy!r}")
+
+
+def evaluate(records, strategy, thresholds):
+    """Recall on SR-included papers plus workload. 'Kept' means not excluded, as in the pipeline."""
+    decided = [(r, *_decide(r, strategy, thresholds)) for r in records]
+    positives = [r for r in records if r["label"] == "include"]
+    missed = [
+        {"id": r["id"], "title": r["title"], "probabilities": r["probabilities"], "decision": d, "tier": t}
+        for r, d, t in decided
+        if r["label"] == "include" and d == "exclude"
+    ]
+    n = len(records)
+    if strategy == "llm_only":
+        auto_include = auto_exclude = 0
+        escalated, calls_saved = n, 0
+    else:
+        verdicts = [decide_from_probabilities(r["probabilities"], thresholds) for r in records]
+        auto_include, auto_exclude = verdicts.count("include"), verdicts.count("exclude")
+        escalated = verdicts.count("escalate")
+        calls_saved = n if strategy == "jev_only" else n - escalated
+    return {
+        "recall": rate(len(positives) - len(missed), len(positives)),
+        "missed": missed,
+        "auto_include": auto_include,
+        "auto_exclude": auto_exclude,
+        "escalated": escalated,
+        "calls_saved": calls_saved,
+    }
+
+
+def sweep(records, includes=INCLUDE_GRID, excludes=EXCLUDE_GRID):
+    """Cascade outcome for every allowed threshold pair (exclude must be >= include: recall first)."""
+    rows = []
+    for include, exclude in product(includes, excludes):
+        if exclude < include:
+            continue
+        out = evaluate(records, "cascade", JevThresholds(include, exclude))
+        rows.append(
+            {
+                "min_confidence": include,
+                "exclude_min_confidence": exclude,
+                "recall": out["recall"],
+                "missed": len(out["missed"]),
+                "calls_saved": out["calls_saved"],
+                "auto_include": out["auto_include"],
+                "auto_exclude": out["auto_exclude"],
+                "escalated": out["escalated"],
+            }
+        )
+    return rows
+
+
+def recommend(rows, target):
+    """Most calls saved with point-estimate recall >= target; ties: fewer missed, stricter exclude.
+    None when no pair meets the target: never silently pick the 'least bad' pair."""
+    ok = [r for r in rows if r["recall"]["value"] is not None and r["recall"]["value"] >= target]
+    if not ok:
+        return None
+    return min(ok, key=lambda r: (-r["calls_saved"], r["missed"], -r["exclude_min_confidence"]))
