@@ -315,3 +315,16 @@ def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch)
     with pytest.raises(ValidationError):
         _live_evaluator(tmp_path / "x", monkeypatch, model).ask("plan", Plan, {"topic": "t"})
     assert model.calls == 3
+
+
+def test_offline_evaluator_serves_cache_and_raises_on_miss(tmp_path):
+    from research_agent.schemas import Screen
+    from research_agent.storage import MissingCall
+
+    store = Store(tmp_path)
+    payload = {"topic": "t", "paper": {"id": "x"}}
+    Evaluator(store).ask("screen", Screen, payload)  # demo call fills the cache
+    offline = Evaluator(store, offline=True)
+    assert offline.ask("screen", Screen, payload).decision == "include"
+    with pytest.raises(MissingCall):
+        offline.ask("screen", Screen, {"topic": "other", "paper": {"id": "x"}})

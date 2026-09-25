@@ -6,6 +6,10 @@ from pathlib import Path
 from .connectors import canonical_json, digest
 
 
+class MissingCall(LookupError):
+    """A call needed by an offline computation is not in the cache."""
+
+
 class Store:
     """Separate connections per operation permit concurrent reviewer writes."""
 

@@ -18,6 +18,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from .connectors import digest
+from .storage import MissingCall
 
 JEV_SCREEN_VERSION = "jev-screen.1"
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
@@ -50,6 +51,15 @@ class JevThresholds:
 
 def confidence(probability):
     return round(abs(2 * probability - 1), 6)
+
+
+def decide_from_probabilities(probabilities, thresholds):
+    """Any confident 'no' excludes; include only when every criterion is confidently 'yes'."""
+    if any(p < 0.5 and confidence(p) >= thresholds.exclude_min_confidence for p in probabilities.values()):
+        return "exclude"
+    if all(p > 0.5 and confidence(p) >= thresholds.min_confidence for p in probabilities.values()):
+        return "include"
+    return "escalate"
 
 
 def default_criteria(topic):
@@ -108,12 +118,25 @@ class JevScreener:
             raise ValueError("Set TYPESAFE_API_KEY in .env to use the Jev screening tier")
         return cls(store, key, thresholds=thresholds, **kwargs)
 
-    def screen(self, topic, paper):
+    def _request(self, topic, paper):
         # Evidence only: never a prior verdict or conclusion.
         state = {"title": paper["title"], "abstract": paper["abstract"]}
         questions = self.criteria or default_criteria(topic)
         inputs = {"model": self.model, "state": state, "questions": questions}
         key = digest({"role": "jev_screen", "version": JEV_SCREEN_VERSION, "inputs": inputs})
+        return key, inputs, questions
+
+    def cached_probabilities(self, topic, paper):
+        """Raw probabilities and API model version from the cache only; never calls the API."""
+        key, _inputs, questions = self._request(topic, paper)
+        raw = self.store.cached(key)
+        if raw is None:
+            raise MissingCall(f"jev_screen call not in cache ({key[:12]})")
+        response = self._parse(raw, questions)
+        return {q: response.answers[q].noul for q in questions}, response.model
+
+    def screen(self, topic, paper):
+        key, inputs, questions = self._request(topic, paper)
         raw = self.store.cached(key)
         cached = raw is not None
         if not cached:
@@ -132,13 +155,7 @@ class JevScreener:
         }
 
     def decide(self, probabilities):
-        t = self.thresholds
-        # Any confident "no" excludes; include only when every criterion is confidently "yes".
-        if any(p < 0.5 and confidence(p) >= t.exclude_min_confidence for p in probabilities.values()):
-            return "exclude"
-        if all(p > 0.5 and confidence(p) >= t.min_confidence for p in probabilities.values()):
-            return "include"
-        return "escalate"
+        return decide_from_probabilities(probabilities, self.thresholds)
 
     @staticmethod
     def _parse(raw, questions):

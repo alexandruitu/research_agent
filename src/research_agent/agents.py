@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from .connectors import digest
 from .schemas import Claim, Decision, Evidence, Plan, Review, Screen
+from .storage import MissingCall
 
 PROMPT_VERSION = "m1.1"
 SCHEMA_ATTEMPTS = 3
@@ -31,10 +32,11 @@ INSTRUCTIONS = {
 
 
 class Evaluator:
-    def __init__(self, store, mode="demo", models=None):
+    def __init__(self, store, mode="demo", models=None, offline=False):
         self.store = store
         self.mode = mode
         self.models = models or {}
+        self.offline = offline
 
     def model_for(self, role):
         if self.mode == "demo":
@@ -53,6 +55,8 @@ class Evaluator:
         cached = self.store.cached(key)
         if cached is not None:
             return schema.model_validate(cached)
+        if self.offline:
+            raise MissingCall(f"{role} call not in cache ({key[:12]})")
         if self.mode == "demo":
             result = self._demo(role, payload)
         else:

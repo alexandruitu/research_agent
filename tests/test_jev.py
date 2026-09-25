@@ -260,3 +260,24 @@ def test_jev_failure_stops_the_run(tmp_path):
     api = Api(statuses=[401])
     with pytest.raises(httpx.HTTPStatusError):
         run_graph(tmp_path, api, [])
+
+
+def test_decide_from_probabilities_is_the_screener_rule(tmp_path):
+    from research_agent.jev import decide_from_probabilities
+
+    thresholds = JevThresholds()
+    s = JevScreener(Store(tmp_path), "k", thresholds=thresholds)
+    for p in (0.0, 0.05, 0.06, 0.5, 0.79, 0.8, 1.0):
+        assert decide_from_probabilities({"q": p}, thresholds) == s.decide({"q": p})
+
+
+def test_cached_probabilities_read_without_http(tmp_path):
+    from research_agent.storage import MissingCall
+
+    api = Api(0.7)
+    screener(tmp_path, api).screen(TOPIC, PAPER)
+    offline = JevScreener(Store(tmp_path), "no-key")  # no client: any HTTP attempt would hit the network
+    probabilities, version = offline.cached_probabilities(TOPIC, PAPER)
+    assert probabilities == {"topic_match": 0.7} and version == "jev-1.13.0"
+    with pytest.raises(MissingCall):
+        offline.cached_probabilities("another topic", PAPER)
