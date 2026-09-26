@@ -21,9 +21,12 @@ export const setCsrfToken = (token: string | null) => {
   csrfToken = token;
 };
 
-export const onUnauthorized = (listener: () => void) => {
+/** Returns an unsubscribe function (typed `() => void` so it can be a useEffect cleanup). */
+export const onUnauthorized = (listener: () => void): (() => void) => {
   unauthorizedListeners.add(listener);
-  return () => unauthorizedListeners.delete(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
 };
 
 async function request<T>(method: string, path: string, options: Options = {}): Promise<T> {
