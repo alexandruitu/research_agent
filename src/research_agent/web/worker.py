@@ -1,5 +1,6 @@
 """The worker: claims jobs and runs them. The only process that holds LLM provider keys."""
 
+import logging
 import os
 import re
 import socket
@@ -14,9 +15,10 @@ from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
 from .jobs import claim, complete, fail, heartbeat, requeue_stale, set_progress
-from .runner import RunSpec, child_environment, failure_message, progress_snapshot, sanitize_error
+from .runner import RunSpec, child_environment, failure_message, progress_snapshot, redact, sanitize_error
 from .runner import spawn as spawn_process
 
+log = logging.getLogger(__name__)
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 STOP_GRACE_SECONDS = 10
 
@@ -62,7 +64,12 @@ class Worker:
 
     def run_forever(self, stop=lambda: False):
         while not stop():
-            if not self.tick():
+            try:
+                busy = self.tick()
+            except Exception as exc:  # noqa: BLE001 -- e.g. the database is briefly unreachable: keep polling
+                log.warning("worker tick failed: %s", redact(f"{type(exc).__name__}: {exc}"))
+                busy = False
+            if not busy:
                 self.sleep(self.settings.worker_poll_seconds)
 
     def drain(self):

@@ -322,3 +322,21 @@ def test_the_child_is_stopped_when_the_worker_itself_fails(env, monkeypatch):
         job, run = db.get(Job, job_id), db.get(Run, run_id)
         assert job.status == "failed" and job.error == "RuntimeError: database went away"
         assert run.status == "failed" and run.error == job.error
+
+
+def test_run_forever_survives_a_failing_tick_and_redacts_the_log(env, monkeypatch, caplog):
+    settings, factory, _tmp = env
+    monkeypatch.setenv("SOME_API_KEY", "sk-sentinel-value-123456")
+    worker = Worker(settings, factory, sleep=lambda s: None)
+    calls = []
+
+    def tick():
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("db down, key sk-sentinel-value-123456")
+        return False
+
+    worker.tick = tick
+    worker.run_forever(stop=lambda: len(calls) >= 2)
+    assert len(calls) == 2
+    assert "worker tick failed" in caplog.text and "sk-sentinel-value-123456" not in caplog.text
