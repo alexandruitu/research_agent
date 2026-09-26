@@ -522,7 +522,9 @@ def test_report_keeps_the_holdout_sweep_so_pairs_can_be_judged_on_both_sets(tmp_
         (r["min_confidence"], r["exclude_min_confidence"]) for r in report["sweep"]
     }
     # The vetoed pair from the test above is visible as losing a paper on the holdout.
-    vetoed = next(r for r in stored["rows"] if (r["min_confidence"], r["exclude_min_confidence"]) == (0.8, 0.95))
+    vetoed = next(
+        r for r in stored["rows"] if (r["min_confidence"], r["exclude_min_confidence"]) == (0.8, 0.95)
+    )
     assert vetoed["lost_vs_llm"] >= 1 and vetoed["lost_ids"]
 
 

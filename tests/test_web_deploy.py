@@ -16,10 +16,11 @@ def compose():
 
 def test_services_and_startup_order(compose):
     services = compose["services"]
-    assert set(services) == {"db", "migrate", "api", "worker"}
+    assert set(services) == {"db", "migrate", "api", "worker", "web"}
     assert services["api"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert services["worker"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert services["migrate"]["depends_on"]["db"]["condition"] == "service_healthy"
+    assert services["web"]["depends_on"]["api"]["condition"] == "service_healthy"
     assert "healthcheck" in services["db"] and "healthcheck" in services["api"]
 
 
@@ -62,7 +63,7 @@ def key_problems(service):
 
 
 def test_provider_keys_exist_only_in_the_worker(compose):
-    for name in ("db", "migrate", "api"):
+    for name in ("db", "migrate", "api", "web"):
         assert key_problems(compose["services"][name]) == [], name
     assert compose["services"]["worker"]["env_file"] == ["worker.env"]
 
@@ -99,21 +100,20 @@ def test_the_api_mounts_run_folders_read_only_and_the_worker_can_write_runs(comp
     assert all(v.endswith(":ro") for v in worker_volumes if "/data/evals" in v or "/data/gold" in v)
 
 
-def test_only_the_api_publishes_a_port_and_only_on_loopback(compose):
+def test_only_the_web_service_publishes_a_port_and_only_on_loopback(compose):
     for name, service in compose["services"].items():
         ports = service.get("ports", [])
-        if name == "api":
-            assert ports and all(p.startswith("127.0.0.1:") for p in ports)
+        if name == "web":
+            assert ports == ["127.0.0.1:8080:8080"]
         else:
-            assert not ports, f"{name} must not publish ports"
+            assert not ports, f"{name} must not publish ports; the browser reaches the API through nginx"
+    assert compose["services"]["api"]["expose"] == ["8000"]
 
 
 def test_secure_defaults_in_the_api_environment(compose):
     env = compose["services"]["api"]["environment"]
     assert env["RESEARCH_WEB_COOKIE_SECURE"] == "true" and env["RESEARCH_WEB_ALLOW_DEMO"] == "false"
-    assert (
-        "0.0.0.0" in compose["services"]["api"]["command"]
-    )  # inside the container; the published port is loopback only
+    assert "0.0.0.0" in compose["services"]["api"]["command"]  # inside the container; only nginx reaches it
 
 
 def test_no_secret_value_is_written_into_any_deployment_file():
@@ -162,3 +162,51 @@ def test_the_web_package_data_files_ship_in_the_wheel():
         for pattern in patterns:
             assert not fnmatch.fnmatch(relative, pattern), (relative, pattern)
             assert not any(fnmatch.fnmatch(part, pattern) for part in parts), (relative, pattern)
+
+
+def test_the_web_container_is_unprivileged_and_read_only(compose):
+    web = compose["services"]["web"]
+    assert web["read_only"] is True and web["tmpfs"] == ["/tmp"]
+    assert "env_file" not in web and not (web.get("environment") or {})
+    text = (ROOT / "deploy" / "Dockerfile.web").read_text()
+    assert "nginx-unprivileged" in text and "npm ci" in text and not re.search(r"COPY[^\n]*\.env", text)
+
+
+NGINX = ROOT / "deploy" / "nginx.conf"
+
+
+def test_nginx_serves_the_app_and_proxies_only_the_api():
+    text = NGINX.read_text()
+    assert "listen 8080;" in text and "server_tokens off;" in text
+    assert "proxy_pass http://api:8000;" in text
+    assert "try_files $uri /index.html;" in text  # client-side routes
+    assert text.count("proxy_pass") == 1
+
+
+def test_nginx_csp_is_strict():
+    text = NGINX.read_text()
+    policy = re.search(r"add_header Content-Security-Policy \"([^\"]+)\" always;", text).group(1)
+    for directive in (
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self'",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "form-action 'self'",
+        "object-src 'none'",
+    ):
+        assert directive in policy
+    assert "unsafe-inline" not in policy and "unsafe-eval" not in policy and "*" not in policy
+    for header in ("X-Content-Type-Options nosniff", "Referrer-Policy no-referrer", "X-Frame-Options DENY"):
+        assert f"add_header {header} always;" in text
+
+
+def test_nginx_locations_do_not_reset_the_security_headers():
+    # nginx drops inherited add_header directives in any block that defines its own; keep them at server level only.
+    text = NGINX.read_text()
+    for block in re.findall(r"location[^{]*\{[^}]*\}", text):
+        assert "add_header" not in block, block
+    api_block = re.search(r"location /api/ \{[^}]*\}", text).group(0)
+    for name in ("Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options"):
+        assert f"proxy_hide_header {name};" in api_block  # one source of truth at the edge

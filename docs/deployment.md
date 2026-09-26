@@ -9,11 +9,12 @@ All commands below are run from the repository root.
 |---|---|---|
 | `db` | PostgreSQL 16; data in the `dbdata` volume. Not published to the host. | no |
 | `migrate` | Runs `research-web migrate` once, after `db` is healthy, then exits. | no |
-| `api` | `research-web serve` on port 8000, published on `127.0.0.1:8000` only. Mounts the run, eval and gold folders read-only. Never runs the pipeline. | no |
+| `api` | `research-web serve` on port 8000, reachable only inside the compose network (the `web` service proxies `/api/` to it). Mounts the run, eval and gold folders read-only. Never runs the pipeline. | no |
 | `worker` | `research-web worker`: claims jobs from the database, runs the research pipeline in a child process, writes run folders to the `runs` volume, imports finished runs. | **yes, only this one** |
+| `web` | nginx (unprivileged, read-only filesystem) serving the built React app and proxying `/api/` to `api`. The only service with a published port: `127.0.0.1:8080`. | no |
 
 The provider keys live in `deploy/worker.env`, which only the `worker` service reads (`env_file`).
-The `api`, `migrate` and `db` services never see them. `deploy/.env` holds only `DB_PASSWORD`
+The `api`, `migrate`, `db` and `web` services never see them. `deploy/.env` holds only `DB_PASSWORD`
 (and optional host paths) and is read by Docker Compose for variable substitution.
 Both files are git-ignored; never commit them.
 
@@ -51,9 +52,12 @@ Eval folders and gold files are bind-mounted from `../evals` and `../gold` relat
 
 ## 3. TLS
 
-The API is published only on `127.0.0.1:8000`. Put a reverse proxy (for example Caddy or nginx) in front of it
-that terminates TLS and forwards to `127.0.0.1:8000`. The session cookie is `Secure`, so a login over plain HTTP
+The only published port is `127.0.0.1:8080` (the `web` service, which serves the app and proxies the API).
+Put a TLS reverse proxy (for example Caddy or nginx) in front of it that forwards to `127.0.0.1:8080`.
+`research-web create-admin` and `import` still run as one-off `docker compose run` commands. The session cookie is `Secure`, so a login over plain HTTP
 will not be kept. Set HSTS (`Strict-Transport-Security`) at the proxy.
+The Content-Security-Policy is set by nginx (`deploy/nginx.conf`) and is `'self'` only, so do not add third-party
+scripts, fonts or analytics without changing it deliberately.
 
 ## 4. Backups
 
@@ -74,7 +78,7 @@ must name providers whose keys are set. The Jev screening tier is used only when
 
 Docker is not installed on the development machine. The Dockerfile and the compose file were never built or
 started there; `tests/test_web_deploy.py` checks them as data only (services, startup order, key isolation,
-read-only mounts, loopback-only port, secure defaults, no secret values, unprivileged image).
+read-only mounts, loopback-only port on the `web` service only, strict CSP, secure defaults, no secret values, unprivileged image).
 
 On a Docker host, before the first `up`, run:
 
