@@ -43,6 +43,15 @@ def install_error_handlers(app):
         response.headers["X-Request-ID"] = rid
         return response
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
     @app.exception_handler(ApiError)
     async def api_error(request, exc):
         return JSONResponse(_body(request, exc.code, exc.message), status_code=exc.status)

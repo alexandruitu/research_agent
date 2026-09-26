@@ -92,3 +92,30 @@ def test_safe_folder_only_allows_paths_inside_the_configured_roots(tmp_path):
     (root / "link").symlink_to(outside)
     with pytest.raises(CallStoreError, match="outside"):
         safe_folder(str(root / "link"), [root])
+
+
+@pytest.mark.parametrize(
+    "content", [b"this is not a sqlite database" * 64, None], ids=["corrupt", "no_calls"]
+)
+def test_a_corrupt_store_or_one_without_calls_is_a_callstore_error(tmp_path, content):
+    import sqlite3
+
+    store = tmp_path / "research.sqlite"
+    if content is None:
+        sqlite3.connect(store).execute("create table other (x)").connection.close()
+    else:
+        store.write_bytes(content)
+    with pytest.raises(CallStoreError, match="unreadable"):
+        read_call(tmp_path, "0" * 64)
+
+
+def test_a_folder_name_with_uri_characters_is_opened_read_only(tmp_path):
+    from research_agent.web.callstore import connect_readonly
+
+    folder = tmp_path / "runs" / "run?#%1"
+    folder.mkdir(parents=True)
+    make_store(folder)
+    key = CallIndex(folder).key("screen", "MED:1")
+    assert key and read_call(folder, key)["role"] == "screen"
+    with pytest.raises(Exception, match="readonly"):
+        connect_readonly(folder).execute("delete from calls")

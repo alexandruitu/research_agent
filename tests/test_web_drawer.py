@@ -123,3 +123,41 @@ def test_a_jev_decided_paper_exposes_the_jev_call(sign_in, imported, db):
     key = drawer(viewer, imported["eval"], paper_id(db, "MED:1")).json()["screening"]["call_key"]
     call = member.get(f"/api/v1/runs/{imported['eval']}/calls/{key}").json()
     assert call["role"] == "jev_screen" and "questions" in call["input"]
+
+
+def _member_and_key(sign_in, imported, db):
+    viewer, _ = sign_in("viewer")
+    member, _ = sign_in("member")
+    key = drawer(viewer, imported["eval"], paper_id(db, "MED:2")).json()["screening"]["call_key"]
+    return member, key
+
+
+def test_a_corrupt_store_is_409_not_500(sign_in, imported, db):
+    member, key = _member_and_key(sign_in, imported, db)
+    store = Path(db.get(Run, imported["eval"]).folder) / "research.sqlite"
+    store.write_bytes(b"this is not a sqlite database" * 64)
+    r = member.get(f"/api/v1/runs/{imported['eval']}/calls/{key}")
+    assert r.status_code == 409 and r.json()["code"] == "no_audit_trail"
+
+
+def test_a_store_without_a_calls_table_is_409_not_500(sign_in, imported, db):
+    import sqlite3
+
+    member, key = _member_and_key(sign_in, imported, db)
+    store = Path(db.get(Run, imported["eval"]).folder) / "research.sqlite"
+    store.unlink()
+    sqlite3.connect(store).execute("create table other (x)").connection.close()
+    r = member.get(f"/api/v1/runs/{imported['eval']}/calls/{key}")
+    assert r.status_code == 409 and r.json()["code"] == "no_audit_trail"
+
+
+def test_a_run_folder_with_uri_characters_in_its_name_is_readable(sign_in, imported, db, settings):
+    member, key = _member_and_key(sign_in, imported, db)
+    run = db.get(Run, imported["eval"])
+    odd = settings.runs_dir / "run?#%1"
+    shutil.copytree(run.folder, odd)
+    run.folder = str(odd)
+    db.commit()
+    r = member.get(f"/api/v1/runs/{imported['eval']}/calls/{key}")
+    assert r.status_code == 200, r.text
+    assert r.json()["key"] == key and r.json()["role"] == "screen"

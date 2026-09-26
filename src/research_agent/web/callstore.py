@@ -16,7 +16,8 @@ def connect_readonly(folder):
     path = Path(folder) / "research.sqlite"
     if not path.is_file():
         raise CallStoreError(f"{folder} has no research.sqlite")
-    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    # as_uri() percent-encodes "?", "#" and "%" in folder names, so "?mode=ro" is always the query.
+    return sqlite3.connect(f"{path.absolute().as_uri()}?mode=ro", uri=True)
 
 
 def safe_folder(folder, roots):
@@ -60,13 +61,16 @@ class CallIndex:
 def read_call(folder, key):
     if not isinstance(key, str) or not HEX64.fullmatch(key):
         raise CallStoreError("call key must be 64 lowercase hex characters")
-    connection = connect_readonly(folder)
     try:
-        row = connection.execute(
-            "select key, role, model, prompt_version, input, output from calls where key = ?", (key,)
-        ).fetchone()
-    finally:
-        connection.close()
+        connection = connect_readonly(folder)
+        try:
+            row = connection.execute(
+                "select key, role, model, prompt_version, input, output from calls where key = ?", (key,)
+            ).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error as exc:  # corrupt file, not a database, or no `calls` table
+        raise CallStoreError(f"{folder} has an unreadable research.sqlite") from exc
     if row is None:
         raise CallStoreError("call not found")
     return {
