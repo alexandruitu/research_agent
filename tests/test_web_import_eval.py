@@ -163,3 +163,35 @@ def test_corrupt_metrics_json_is_an_import_error_and_writes_nothing(db, tmp_path
     with pytest.raises(ImportFailed, match="unexpected eval run content"):
         import_eval_run(db, run_dir)
     assert count(db, Run) == 0 and count(db, Paper) == 0
+
+
+def test_a_missing_extract_call_does_not_drop_the_adjudication(db, tmp_path):
+    from web_fixtures import drop_call
+
+    run_dir, _g, _r = make_eval_run(tmp_path)
+    agreement = json.loads((run_dir / "agreement.json").read_text())["papers"]
+    pid = next(p for p, entry in agreement.items() if entry["adjudicated"])
+    drop_call(run_dir, "extract", pid)
+    result = import_eval_run(db, run_dir)
+    paper = db.scalar(select(Paper).where(Paper.source_id == pid))
+    roles = sorted(db.scalars(select(Review.role).where(Review.paper_id == paper.id)))
+    assert roles == ["a", "adjudicator", "b"]
+    assert db.scalar(select(func.count()).where(EvidenceClaim.paper_id == paper.id)) == 0
+    assert any(pid in w and "extract" in w for w in result.warnings), result.warnings
+
+
+def test_a_missing_adjudicate_call_keeps_the_claims_and_warns(db, tmp_path):
+    from web_fixtures import drop_call
+
+    run_dir, _g, _r = make_eval_run(tmp_path)
+    agreement = json.loads((run_dir / "agreement.json").read_text())["papers"]
+    pid = next(p for p, entry in agreement.items() if entry["adjudicated"])
+    drop_call(run_dir, "adjudicate", pid)
+    result = import_eval_run(db, run_dir)
+    paper = db.scalar(select(Paper).where(Paper.source_id == pid))
+    assert db.scalar(select(func.count()).where(EvidenceClaim.paper_id == paper.id)) == 1
+    reviews = db.scalars(select(Review).where(Review.paper_id == paper.id)).all()
+    assert sorted(r.role for r in reviews) == ["a", "b"]
+    # The expectation comes from agreement.json, not from whether an adjudicator row exists.
+    assert all(r.detail["adjudicated"] is True for r in reviews)
+    assert any(pid in w and "adjudicat" in w for w in result.warnings), result.warnings

@@ -89,3 +89,15 @@ def make_eval_run(
     report = build_report(run)
     write_report(run, report)
     return run, gold_path, report
+
+
+def drop_call(folder, role, paper_id):
+    """Delete one raw call (by role and paper id) from a run's research.sqlite: a gap in the audit trail."""
+    import sqlite3
+
+    with sqlite3.connect(Path(folder) / "research.sqlite") as connection:
+        rows = connection.execute("select key, input from calls where role = ?", (role,)).fetchall()
+        keys = [k for k, raw in rows if json.loads(raw)["payload"]["paper"]["id"] == paper_id]
+        assert keys, (role, paper_id)
+        connection.executemany("delete from calls where key = ?", [(k,) for k in keys])
+    connection.close()

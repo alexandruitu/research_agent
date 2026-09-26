@@ -103,6 +103,7 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
         db.add(run)
     else:
         clear_run(db, run.id)
+    run.field_id = field_row.id  # a re-import may name another topic
     run.manifest = {**manifest, "jev_model_versions": versions}
     run.source_sha256, run.status, run.error, run.gold_set_id = digest, "done", None, gold_row.id
     run.finished_at = datetime.now(UTC)
@@ -179,11 +180,17 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
     for pid, entry in agreement.items():
         if pid not in papers:
             raise ImportFailed(f"{folder}: agreement.json names an unknown paper {pid}")
-        paper = papers[pid]
-        db.add(_review_row(run, paper, "a", entry["review_a"], calls.key("review_a", pid)))
-        db.add(_review_row(run, paper, "b", entry["review_b"], calls.key("review_b", pid)))
+        paper, adjudicated = papers[pid], bool(entry["adjudicated"])
+        # Whether an adjudication was expected comes from agreement.json, never from whether its row exists:
+        # the table shows an expected-but-absent adjudicator as missing, not as "not adjudicated".
+        for role in ("a", "b"):
+            key = calls.key(f"review_{role}", pid)
+            db.add(_review_row(run, paper, role, entry[f"review_{role}"], key, adjudicated=adjudicated))
         try:
             extract = read_call(folder, calls.key("extract", pid) or "")["output"]
+        except CallStoreError:
+            warnings.append(f"{pid}: extraction call missing from the run's audit trail")
+        else:
             for claim in extract["claims"]:
                 db.add(
                     EvidenceClaim(
@@ -194,8 +201,12 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
                         call_key=calls.key("extract", pid),
                     )
                 )
-            if entry["adjudicated"]:
+        if adjudicated:
+            try:
                 adjudication = read_call(folder, calls.key("adjudicate", pid) or "")["output"]
+            except CallStoreError:
+                warnings.append(f"{pid}: adjudication call missing from the run's audit trail")
+            else:
                 db.add(
                     _review_row(
                         run,
@@ -206,8 +217,6 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
                         reason=adjudication["reason"],
                     )
                 )
-        except CallStoreError:
-            warnings.append(f"{pid}: extraction or adjudication call missing from the run's audit trail")
 
     metrics = json.loads((folder / "metrics.json").read_text())
     db.add(

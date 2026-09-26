@@ -136,3 +136,52 @@ def test_bad_parameters_are_rejected(sign_in, imported, params):
     viewer, _ = sign_in("viewer")
     r = table(viewer, imported["eval"], **params)
     assert r.status_code == 422 and r.json()["code"] == "validation_error"
+
+
+def _eval_run_with_gaps(db, tmp_path, drops):
+    from web_fixtures import drop_call, make_eval_run
+
+    from research_agent.web.importer.evals import import_eval_run
+
+    folder, _gold, _report = make_eval_run(tmp_path, name="gaps")
+    for role, pid in drops:
+        drop_call(folder, role, pid)
+    run_id = import_eval_run(db, folder).run_id
+    db.commit()
+    return run_id
+
+
+def test_eval_sample_papers_with_a_missing_extraction_show_missing_not_applicable(sign_in, db, tmp_path):
+    run_id = _eval_run_with_gaps(db, tmp_path, [("extract", "MED:1")])
+    viewer, _ = sign_in("viewer")
+    rows = rows_by_source(table(viewer, run_id))
+    assert rows["MED:1"]["extract"] == {"missing": True}  # in the agreement sample: expected, absent
+    assert rows["MED:1"]["reviews"]["adjudicated"] is True
+    assert rows["MED:10"]["extract"] is None  # outside the sample: not applicable
+
+
+def test_an_expected_adjudication_without_its_row_is_missing(sign_in, db, tmp_path):
+    run_id = _eval_run_with_gaps(db, tmp_path, [("adjudicate", "MED:1")])
+    viewer, _ = sign_in("viewer")
+    assert rows_by_source(table(viewer, run_id))["MED:1"]["reviews"] == {"missing": True}
+
+
+def test_a_research_row_with_only_one_reviewer_is_missing(sign_in, imported, db):
+    from research_agent.web.db.models import Review
+
+    paper = db.scalar(select(Paper).where(Paper.source_id == "demo:2"))
+    db.execute(delete(Review).where(Review.paper_id == paper.id, Review.role == "b"))
+    db.commit()
+    viewer, _ = sign_in("viewer")
+    assert rows_by_source(table(viewer, imported["research"]))["demo:2"]["reviews"] == {"missing": True}
+
+
+def test_quotes_verified_is_computed_against_the_stored_abstract(sign_in, imported, db):
+    paper = db.scalar(select(Paper).where(Paper.source_id == "demo:3"))
+    claim = db.scalar(select(EvidenceClaim).where(EvidenceClaim.paper_id == paper.id))
+    claim.quote = "a sentence the abstract never contained"
+    db.commit()
+    viewer, _ = sign_in("viewer")
+    rows = rows_by_source(table(viewer, imported["research"]))
+    assert rows["demo:3"]["extract"] == {"claims": 1, "quotes_verified": False}
+    assert rows["demo:1"]["extract"] == {"claims": 1, "quotes_verified": True}

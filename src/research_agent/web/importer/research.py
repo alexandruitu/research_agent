@@ -71,6 +71,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
         db.add(run)
     else:
         clear_run(db, run.id)
+    run.field_id = field_row.id  # a re-import may name another topic
     run.manifest, run.source_sha256, run.status, run.error = manifest, digest, "done", None
     run.finished_at = _finished_at(folder)
     db.flush()

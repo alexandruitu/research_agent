@@ -103,3 +103,15 @@ def test_a_corrupt_call_store_is_an_import_error_and_writes_nothing(db, tmp_path
         import_research_run(db, folder)
     db.rollback()
     assert count(db, Run) == 0
+
+
+def test_reimport_moves_the_run_to_the_field_of_its_new_topic(db, tmp_path):
+    folder = make_demo_run(tmp_path / "run")
+    first = import_research_run(db, folder)
+    report = folder / "report.json"
+    data = json.loads(report.read_text())
+    data["state"]["contract"]["topic"] = "a different topic"
+    report.write_text(json.dumps(data))
+    assert import_research_run(db, folder).status == "updated"
+    run = db.get(Run, first.run_id)
+    assert db.get(Field, run.field_id).topic == "a different topic"

@@ -2,10 +2,12 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import aliased
 
+from ..agents import validate_evidence
 from .db.models import (
     Criterion,
     CriterionScore,
@@ -45,22 +47,42 @@ def _criterion_probability(key):
     )
 
 
-def expects_downstream(run, screening):
-    """Extraction and reviews are expected only in research runs, for papers that were kept and had an abstract."""
+def expects_downstream(run, screening, reviewed):
+    """Research runs: extraction and reviews are expected for papers the screen kept that had an abstract.
+    Eval runs: they are expected exactly for the agreement sample (the papers that have review rows)."""
+    if run.kind == "eval":
+        return reviewed
     return run.kind == "research" and screening.decision != "exclude" and screening.tier != NOT_SCREENED
 
 
-def build_row(run, screening, paper, scores, claims, verdicts, rank, label):
+def quotes_verified(quotes, abstract):
+    """The pipeline's own check (`validate_evidence`): every quote is an exact span of the stored abstract."""
+    try:
+        validate_evidence(SimpleNamespace(claims=[SimpleNamespace(quote=q) for q in quotes]), abstract)
+    except ValueError:
+        return False
+    return True
+
+
+def reviews_cell(verdicts, adjudication_expected, expected):
+    """{a, b, adjudicated, adjudicator}; when any expected part (A, B, or an adjudicator the run says
+    was needed) is absent, the whole cell is {"missing": true} so an absent side never reads as null."""
     a, b, adjudicator = verdicts
-    expected = expects_downstream(run, screening)
-    if claims:
-        extract = {"claims": claims, "quotes_verified": True}
+    if a is None and b is None and adjudicator is None:
+        return {"missing": True} if expected else None
+    adjudicated = adjudication_expected or adjudicator is not None
+    if a is None or b is None or (adjudicated and adjudicator is None):
+        return {"missing": True}
+    return {"a": a, "b": b, "adjudicated": adjudicated, "adjudicator": adjudicator}
+
+
+def build_row(run, screening, paper, scores, quotes, verdicts, adjudication_expected, rank, label):
+    expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
+    if quotes:
+        extract = {"claims": len(quotes), "quotes_verified": quotes_verified(quotes, paper.abstract)}
     else:
         extract = {"missing": True} if expected else None
-    if a is not None or b is not None:
-        reviews = {"a": a, "b": b, "adjudicated": adjudicator is not None, "adjudicator": adjudicator}
-    else:
-        reviews = {"missing": True} if expected else None
+    reviews = reviews_cell(verdicts, adjudication_expected, expected)
     return {
         "paper": {
             "id": paper.id,
@@ -99,12 +121,6 @@ def _sort_key(sort):
 
 def paper_table(db, run, q):
     ra, rb, rj, gl = aliased(Review), aliased(Review), aliased(Review), aliased(GoldLabel)
-    claims = (
-        select(EvidenceClaim.paper_id.label("paper_id"), func.count().label("n"))
-        .where(EvidenceClaim.run_id == run.id)
-        .group_by(EvidenceClaim.paper_id)
-        .subquery()
-    )
 
     def review_join(alias, role):
         return and_(
@@ -118,7 +134,8 @@ def paper_table(db, run, q):
             ra.verdict,
             rb.verdict,
             rj.verdict,
-            claims.c.n,
+            ra.detail,
+            rb.detail,
             Ranking.score,
             Ranking.position,
             gl.label,
@@ -127,7 +144,6 @@ def paper_table(db, run, q):
         .outerjoin(ra, review_join(ra, "a"))
         .outerjoin(rb, review_join(rb, "b"))
         .outerjoin(rj, review_join(rj, "adjudicator"))
-        .outerjoin(claims, claims.c.paper_id == Screening.paper_id)
         .outerjoin(Ranking, and_(Ranking.run_id == Screening.run_id, Ranking.paper_id == Screening.paper_id))
         .outerjoin(gl, and_(gl.gold_set_id == run.gold_set_id, gl.paper_id == Screening.paper_id))
         .where(Screening.run_id == run.id)
@@ -167,9 +183,15 @@ def paper_table(db, run, q):
         stmt.order_by(ordering, Paper.source_id).limit(q.page_size).offset((q.page - 1) * q.page_size)
     ).all()
 
-    scores = defaultdict(dict)
+    scores, quotes = defaultdict(dict), defaultdict(list)
     ids = [r[0].id for r in rows]
     if ids:
+        for paper_id, quote in db.execute(
+            select(EvidenceClaim.paper_id, EvidenceClaim.quote).where(
+                EvidenceClaim.run_id == run.id, EvidenceClaim.paper_id.in_([r[1].id for r in rows])
+            )
+        ):
+            quotes[paper_id].append(quote)
         for screening_id, name, probability in db.execute(
             select(CriterionScore.screening_id, Criterion.key, CriterionScore.probability)
             .join(Criterion, Criterion.id == CriterionScore.criterion_id)
@@ -177,8 +199,18 @@ def paper_table(db, run, q):
         ):
             scores[screening_id][name] = probability
     items = [
-        build_row(run, s, p, scores[s.id], n or 0, (va, vb, vj), (score, position), label)
-        for s, p, va, vb, vj, n, score, position, label in rows
+        build_row(
+            run,
+            s,
+            p,
+            scores[s.id],
+            quotes[p.id],
+            (va, vb, vj),
+            any((d or {}).get("adjudicated") is True for d in (da, db_)),
+            (score, position),
+            label,
+        )
+        for s, p, va, vb, vj, da, db_, score, position, label in rows
     ]
     return items, total
 

@@ -16,15 +16,17 @@ def field_out(db, field):
     rows = db.scalars(
         select(Criterion)
         .where(Criterion.field_id == field.id)
-        .order_by(Criterion.position, Criterion.version.desc())
+        .order_by(Criterion.key, Criterion.version.desc())
     )
     for row in rows:
-        latest.setdefault(row.key, row)  # newest version of each key
+        latest.setdefault(row.key, row)  # newest version of each key, wherever its position
     return FieldOut(
         id=field.id,
         name=field.name,
         topic=field.topic,
-        criteria=[CriterionOut.model_validate(c) for c in sorted(latest.values(), key=lambda c: c.position)],
+        criteria=[
+            CriterionOut.model_validate(c) for c in sorted(latest.values(), key=lambda c: (c.position, c.key))
+        ],
     )
 
 
