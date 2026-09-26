@@ -11,3 +11,5 @@ gold/
 .superpowers/
 .web-dev/
 *.log
+deploy/.env
+deploy/worker.env

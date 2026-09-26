@@ -1,0 +1,14 @@
+.env
+.venv
+.git
+.web-dev
+.superpowers
+runs
+evals
+gold
+docs
+tests
+web/node_modules
+**/.env
+deploy/worker.env
+**/__pycache__

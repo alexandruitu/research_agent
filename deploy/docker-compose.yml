@@ -1,0 +1,80 @@
+name: research-agent
+
+x-app-env: &app-env
+  RESEARCH_WEB_DATABASE_URL: postgresql+psycopg://research:${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}@db:5432/research
+  RESEARCH_RUNS_DIR: /data/runs
+  RESEARCH_EVALS_DIR: /data/evals
+  RESEARCH_GOLD_DIR: /data/gold
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: research
+      POSTGRES_USER: research
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U research -d research"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["research-web", "migrate"]
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["research-web", "serve", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      <<: *app-env
+      RESEARCH_WEB_COOKIE_SECURE: "true"
+      RESEARCH_WEB_ALLOW_DEMO: "false"
+    volumes:
+      - runs:/data/runs:ro
+      - ${EVALS_DIR:-../evals}:/data/evals:ro
+      - ${GOLD_DIR:-../gold}:/data/gold:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["research-web", "worker"]
+    environment: *app-env
+    env_file:
+      - worker.env
+    volumes:
+      - runs:/data/runs
+      - ${EVALS_DIR:-../evals}:/data/evals:ro
+      - ${GOLD_DIR:-../gold}:/data/gold:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  dbdata: {}
+  runs: {}
