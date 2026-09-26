@@ -9,3 +9,5 @@ evals/
 gold/
 .DS_Store
 .superpowers/
+.web-dev/
+*.log

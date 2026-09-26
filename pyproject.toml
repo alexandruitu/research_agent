@@ -13,11 +13,21 @@ dependencies = ["langgraph>=1.0,<2", "langgraph-checkpoint-sqlite>=3,<4", "pydan
 live = ["langchain-openai>=1,<2", "langchain-anthropic>=1,<2"]
 ui = ["streamlit>=1.45,<2"]
 dev = ["pytest>=8,<10", "ruff>=0.11"]
+web = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "sqlalchemy>=2.0,<3",
+  "alembic>=1.13,<2",
+  "psycopg[binary]>=3.2,<4",
+  "argon2-cffi>=23,<26",
+]
+web-dev = ["pgserver>=0.1.4,<1"]
 
 [project.scripts]
 research-agent = "research_agent.cli:main"
 research-ui = "research_agent.ui_launcher:main"
 research-eval = "research_agent.eval.cli:main"
+research-web = "research_agent.web.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/research_agent"]
