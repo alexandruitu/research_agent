@@ -24,6 +24,11 @@ export function PapersPage() {
   const papers = usePapers(selected ? runId : null, params);
   const stages = useStages();
   const change = (changes: Parameters<typeof patchView>[1], reset = true) => setSearch(patchView(search, changes, reset));
+  const close = () => {
+    const open = view.paperId;
+    change({ paper: null, stage: null }, false);
+    if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-open-paper="${open}"]`)?.focus());
+  };
 
   if (runs.isLoading) return <p role="status">Loading…</p>;
   if (runs.isError) return <p role="alert">{errorText(runs.error)}</p>;
@@ -79,7 +84,7 @@ export function PapersPage() {
         </div>
         {panelOpen && (
           <ErrorBoundary label="the side panel">
-            <PapersSidePanel runId={runId} paperId={view.paperId} stageId={view.stageId} stages={stages.data ?? []} onClose={() => change({ paper: null, stage: null }, false)} />
+            <PapersSidePanel runId={runId} paperId={view.paperId} stageId={view.stageId} stages={stages.data ?? []} onClose={close} />
           </ErrorBoundary>
         )}
       </div>
