@@ -2,6 +2,7 @@ import shutil
 import uuid
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 
 from research_agent.web.db.models import Paper, Run
@@ -61,7 +62,7 @@ def test_drawer_404s(sign_in, imported, db):
     assert drawer(viewer, imported["eval"], paper_id(db, "demo:1")).status_code == 404  # not part of that run
 
 
-def test_raw_calls_are_for_members_and_confined(sign_in, imported, db):
+def test_raw_calls_are_for_members_and_confined(sign_in, imported, db, tmp_path):
     viewer, _ = sign_in("viewer")
     member, _ = sign_in("member")
     key = drawer(viewer, imported["eval"], paper_id(db, "MED:2")).json()["screening"]["call_key"]
@@ -77,8 +78,11 @@ def test_raw_calls_are_for_members_and_confined(sign_in, imported, db):
     assert bad.status_code == 422 and bad.json()["code"] == "invalid_call_key"
     unknown = member.get(f"/api/v1/runs/{imported['eval']}/calls/{'0' * 64}")
     assert unknown.status_code == 404 and unknown.json()["code"] == "call_not_found"
+    # A valid store that holds this very call, but outside the configured roots: refused, not read.
     run = db.get(Run, imported["eval"])
-    run.folder = "/etc"
+    outside = tmp_path / "outside" / "toy"
+    shutil.copytree(run.folder, outside)
+    run.folder = str(outside)
     db.commit()
     gone = member.get(url)
     assert gone.status_code == 409 and gone.json()["code"] == "no_audit_trail"
@@ -92,13 +96,14 @@ def test_a_key_with_a_trailing_newline_is_refused(sign_in, imported, db):
     assert r.status_code == 422 and r.json()["code"] == "invalid_call_key"
 
 
-def test_a_run_without_a_folder_never_reads_the_working_directory(sign_in, imported, db, monkeypatch):
+@pytest.mark.parametrize("folder", [None, ""])
+def test_a_run_without_a_folder_never_reads_the_working_directory(sign_in, imported, db, monkeypatch, folder):
     viewer, _ = sign_in("viewer")
     member, _ = sign_in("member")
     key = drawer(viewer, imported["eval"], paper_id(db, "MED:2")).json()["screening"]["call_key"]
     run = db.get(Run, imported["eval"])
     monkeypatch.chdir(run.folder)  # the server's working directory happens to hold a store
-    run.folder = None
+    run.folder = folder
     db.commit()
     r = member.get(f"/api/v1/runs/{imported['eval']}/calls/{key}")
     assert r.status_code == 409 and r.json()["code"] == "no_audit_trail"
