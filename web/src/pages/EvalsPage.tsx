@@ -47,7 +47,7 @@ export function EvalsPage() {
           {view.rejected && (
             <p className="banner banner--warn">
               Rejected on the holdout: {pairText(view.rejected.pair)} is best on the main set but loses {view.rejected.lost.length} SR-included paper(s) there that llm_only keeps:{" "}
-              {view.rejected.lost.map((m) => m.title).join("; ")}.
+              {view.rejected.lost.map((m) => m.title.replace(/\.$/, "")).join("; ")}.
             </p>
           )}
           {view.warnings.length > 0 && <ul aria-label="Caveats">{view.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}

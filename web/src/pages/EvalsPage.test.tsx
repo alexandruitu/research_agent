@@ -71,6 +71,13 @@ describe("EvalsPage", () => {
     expect(screen.getByRole("list", { name: "Caveats" })).toHaveTextContent("Rejected.");
   });
 
+  it("does not double the full stop when a lost title already ends with one", async () => {
+    const metrics = evalMetrics();
+    setup(evalDetail({ ...metrics, rejected_on_holdout: { ...metrics.rejected_on_holdout, lost: [{ id: "MED:9", title: "Random Forest Analysis in Machine Learning." }] } }));
+    const banner = await screen.findByText(/Rejected on the holdout/);
+    expect(banner.textContent).toMatch(/Machine Learning\.$/);
+  });
+
   it("says when the grid has no holdout to check against, and when nothing is recommended", async () => {
     setup(evalDetail({ ...evalMetrics(), holdout_sweep: null, holdout: null, rejected_on_holdout: null, recommended: null }));
     expect(await screen.findByText(/No holdout run: risky pairs can only be judged on the main set/)).toBeInTheDocument();
