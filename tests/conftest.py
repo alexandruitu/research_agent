@@ -20,3 +20,25 @@ def pg_engine(pg_url):
     engine = sa.create_engine(pg_url)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def migrated_engine(pg_url, pg_engine):
+    from research_agent.web.db.migrate import upgrade
+
+    upgrade(pg_url)
+    return pg_engine
+
+
+@pytest.fixture
+def db(migrated_engine):
+    """Each test runs inside a transaction that is rolled back afterwards."""
+    from sqlalchemy.orm import Session
+
+    connection = migrated_engine.connect()
+    outer = connection.begin()
+    session = Session(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
+    yield session
+    session.close()
+    outer.rollback()
+    connection.close()
