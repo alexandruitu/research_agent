@@ -1,9 +1,13 @@
-"""PostgreSQL-backed job queue. Callers commit; claims use FOR UPDATE SKIP LOCKED."""
+"""PostgreSQL-backed job queue. Callers commit; claims use FOR UPDATE SKIP LOCKED.
+
+heartbeat, set_progress, complete and fail change a job only while the given worker owns it
+(status running, locked_by == worker_id) and return whether they did."""
 
 from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.attributes import set_committed_value
 
 from .auth import utcnow
 from .db.models import Job
@@ -51,27 +55,41 @@ def claim(db, worker_id, now=None):
     return job
 
 
-def heartbeat(db, job, now=None):
-    job.heartbeat_at = now or utcnow()
-    db.flush()
+def _update_owned(db, job, worker_id, **values):
+    """Apply `values` only while `worker_id` still holds the running job; returns whether it did.
+
+    A worker whose job was requeued as stale (and perhaps claimed by another worker) must not
+    overwrite it, so the ownership check is part of the UPDATE, not a read of a possibly stale copy."""
+    result = db.execute(
+        update(Job)
+        .where(Job.id == job.id, Job.status == "running", Job.locked_by == worker_id)
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        return False
+    for name, value in values.items():  # mirror the row without marking the object dirty
+        set_committed_value(job, name, value)
+    return True
 
 
-def set_progress(db, job, progress, now=None):
-    job.progress = progress
-    job.heartbeat_at = now or utcnow()
-    db.flush()
+def heartbeat(db, job, now=None, *, worker_id):
+    return _update_owned(db, job, worker_id, heartbeat_at=now or utcnow())
 
 
-def complete(db, job, progress=None):
-    job.status, job.locked_by = "done", None
+def set_progress(db, job, progress, now=None, *, worker_id):
+    return _update_owned(db, job, worker_id, progress=progress, heartbeat_at=now or utcnow())
+
+
+def complete(db, job, progress=None, *, worker_id):
+    values = {"status": "done", "locked_by": None}
     if progress is not None:
-        job.progress = progress
-    db.flush()
+        values["progress"] = progress
+    return _update_owned(db, job, worker_id, **values)
 
 
-def fail(db, job, error):
-    job.status, job.locked_by, job.error = "failed", None, error
-    db.flush()
+def fail(db, job, error, *, worker_id):
+    return _update_owned(db, job, worker_id, status="failed", locked_by=None, error=error)
 
 
 def requeue_stale(db, stale_after_seconds, max_attempts, now=None):

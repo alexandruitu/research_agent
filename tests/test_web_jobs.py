@@ -83,16 +83,52 @@ def test_two_workers_never_claim_the_same_job(factory, user_ids):
 def test_progress_heartbeat_complete_and_fail(factory, user_ids):
     with factory() as db:
         job, _ = enqueue(db, "research", {}, user_ids[0])
-        db.commit()
-        claim(db, "w")
-        set_progress(db, job, {"stages": {"plan": "completed"}})
-        heartbeat(db, job)
-        assert job.progress == {"stages": {"plan": "completed"}}
-        complete(db, job, {"result": "ok"})
-        assert job.status == "done" and job.progress == {"result": "ok"} and job.locked_by is None
+        db.commit()  # separate transactions: distinct created_at, so claim order is defined
         other, _ = enqueue(db, "research", {}, user_ids[0])
-        fail(db, other, "boom")
-        assert other.status == "failed" and other.error == "boom"
+        db.commit()
+        assert claim(db, "w").id == job.id
+        assert set_progress(db, job, {"stages": {"plan": "completed"}}, worker_id="w") is True
+        assert heartbeat(db, job, worker_id="w") is True
+        assert job.progress == {"stages": {"plan": "completed"}}
+        assert complete(db, job, {"result": "ok"}, worker_id="w") is True
+        assert job.status == "done" and job.progress == {"result": "ok"} and job.locked_by is None
+        assert claim(db, "w").id == other.id
+        assert fail(db, other, "boom", worker_id="w") is True
+        assert other.status == "failed" and other.error == "boom" and other.locked_by is None
+        db.commit()
+    with factory() as check:
+        assert check.get(Job, job.id).progress == {"result": "ok"} and check.get(Job, job.id).status == "done"
+        assert check.get(Job, other.id).error == "boom"
+
+
+def test_a_worker_that_lost_its_job_changes_nothing(factory, user_ids):
+    """Worker A's job is requeued as stale and claimed by worker B: A's late updates are no-ops."""
+    now = utcnow()
+    with factory() as a:
+        job, _ = enqueue(a, "research", {}, user_ids[0])
+        a.commit()
+        claim(a, "worker-a", now=now - timedelta(minutes=10))
+        a.commit()
+        with factory() as b:
+            requeue_stale(b, stale_after_seconds=120, max_attempts=3, now=now)
+            b.commit()
+            claimed = claim(b, "worker-b", now=now)
+            b.commit()
+            assert claimed.id == job.id and claimed.locked_by == "worker-b"
+        assert set_progress(a, job, {"stages": {"x": "failed"}}, worker_id="worker-a") is False
+        assert heartbeat(a, job, now=now + timedelta(minutes=5), worker_id="worker-a") is False
+        assert complete(a, job, {"result": "stolen"}, worker_id="worker-a") is False
+        assert fail(a, job, "late failure", worker_id="worker-a") is False
+        a.commit()
+    with factory() as check:
+        row = check.get(Job, job.id)
+        assert (row.status, row.locked_by, row.error, row.progress) == ("running", "worker-b", None, {})
+        assert row.heartbeat_at == now and row.attempts == 2
+        # a job that is not running cannot be completed or failed by anyone
+        assert complete(check, row, worker_id="worker-b") is True
+        assert fail(check, row, "after done", worker_id="worker-b") is False
+        check.commit()
+        assert check.get(Job, job.id).status == "done"
 
 
 def test_stale_running_jobs_are_requeued_until_attempts_run_out(factory, user_ids):
