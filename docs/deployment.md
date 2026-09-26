@@ -1,6 +1,6 @@
 # Deployment
 
-The web app runs as four Docker Compose services defined in `deploy/docker-compose.yml`.
+The web app runs as five Docker Compose services defined in `deploy/docker-compose.yml`.
 All commands below are run from the repository root.
 
 ## 1. What runs where
@@ -75,6 +75,10 @@ present in `deploy/worker.env`; leave a key empty to keep its provider out. The 
 must name providers whose keys are set. The Jev screening tier is used only when `TYPESAFE_API_KEY` is set.
 
 ## 6. What was not verified on the development machine
+
+The Compose file builds two images: `deploy/Dockerfile` (used by `migrate`, `api` and `worker`) and
+`deploy/Dockerfile.web` (the `web` service). GitHub Actions (`.github/workflows/ci.yml`, job `docker`) is the first
+place they are actually built, since the development machine has no Docker.
 
 Docker is not installed on the development machine. The Dockerfile and the compose file were never built or
 started there; `tests/test_web_deploy.py` checks them as data only (services, startup order, key isolation,

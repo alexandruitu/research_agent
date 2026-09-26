@@ -14,6 +14,7 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
 - UI: `research-ui`
 - Web (backend): `research-web dev --import-all --admin-email <email>` (server local, PostgreSQL embedded, parola în `RESEARCH_WEB_ADMIN_PASSWORD`); vezi `docs/web-app.md`
 - Web (producție): `research-web serve` (API) și `research-web worker` (singurul proces cu chei); vezi `docs/deployment.md`
+- Web (frontend): `cd web && npm run dev` (cu `research-web dev --import-all --with-worker --allow-demo` pornit) · teste în browser: `npm run e2e`
 - Eval: `research-eval --help` · `build-gold` · `screen` · `agreement` · `report` (vezi README, secțiunea Evaluare)
 
 ## Principii (nu le încălca)
@@ -25,6 +26,7 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
   e Raw Layer-ul pentru viitorul Research Wiki.
 - Etapele de măsurare rulează offline din cache (Raw Layer); report nu apelează niciodată API-uri.
 - Chei doar în `.env` (gitignored). Nu loga și nu comite chei.
+- UI: o etapă e verde doar dacă există o măsurătoare; date lipsă ≠ nu se aplică; starea nu se transmite doar prin culoare.
 
 ## Roadmap
 1. M1.5 — făcut: primul run live pe un topic din domeniu, 5 lucrări (`runs/live-01`).

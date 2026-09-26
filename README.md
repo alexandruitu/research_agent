@@ -236,3 +236,10 @@ sunt transmise numai procesului de cercetare și nu sunt salvate pe disc. Pentru
 reintrodu cheile sau configurează-le în `.env`. Rulările păstrează modelele inițiale;
 pentru a schimba modelul unei cercetări eșuate, pornește o cercetare nouă.
 Progresul măsoară etape, nu timpul rămas. V1 nu oferă anulare în mijlocul unui apel LLM.
+
+## Aplicația web
+
+Pentru departament există și o aplicație web (FastAPI + PostgreSQL + React în `web/`): tabelul de lucrări
+cu banda pipeline-ului și sertarul lucrării, pornirea rulărilor demo/live printr-un worker, pagina Evals
+(recall cu intervale, grila de praguri) și System map, cu roluri viewer/member/admin. Rulare locală și
+frontend: [`docs/web-app.md`](docs/web-app.md); producție cu Docker Compose: [`docs/deployment.md`](docs/deployment.md).

@@ -1,10 +1,10 @@
-# Web app (backend)
+# Web app
 
 ## What this is
 
-The backend of the department web app: a PostgreSQL database, importers that load finished research
-runs and eval runs, sign-in with roles, and a read-only JSON API under `/api/v1` for the paper table,
-the paper drawer, runs, evals and the System map. The React frontend comes in plan 3 (`docs/superpowers/plans/2026-09-26-web-app-*.md`).
+The department web app: a PostgreSQL database, importers that load finished research runs and eval runs,
+sign-in with roles, a job queue and worker that start runs, a JSON API under `/api/v1`, and a React
+frontend in `web/` (Papers, Runs, Evals, System map, Users) that talks only to that API.
 
 ## Requirements
 
@@ -115,6 +115,43 @@ behind a TLS reverse proxy; see `docs/deployment.md`.
 Checked on 2026-09-26: a demo run with 3 papers went queued → running → done with every stage `completed`,
 a repeated start with the same key returned 200 and the same job, the run shows 3 screened / 3 kept with
 3 rows in the table, and a start without the CSRF header was refused with 403.
+
+## Frontend
+
+The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19
+or newer (CI uses Node 22). It only calls `/api/v1` on its own origin, with the session cookie and the
+`X-CSRF-Token` header on every state-changing request; its types are generated from the API's OpenAPI schema.
+
+```bash
+cd web && npm install
+npm run dev        # http://127.0.0.1:5173, proxies /api to 127.0.0.1:8000
+npm test           # Vitest + Testing Library
+npm run gen:api    # regenerate src/api/schema.d.ts from the running code
+npm run e2e        # Playwright + axe: starts its own API, worker and synthetic data
+```
+
+For `npm run dev`, run the backend in another terminal:
+`research-web dev --import-all --with-worker --allow-demo --admin-email you@example.org` (password in
+`RESEARCH_WEB_ADMIN_PASSWORD`). `npm run gen:api` must be run after any API change and the result committed:
+CI regenerates the file and fails if it differs. `npm run e2e` needs `npx playwright install chromium` once.
+
+Screens and who sees them:
+
+- **Papers** (every role): run picker, counts, filter chips, the pipeline strip, the paper table and the paper
+  drawer. The drawer's Raw calls tab (exact prompt and response) is for members and admins only.
+- **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
+  run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
+- **Evals** (every role): summary cards, recall with intervals per strategy, the threshold grid (default
+  outlined, recommended starred, pairs that lose an SR-included paper in red and in words).
+- **System map** (every role): every stage with its status in words and a panel explaining it.
+- **Users** (admins only): invite, change role, deactivate.
+
+Three rules the UI keeps:
+
+1. A stage is green (teal) only when it is measured; `input`, `caveat` and `not measured` look different and
+   say so in words.
+2. Missing data is hatched and says "missing"; a dash means "does not apply". The two are never conflated.
+3. State is never conveyed by colour alone: every coloured chip, cell and box also carries text.
 
 ## Deployment
 
