@@ -1,4 +1,4 @@
-import type { DrawerOut, PaperRow, RunDetailOut, RunOut, StageOut, UserOut } from "../api/types";
+import type { DrawerOut, FieldOut, JobOut, PaperRow, RunDetailOut, RunOut, StageOut, UserOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -75,4 +75,15 @@ export const drawerOut = (over: Partial<DrawerOut> = {}): DrawerOut => ({
   ],
   rank: null,
   ...over,
+});
+
+export const JOB_ID = "66666666-6666-4666-8666-666666666666";
+
+export const jobOut = (over: Partial<JobOut> = {}): JobOut => ({
+  id: JOB_ID, kind: "research", status: "queued", progress: {}, error: null, run_id: RUN_ID, attempts: 0, created_at: "2026-09-26T10:00:00Z", ...over,
+});
+
+export const fieldOut = (): FieldOut => ({
+  id: FIELD_ID, name: "ML CT-FFR", topic: "deep learning CT-FFR",
+  criteria: [{ id: "77777777-7777-4777-8777-777777777777", key: "topic_match", question: "The paper's central subject is the topic.", version: 1, position: 0 }],
 });

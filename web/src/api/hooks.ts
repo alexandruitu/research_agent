@@ -25,7 +25,7 @@ export const keys = {
 export const newIdempotencyKey = () =>
   globalThis.crypto?.randomUUID?.() ?? `k-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-export const useFields = () => useQuery({ queryKey: keys.fields, queryFn: () => api.get<FieldOut[]>("/fields") });
+export const useFields = (enabled = true) => useQuery({ queryKey: keys.fields, enabled, queryFn: () => api.get<FieldOut[]>("/fields") });
 export const useRuns = () => useQuery({ queryKey: keys.runs, queryFn: () => api.get<RunOut[]>("/runs") });
 export const useRun = (id: string | null) =>
   useQuery({ queryKey: keys.run(id ?? ""), enabled: !!id, queryFn: () => api.get<RunDetailOut>(`/runs/${id}`) });

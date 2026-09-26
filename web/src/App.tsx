@@ -5,7 +5,8 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
-import { EvalsPage, RunsPage, SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
+import { EvalsPage, SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
+import { RunsPage } from "./pages/RunsPage";
 
 export function App() {
   return (
