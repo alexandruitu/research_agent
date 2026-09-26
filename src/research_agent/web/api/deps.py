@@ -32,7 +32,7 @@ def require_role(role):
             raise ApiError(403, "forbidden", "Your role does not allow this")
         if request.method not in SAFE_METHODS:
             sent = request.headers.get("x-csrf-token", "")
-            if not hmac.compare_digest(sent, user.csrf_token):
+            if not hmac.compare_digest(sent.encode(), user.csrf_token.encode()):
                 raise ApiError(403, "csrf", "Missing or invalid CSRF token")
         return user
 

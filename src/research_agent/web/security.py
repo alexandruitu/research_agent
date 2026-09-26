@@ -38,16 +38,23 @@ class RateLimiter:
         self.failures = defaultdict(deque)
 
     def _prune(self, key):
-        queue, cutoff = self.failures[key], self.clock() - self.window
+        queue = self.failures.get(key)
+        if queue is None:
+            return ()
+        cutoff = self.clock() - self.window
         while queue and queue[0] <= cutoff:
             queue.popleft()
+        if not queue:
+            del self.failures[key]  # one-off keys must not accumulate
+            return ()
         return queue
 
     def allowed(self, key):
         return len(self._prune(key)) < self.max_attempts
 
     def record_failure(self, key):
-        self._prune(key).append(self.clock())
+        self._prune(key)
+        self.failures[key].append(self.clock())
 
     def record_success(self, key):
         self.failures.pop(key, None)

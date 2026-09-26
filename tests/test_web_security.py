@@ -33,3 +33,15 @@ def test_rate_limiter_success_clears_failures():
     limiter.record_success("k")
     limiter.record_failure("k")
     assert limiter.allowed("k")
+
+
+def test_rate_limiter_forgets_expired_keys():
+    now = [0.0]
+    limiter = RateLimiter(max_attempts=3, window_seconds=60, clock=lambda: now[0])
+    for i in range(100):
+        limiter.record_failure(f"one-off-{i}")
+    now[0] += 61
+    assert limiter.allowed("one-off-0")
+    for i in range(100):
+        limiter.allowed(f"one-off-{i}")
+    assert limiter.failures == {}

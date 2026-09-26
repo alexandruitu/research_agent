@@ -62,6 +62,12 @@ def test_login_me_logout_flow(client, users):
     assert client.get("/api/v1/auth/me").status_code == 401  # the session was revoked server-side
 
 
+def test_a_non_ascii_csrf_header_is_refused_not_a_server_error(client, users):
+    client.post("/api/v1/auth/login", json={"email": "member@example.org", "password": PASSWORD})
+    r = client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": "tökén".encode()})
+    assert r.status_code == 403 and r.json()["code"] == "csrf"
+
+
 def test_wrong_password_is_generic_and_sets_no_cookie(client, users):
     r = client.post("/api/v1/auth/login", json={"email": "member@example.org", "password": "wrong"})
     assert r.status_code == 401 and r.json()["code"] == "invalid_credentials"
