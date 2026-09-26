@@ -31,7 +31,9 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
    cu versiunea modelului). Rămâne: calibrarea pragurilor cu `research-eval` pe un gold set real.
    MCP opțional: github.com/itsmostafa/system-one-connector
 3. Conectori OpenAlex (snowballing, afilieri) și arXiv (preprinturi MICCAI/cs.CV); Europe PMC există.
-4. Eval harness: implementat (`research-eval`); urmează un run real pe 1–2 SR-uri open-access și calibrarea pragurilor Jev.
+4. Eval harness: implementat (`research-eval`; recomandă doar perechi de praguri care nu pierd niciun pozitiv
+   păstrat de `llm_only`, pe setul principal și pe holdout; `--target-recall` e constrângere
+   opțională); urmează un run real pe 1–2 SR-uri open-access și calibrarea pragurilor Jev.
 5. Scoring pe checklist (CLAIM, TRIPOD+AI) cu citat per item, scor calculat în cod; red flags
    data leakage (split pe imagini vs pacienți, lipsă validare externă).
 6. Research Wiki (patterns, logs, skill-impact) + Research Skills cu gating pe gold set (WikiSkill,

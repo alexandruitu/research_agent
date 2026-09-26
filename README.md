@@ -147,7 +147,7 @@ modelelor se salvează în cache-ul SQLite al run-ului, iar `report` rulează of
 research-eval build-gold sr_specs/x.yaml -o gold/x.json
 research-eval screen gold/x.json --run-dir runs/eval-x --mode live
 research-eval agreement gold/x.json --run-dir runs/eval-x --limit 40
-research-eval report runs/eval-x --target-recall 0.98
+research-eval report runs/eval-x --holdout runs/eval-y
 ```
 
 - `build-gold`: rezolvă studiile SR în Europe PMC și îngheață setul gold (hash de conținut);
@@ -161,6 +161,11 @@ research-eval report runs/eval-x --target-recall 0.98
   directorul unui run, deja screenat, pe un ALT SR (același gold e refuzat). Dacă run-ul are
   răspunsuri Jev de la versiuni diferite ale modelului, `report` se oprește, iar
   `--allow-mixed-jev-versions` îl forțează.
+
+Regula de recomandare: se recomandă perechea de praguri cu cele mai multe apeluri de screening economisite
+dintre cele care nu pierd niciun pozitiv SR pe care `llm_only` îl păstrează (pe setul principal și, dacă e dat,
+pe holdout); o pereche care pierde un pozitiv pe holdout e respinsă explicit în raport. `--target-recall`
+este acum doar o constrângere suplimentară opțională (recall >= valoarea dată).
 
 Rulează comenzile din rădăcina repo-ului: `.env` se citește din directorul curent.
 CLI-ul principal `research-agent` are nivelul Jev în cascadă: `--jev` (doar live),
@@ -181,14 +186,15 @@ included:
 ```
 
 Ce se măsoară: recall de retrieval și de screening (cu interval Wilson 95%), lista pozitivelor
-ratate, sweep de praguri Jev (include/exclude) cu recomandare pentru un recall țintă, kappa între
+ratate, sweep de praguri Jev (include/exclude) cu recomandare de praguri, kappa între
 revieweri A și B (alături de acordul brut și prevalență). Erorile opresc comanda și se scriu în
 `errors.log` în directorul run-ului (tip și mesaj, fără chei).
 
 Limite:
 - Precizia nu e metrica principală: „inclus în SR” reflectă criterii aplicate pe full-text,
   nu pe abstract, deci negativele nu sunt negative certe.
-- Pragurile recomandate sunt netestate fără `--holdout` (se potrivesc pe același SR).
+- Pragurile recomandate sunt netestate fără `--holdout` (se potrivesc pe același SR); cu un singur SR
+  regula „fără pierderi față de llm_only” poate fi tot supra-potrivită.
 - Dacă reviewerii A și B sunt din aceeași familie de modele, kappa e umflat (corelația erorilor).
 
 ## Documentație consultată

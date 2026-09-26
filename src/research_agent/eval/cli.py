@@ -125,7 +125,9 @@ def build_parser():
 
     p = sub.add_parser("report", help="offline metrics from cached calls")
     p.add_argument("run_dir")
-    p.add_argument("--target-recall", type=float, default=0.98)
+    p.add_argument(
+        "--target-recall", type=float, default=None, help="optional extra constraint: recall >= this"
+    )
     p.add_argument("--holdout", help="run dir of a second, already-screened SR")
     p.add_argument("--allow-mixed-jev-versions", action="store_true")
     p.set_defaults(func=cmd_report)

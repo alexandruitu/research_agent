@@ -112,6 +112,16 @@ def evaluate(records, strategy, thresholds):
         for r, d, t in decided
         if r["label"] == "include" and d == "exclude"
     ]
+    # Positives this strategy excludes although llm_only would keep them: the regression the pipeline must avoid.
+    lost = (
+        []
+        if strategy == "llm_only"
+        else [
+            {"id": r["id"], "title": r["title"], "probabilities": r["probabilities"], "tier": t}
+            for r, d, t in decided
+            if r["label"] == "include" and d == "exclude" and r["llm"] != "exclude"
+        ]
+    )
     n = len(records)
     kept = [r for r, d, _t in decided if d != "exclude"]
     if strategy == "llm_only":
@@ -125,6 +135,7 @@ def evaluate(records, strategy, thresholds):
     return {
         "recall": rate(len(positives) - len(missed), len(positives)),
         "missed": missed,
+        "lost_vs_llm": lost,
         "auto_include": auto_include,
         "auto_exclude": auto_exclude,
         "escalated": escalated,
@@ -148,6 +159,8 @@ def sweep(records, includes=INCLUDE_GRID, excludes=EXCLUDE_GRID):
                 "exclude_min_confidence": exclude,
                 "recall": out["recall"],
                 "missed": len(out["missed"]),
+                "lost_vs_llm": len(out["lost_vs_llm"]),
+                "lost_ids": [m["id"] for m in out["lost_vs_llm"]],
                 "calls_saved": out["calls_saved"],
                 "auto_include": out["auto_include"],
                 "auto_exclude": out["auto_exclude"],
@@ -159,13 +172,27 @@ def sweep(records, includes=INCLUDE_GRID, excludes=EXCLUDE_GRID):
     return rows
 
 
-def recommend(rows, target):
-    """Most calls saved with point-estimate recall >= target; ties: fewer missed, then the stricter
-    include threshold (fewer papers forwarded on Jev's word alone), then the stricter exclude one.
-    None when no pair meets the target: never silently pick the 'least bad' pair."""
-    ok = [r for r in rows if r["recall"]["value"] is not None and r["recall"]["value"] >= target]
-    if not ok:
-        return None
-    return min(
-        ok, key=lambda r: (-r["calls_saved"], r["missed"], -r["min_confidence"], -r["exclude_min_confidence"])
-    )
+def recommend(rows, target=None, other_rows=None):
+    """Admissible = loses no SR-included paper that llm_only keeps (`lost_vs_llm == 0`) on `rows` and, when
+    given, on `other_rows` (the same threshold pair; a pair missing there is not admissible), and, only
+    when `target` is set, point-estimate recall >= target on `rows`. Rank: most calls saved (summed over
+    both row sets), then fewer missed, then the stricter include, then the stricter exclude threshold.
+    None when nothing is admissible: never silently pick the 'least bad' pair."""
+    other = None
+    if other_rows is not None:
+        other = {(r["min_confidence"], r["exclude_min_confidence"]): r for r in other_rows}
+    candidates = []
+    for r in rows:
+        if r["lost_vs_llm"] != 0:
+            continue
+        if target is not None and (r["recall"]["value"] is None or r["recall"]["value"] < target):
+            continue
+        partner = None
+        if other is not None:
+            partner = other.get((r["min_confidence"], r["exclude_min_confidence"]))
+            if partner is None or partner["lost_vs_llm"] != 0:
+                continue
+        saved = r["calls_saved"] + (partner["calls_saved"] if partner else 0)
+        missed = r["missed"] + (partner["missed"] if partner else 0)
+        candidates.append(((-saved, missed, -r["min_confidence"], -r["exclude_min_confidence"]), r))
+    return min(candidates, key=lambda c: c[0])[1] if candidates else None

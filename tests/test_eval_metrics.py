@@ -157,27 +157,83 @@ def test_sweep_respects_constraint_and_recall_is_monotone_in_exclude_threshold()
         assert recalls == sorted(recalls)  # rows are ordered by ascending exclude threshold
 
 
-def test_recommend_picks_most_calls_saved_meeting_target():
+def test_evaluate_lists_positives_lost_versus_llm_only():
+    cascade = evaluate(RECORDS, "cascade", JevThresholds())
+    assert [m["id"] for m in cascade["lost_vs_llm"]] == ["MED:3"]  # excluded by Jev, kept by the LLM
+    assert set(cascade["lost_vs_llm"][0]) == {"id", "title", "probabilities", "tier"}
+    assert cascade["lost_vs_llm"][0]["tier"] == "jev"
+    assert [m["id"] for m in evaluate(RECORDS, "jev_only", JevThresholds())["lost_vs_llm"]] == ["MED:3"]
+    assert evaluate(RECORDS, "llm_only", JevThresholds())["lost_vs_llm"] == []
+
+
+def test_a_positive_the_llm_also_excludes_is_not_lost():
+    records = [rec(1, "include", 0.5, llm="exclude"), rec(2, "include", 0.02, llm="exclude")]
+    out = evaluate(records, "cascade", JevThresholds())
+    assert len(out["missed"]) == 2 and out["lost_vs_llm"] == []  # llm_only misses both as well
+
+
+def test_sweep_rows_carry_lost_counts_and_ids():
     rows = sweep(RECORDS)
-    best = recommend(rows, target=0.98)
-    assert best["recall"]["value"] == 1.0
-    assert best["exclude_min_confidence"] >= 0.95  # p=0.03 needs the stricter exclude bar
-    assert all(r["calls_saved"] <= best["calls_saved"] for r in rows if r["recall"]["value"] >= 0.98)
+    by_pair = {(r["min_confidence"], r["exclude_min_confidence"]): r for r in rows}
+    assert by_pair[(0.6, 0.9)]["lost_vs_llm"] == 1 and by_pair[(0.6, 0.9)]["lost_ids"] == ["MED:3"]
+    assert by_pair[(0.6, 0.95)]["lost_vs_llm"] == 0 and by_pair[(0.6, 0.95)]["lost_ids"] == []
+    assert all(r["lost_vs_llm"] == len(r["lost_ids"]) for r in rows)
 
 
-def test_recommend_says_none_when_no_pair_meets_target():
-    rows = sweep([rec(1, "include", 0.5, llm="exclude")])
-    assert recommend(rows, target=0.98) is None
+def test_recommend_picks_the_most_calls_saved_among_pairs_that_lose_nothing():
+    rows = sweep(RECORDS)
+    best = recommend(rows)
+    assert (
+        best["lost_vs_llm"] == 0 and best["exclude_min_confidence"] >= 0.95
+    )  # p=0.03 needs the stricter bar
+    assert all(r["calls_saved"] <= best["calls_saved"] for r in rows if r["lost_vs_llm"] == 0)
 
 
-def row(recall, missed, calls_saved, include, exclude):
+def test_recommend_says_none_when_every_pair_loses_something():
+    # p=0.5 everywhere except the positive, which Jev excludes at every bar and the LLM keeps.
+    rows = sweep([rec(1, "include", 0.0), rec(2, "not_included", 0.5)], excludes=[0.5])
+    assert all(r["lost_vs_llm"] == 1 for r in rows)
+    assert recommend(rows) is None
+
+
+def row(recall, missed, calls_saved, include, exclude, lost=0):
     return {
         "recall": {"value": recall},
         "missed": missed,
         "calls_saved": calls_saved,
         "min_confidence": include,
         "exclude_min_confidence": exclude,
+        "lost_vs_llm": lost,
     }
+
+
+def test_recommend_never_picks_a_row_that_loses_something_even_if_it_saves_most():
+    greedy, safe = row(1.0, 0, 9, 0.1, 0.5, lost=1), row(1.0, 0, 1, 0.6, 0.9)
+    assert recommend([greedy, safe]) is safe
+    assert recommend([greedy]) is None
+
+
+def test_other_rows_veto_a_pair_that_loses_something_there():
+    main = [row(1.0, 0, 9, 0.1, 0.5), row(1.0, 0, 3, 0.6, 0.95)]
+    other = [row(1.0, 0, 9, 0.1, 0.5, lost=1), row(1.0, 0, 2, 0.6, 0.95)]
+    assert recommend(main) is main[0]
+    assert recommend(main, other_rows=other) is main[1]
+    assert recommend(main, other_rows=[row(1.0, 0, 2, 0.6, 0.95, lost=1), other[0]]) is None
+    assert recommend(main, other_rows=[]) is None  # a pair absent from the holdout is not admissible
+
+
+def test_other_rows_add_their_calls_saved_to_the_ranking():
+    main = [row(1.0, 0, 5, 0.6, 0.9), row(1.0, 0, 4, 0.6, 0.95)]
+    other = [row(1.0, 0, 1, 0.6, 0.9), row(1.0, 0, 3, 0.6, 0.95)]
+    assert recommend(main, other_rows=other) is main[1]  # 4 + 3 beats 5 + 1
+
+
+def test_target_is_an_extra_constraint_when_given():
+    low, high = row(0.8, 0, 9, 0.6, 0.9), row(1.0, 0, 1, 0.6, 0.95)
+    assert recommend([low, high]) is low
+    assert recommend([low, high], target=0.9) is high
+    assert recommend([low, high], target=1.01) is None
+    assert recommend([low], target=0.8) is low  # equal to the target is accepted
 
 
 def test_recommend_tie_breaks():
@@ -191,7 +247,7 @@ def test_recommend_tie_breaks():
     loose, tight = row(1.0, 0, 5, 0.2, 0.99), row(1.0, 0, 5, 0.6, 0.9)
     assert recommend([loose, tight], target=0.9) is tight
     assert recommend([tight, loose], target=0.9) is tight
-    # (c) a row with undefined recall is never chosen, even if it saves the most calls
+    # (c) with a target, a row with undefined recall is never chosen, even if it saves the most calls
     undefined, ok = row(None, 0, 9, 0.6, 0.99), row(1.0, 0, 1, 0.6, 0.9)
     assert recommend([undefined, ok], target=0.9) is ok
     assert recommend([undefined], target=0.9) is None

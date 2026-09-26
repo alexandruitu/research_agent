@@ -63,11 +63,14 @@ def test_strategies_at_default_thresholds(run_dir):
 
 
 def test_recommended_pair_needs_the_stricter_exclude_bar(run_dir):
-    report = build_report(run_dir, target_recall=0.98)
+    report = build_report(run_dir)
+    assert report["target_recall"] is None and report["rejected_on_holdout"] is None
+    assert not any("reaches recall" in w for w in report["warnings"])
     best = report["recommended"]
     assert best["recall"]["value"] == 1.0 and best["exclude_min_confidence"] >= 0.95
-    # ties on calls_saved prefer the stricter include threshold (was 0.1 with the old tie-break)
-    assert best["min_confidence"] == 0.8 and best["calls_saved"] == 5
+    # llm_only keeps all four positives and MED:3 has Jev p=0.03 (conf 0.94): only exclude >= 0.95 is safe.
+    assert best["lost_vs_llm"] == 0 and best["min_confidence"] == 0.8 and best["calls_saved"] == 5
+    assert all(r["lost_vs_llm"] > 0 for r in report["sweep"] if r["exclude_min_confidence"] < 0.95)
     assert any("untested on held-out data" in w for w in report["warnings"])
 
 
@@ -143,10 +146,12 @@ def test_holdout_applies_the_recommended_pair_to_a_second_run(tmp_path):
     report = build_report(main, holdout_dir=holdout_run(tmp_path / "b"))
     h = report["holdout"]
     assert h["gold"] == "other" and h["n"] == 12
-    assert h["thresholds"] == {"min_confidence": 0.8, "exclude_min_confidence": 0.95}
-    assert (h["recall"]["k"], h["recall"]["n"]) == (2, 4)
-    assert [m["id"] for m in h["missed"]] == ["MED:2", "MED:3"]
-    assert h["calls_saved"] == 5  # auto-include MED:1,7,9 (MED:4 escalates at 0.8); auto-exclude MED:2,5
+    # (0.8, 0.95) would auto-exclude MED:2 (Jev p=0.02), which llm_only keeps: the pair is vetoed.
+    assert h["thresholds"] == {"min_confidence": 0.2, "exclude_min_confidence": 0.99}
+    assert (h["recall"]["k"], h["recall"]["n"]) == (3, 4)
+    assert [m["id"] for m in h["missed"]] == ["MED:3"]  # excluded by the LLM as well: not a regression
+    assert h["lost_vs_llm"] == []
+    assert h["calls_saved"] == 4
     assert h["jev_model_versions"] == ["jev-1.13.0"]
     assert not any("untested on held-out data" in w for w in report["warnings"])
     assert not any("Holdout Jev model versions" in w for w in report["warnings"])
@@ -267,9 +272,16 @@ def test_run_without_any_abstract_renders_with_empty_sections(tmp_path):
     assert "## Reviewer agreement" not in text
 
 
-def test_recall_exactly_equal_to_the_target_is_accepted(tmp_path):
-    best = build_report(screened_run(tmp_path), target_recall=0.75)["recommended"]
-    assert best["recall"]["value"] == 0.75 and best["calls_saved"] == 7
+def test_target_recall_is_an_extra_constraint(tmp_path):
+    # MED:1 is undecided for Jev and excluded by the LLM, so every safe pair has recall 3/4, like llm_only.
+    run = screened_run(tmp_path, jev_p={**JEV_P, 1: 0.5}, llm_exclude={"MED:1", "MED:7", "MED:8"})
+    assert build_report(run)["recommended"]["recall"]["value"] == 0.75
+    best = build_report(run, target_recall=0.75)["recommended"]  # equal to the target is accepted
+    assert best["recall"]["value"] == 0.75 and best["lost_vs_llm"] == 0
+    report = build_report(run, target_recall=0.8)
+    assert report["recommended"] is None
+    assert any("No threshold pair reaches recall >= 0.8" in w for w in report["warnings"])
+    assert "recall >= 0.8" in render_markdown(report)
 
 
 def with_models(run_dir, models):
@@ -423,3 +435,71 @@ def test_run_metadata_is_recorded_in_json_and_markdown(run_dir):
     text = render_markdown(build_report(run_dir))
     assert "models: review_a=b:y, screen=a:x" in text
     assert render_markdown(build_report(run_dir)) == text  # deterministic
+
+
+def test_holdout_that_agrees_with_the_main_pick_reports_no_rejection(tmp_path):
+    main = build_report(screened_run(tmp_path / "a"))
+    report = build_report(
+        screened_run(tmp_path / "a"), holdout_dir=screened_run(tmp_path / "b", name="other")
+    )
+    assert report["recommended"] == main["recommended"]
+    assert report["rejected_on_holdout"] is None
+    assert not any("Rejected" in w for w in report["warnings"])
+    assert report["holdout"]["lost_vs_llm"] == []
+
+
+def test_holdout_rejects_the_main_only_pick_that_loses_a_positive_there(tmp_path):
+    report = build_report(screened_run(tmp_path / "a"), holdout_dir=holdout_run(tmp_path / "b"))
+    rejected = report["rejected_on_holdout"]
+    assert rejected["thresholds"] == {"min_confidence": 0.8, "exclude_min_confidence": 0.95}
+    assert [(m["id"], m["title"]) for m in rejected["lost"]] == [("MED:2", "Paper 2 title")]
+    assert rejected["lost"][0]["probabilities"] == {"topic_match": 0.02}
+    warning = (
+        "The main-set-only pick include>=0.8/exclude>=0.95 loses 1 SR-included paper on the holdout "
+        "that llm_only keeps: MED:2 'Paper 2 title'. Rejected."
+    )
+    assert warning in report["warnings"]
+    best = report["recommended"]
+    assert (best["min_confidence"], best["exclude_min_confidence"]) != (0.8, 0.95)
+    assert best["lost_vs_llm"] == 0 and report["holdout"]["lost_vs_llm"] == []
+    text = render_markdown(report)
+    assert "Rejected main-set-only pick include >= 0.8, exclude >= 0.95" in text
+    assert "- MED:2 · Paper 2 title · Jev topic_match=0.02 · decided by jev" in text
+    assert "**Recommended (loses no SR-included paper that llm_only keeps):** include >= 0.2" in text
+
+
+def test_no_admissible_pair_is_reported_with_a_warning(tmp_path):
+    run = screened_run(tmp_path, jev_p={**JEV_P, 3: 0.0})  # MED:3 is excluded by Jev at every bar
+    report = build_report(run)
+    assert report["recommended"] is None
+    expected = "No threshold pair is admissible: every pair loses at least one SR-included paper that llm_only keeps."
+    assert expected in report["warnings"]
+    assert (
+        "**Recommended (loses no SR-included paper that llm_only keeps):** none: no pair is admissible."
+        in (render_markdown(report))
+    )
+
+
+def test_no_admissible_pair_on_the_holdout_names_both_sets_and_the_rejected_pick(tmp_path):
+    main = screened_run(tmp_path / "a")
+    other = screened_run(tmp_path / "b", name="other", jev_p={**JEV_P, 2: 0.0})
+    report = build_report(main, holdout_dir=other, target_recall=0.5)
+    assert report["recommended"] is None and report["holdout"] is None
+    assert (
+        "No threshold pair is admissible: every pair loses at least one SR-included paper that llm_only "
+        "keeps on the main or the holdout set. No threshold pair reaches recall >= 0.5 either."
+    ) in report["warnings"]
+    assert [m["id"] for m in report["rejected_on_holdout"]["lost"]] == ["MED:2"]
+    assert not any("untested on held-out data" in w for w in report["warnings"])
+
+
+def test_markdown_has_the_lost_column_and_is_deterministic(tmp_path):
+    report = build_report(screened_run(tmp_path / "a"), holdout_dir=holdout_run(tmp_path / "b"))
+    text = render_markdown(report)
+    assert "| missed | lost vs llm_only | calls saved |" in text
+    assert render_markdown(report) == text
+    cells = [
+        [c.strip() for c in ln.strip("|").split("|")] for ln in text.splitlines() if ln.startswith("| 0.")
+    ]
+    lost = {(c[0], c[1]): c[4] for c in cells if len(c) == 9}  # sweep rows: include, exclude, ..., lost, ...
+    assert lost[("0.6", "0.9")] == "1" and lost[("0.8", "0.95")] == "0"  # MED:3 is lost at the default pair

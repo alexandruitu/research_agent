@@ -97,7 +97,15 @@ def _agreement(run_dir, manifest, gold):
     }
 
 
-def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=False):
+def _thresholds(row):
+    return {"min_confidence": row["min_confidence"], "exclude_min_confidence": row["exclude_min_confidence"]}
+
+
+def _lost_text(lost):
+    return "; ".join(f"{m['id']} '{m['title']}'" for m in lost)
+
+
+def build_report(run_dir, target_recall=None, holdout_dir=None, allow_mixed=False):
     run_dir = Path(run_dir)
     manifest, gold, records, versions = _load_run(run_dir, allow_mixed)
     if holdout_dir:
@@ -110,24 +118,13 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
     default = JevThresholds()
     strategies = {name: evaluate(records, name, default) for name in STRATEGIES}
     rows = sweep(records)
-    best = recommend(rows, target_recall)
     positives = [c for c in gold.candidates if c.label == "include"]
     total = len(positives) + len(gold.unresolved) + len(gold.ambiguous)
     warnings = []
     if len(versions) > 1:
         warnings.append(f"Mixed Jev model versions in this run: {versions}.")
-    if not any(r["label"] == "include" for r in records):
-        warnings.append("No SR-included paper with an abstract was screened; recall is undefined.")
-    elif best is None:
-        warnings.append(f"No threshold pair reaches recall >= {target_recall}.")
-    if best and best["kept_negatives"] > strategies["llm_only"]["kept_negatives"]:
-        warnings.append(
-            f"The recommended pair forwards more non-included papers than llm_only "
-            f"({best['kept_negatives']} vs {strategies['llm_only']['kept_negatives']}); "
-            "consider a stricter include threshold."
-        )
-    holdout = None
-    if holdout_dir and best:
+    other_records = holdout_rows = None
+    if holdout_dir:
         try:
             _m, other, other_records, other_versions = _load_run(holdout_dir, allow_mixed)
         except (ReportError, ValueError) as exc:
@@ -137,23 +134,55 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
                 f"Holdout Jev model versions {other_versions} differ from the main run's {versions} "
                 "(or are mixed); the recommended pair may not transfer."
             )
-        thresholds = JevThresholds(best["min_confidence"], best["exclude_min_confidence"])
-        out = evaluate(other_records, "cascade", thresholds)
+        holdout_rows = sweep(other_records)
+    # With no screened SR-included paper, "loses nothing" would hold vacuously: recommend nothing.
+    has_positives = any(r["label"] == "include" for r in records)
+    best = recommend(rows, target_recall, holdout_rows) if has_positives else None
+    best_main_only = recommend(rows, target_recall) if has_positives else None
+    if not has_positives:
+        warnings.append("No SR-included paper with an abstract was screened; recall is undefined.")
+    elif best is None:
+        where = " on the main or the holdout set" if holdout_dir else ""
+        message = (
+            "No threshold pair is admissible: every pair loses at least one SR-included paper "
+            f"that llm_only keeps{where}."
+        )
+        if target_recall is not None:
+            message += f" No threshold pair reaches recall >= {target_recall} either."
+        warnings.append(message)
+    if best and best["kept_negatives"] > strategies["llm_only"]["kept_negatives"]:
+        warnings.append(
+            f"The recommended pair forwards more non-included papers than llm_only "
+            f"({best['kept_negatives']} vs {strategies['llm_only']['kept_negatives']}); "
+            "consider a stricter include threshold."
+        )
+    rejected = None
+    if holdout_dir and best_main_only and (best is None or _thresholds(best) != _thresholds(best_main_only)):
+        thresholds = _thresholds(best_main_only)
+        lost = evaluate(other_records, "cascade", JevThresholds(**thresholds))["lost_vs_llm"]
+        if lost:  # otherwise the pair is merely outranked, not rejected
+            rejected = {"thresholds": thresholds, "lost": lost}
+            noun = "paper" if len(lost) == 1 else "papers"
+            warnings.append(
+                f"The main-set-only pick include>={thresholds['min_confidence']}/"
+                f"exclude>={thresholds['exclude_min_confidence']} loses {len(lost)} SR-included {noun} "
+                f"on the holdout that llm_only keeps: {_lost_text(lost)}. Rejected."
+            )
+    holdout = None
+    if holdout_dir and best:
+        thresholds = _thresholds(best)
+        out = evaluate(other_records, "cascade", JevThresholds(**thresholds))
         holdout = {
             "gold": other.name,
             "n": len(other_records),
             "jev_model_versions": other_versions,
-            "thresholds": {
-                "min_confidence": best["min_confidence"],
-                "exclude_min_confidence": best["exclude_min_confidence"],
-            },
+            "thresholds": thresholds,
             "recall": out["recall"],
             "missed": out["missed"],
+            "lost_vs_llm": out["lost_vs_llm"],
             "calls_saved": out["calls_saved"],
         }
-    else:
-        if holdout_dir:
-            warnings.append("--holdout ignored: there is no recommended pair to apply.")
+    elif not holdout_dir:
         warnings.append("Recommended thresholds are untested on held-out data (no usable --holdout run).")
     return {
         "gold": {
@@ -188,6 +217,7 @@ def build_report(run_dir, target_recall=0.98, holdout_dir=None, allow_mixed=Fals
         "sweep": rows,
         "target_recall": target_recall,
         "recommended": best,
+        "rejected_on_holdout": rejected,
         "holdout": holdout,
         "screen_vs_gold": cohen_kappa(
             ["excluded" if r["llm"] == "exclude" else "kept" for r in records],
@@ -227,6 +257,10 @@ def _run_line(run):
 
 def _probabilities(probabilities):
     return ", ".join(f"{question}={p:.2f}" for question, p in probabilities.items())
+
+
+def _lost_line(m):
+    return f"{m['id']} · {m['title']} · Jev {_probabilities(m['probabilities'])} · decided by {m['tier']}"
 
 
 def render_markdown(report):
@@ -292,8 +326,8 @@ def render_markdown(report):
         "",
         "## Threshold sweep",
         "",
-        "| include >= | exclude >= | recall | missed | calls saved | kept | kept non-included | note |",
-        "|---|---|---|---|---|---|---|---|",
+        "| include >= | exclude >= | recall | missed | lost vs llm_only | calls saved | kept | kept non-included | note |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     best = report["recommended"]
     default = report["default_thresholds"]
@@ -305,8 +339,8 @@ def render_markdown(report):
         if pair == (default["min_confidence"], default["exclude_min_confidence"]):
             marks.append("<-- default")
         out.append(
-            f"| {pair[0]} | {pair[1]} | {fmt_rate(r['recall'])} | {r['missed']} | {r['calls_saved']} "
-            f"| {r['kept']} | {r['kept_negatives']} | {' '.join(marks)} |"
+            f"| {pair[0]} | {pair[1]} | {fmt_rate(r['recall'])} | {r['missed']} | {r['lost_vs_llm']} "
+            f"| {r['calls_saved']} | {r['kept']} | {r['kept_negatives']} | {' '.join(marks)} |"
         )
     out += [
         "",
@@ -315,7 +349,9 @@ def render_markdown(report):
             "reviewers, so a loose include threshold can forward more negatives than llm_only."
         ),
     ]
-    out += ["", f"**Recommended (recall >= {report['target_recall']}):** "]
+    target = report["target_recall"]
+    extra = "" if target is None else f", recall >= {target}"
+    out += ["", f"**Recommended (loses no SR-included paper that llm_only keeps{extra}):** "]
     if best:
         out[-1] += (
             f"include >= {best['min_confidence']}, exclude >= {best['exclude_min_confidence']} "
@@ -323,15 +359,27 @@ def render_markdown(report):
             f"{best['kept']} kept of which {best['kept_negatives']} not SR-included)."
         )
     else:
-        out[-1] += "none: no pair reaches the target."
+        out[-1] += "none: no pair is admissible."
+    if report["holdout"] or report["rejected_on_holdout"]:
+        out += ["", "## Holdout", ""]
     if report["holdout"]:
         h = report["holdout"]
+        out.append(
+            f"`{h['gold']}` (n={h['n']}): recall {fmt_rate(h['recall'])}, {h['calls_saved']} calls saved."
+        )
+        out += ["", "Lost positives (SR-included, kept by llm_only, excluded by the recommended pair):"]
+        out += [f"- {_lost_line(m)}" for m in h["lost_vs_llm"]] or ["- none"]
+    if report["rejected_on_holdout"]:
+        rj = report["rejected_on_holdout"]
+        t = rj["thresholds"]
         out += [
             "",
-            "## Holdout",
-            "",
-            f"`{h['gold']}` (n={h['n']}): recall {fmt_rate(h['recall'])}, {h['calls_saved']} calls saved.",
+            (
+                f"Rejected main-set-only pick include >= {t['min_confidence']}, "
+                f"exclude >= {t['exclude_min_confidence']}; on the holdout it loses:"
+            ),
         ]
+        out += [f"- {_lost_line(m)}" for m in rj["lost"]]
     sg = report["screen_vs_gold"]
     out += ["", "## LLM screen vs SR label", ""]
     if sg is None:

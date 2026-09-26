@@ -39,6 +39,11 @@ def test_cli_end_to_end_in_demo_mode(tmp_path, monkeypatch, capsys):
     assert "## Screening recall" in (run / "metrics.md").read_text()
     assert "Gold:" in capsys.readouterr().out
 
+    # Without --target-recall the rule is only "lose nothing llm_only keeps"; the target is optional.
+    assert cli.main(["report", str(run)], dotenv=False) == 0
+    assert json.loads((run / "metrics.json").read_text())["target_recall"] is None
+    assert cli.build_parser().parse_args(["report", "r"]).target_recall is None
+
 
 def test_cli_failure_writes_errors_log_and_returns_1(tmp_path, capsys):
     run = tmp_path / "nope"
