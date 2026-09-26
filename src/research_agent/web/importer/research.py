@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from ..callstore import CallIndex
+from ..callstore import CallIndex, CallStoreError
 from ..db.models import CriterionScore, EvidenceClaim, Ranking, Review, Run, Screening
 from .common import (
     ImportFailed,
@@ -74,7 +74,10 @@ def _import(db, folder, digest, run, state, manifest, created_by):
     run.manifest, run.source_sha256, run.status, run.error = manifest, digest, "done", None
     run.finished_at = _finished_at(folder)
     db.flush()
-    calls = CallIndex(folder)
+    try:
+        calls = CallIndex(folder)
+    except CallStoreError as exc:
+        raise ImportFailed(f"{folder}: {exc}") from exc
     if calls.empty:
         warnings.append("no raw calls found (research.sqlite missing or empty); the drawer cannot show them")
 

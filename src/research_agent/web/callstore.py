@@ -38,18 +38,22 @@ class CallIndex:
             connection = connect_readonly(folder)
         except CallStoreError:
             return
-        with connection:
-            for key, role, raw in connection.execute("select key, role, input from calls order by rowid"):
-                self.empty = False
-                data = json.loads(raw)
-                if role == "jev_screen":
-                    state = data.get("state", {})
-                    self.jev_by_text[(state.get("title"), state.get("abstract"))] = key
-                else:
-                    paper = (data.get("payload") or {}).get("paper") or {}
-                    if "id" in paper:
-                        self.by_paper[(role, paper["id"])] = key
-        connection.close()
+        try:
+            with connection:
+                for key, role, raw in connection.execute("select key, role, input from calls order by rowid"):
+                    self.empty = False
+                    data = json.loads(raw)
+                    if role == "jev_screen":
+                        state = data.get("state", {})
+                        self.jev_by_text[(state.get("title"), state.get("abstract"))] = key
+                    else:
+                        paper = (data.get("payload") or {}).get("paper") or {}
+                        if "id" in paper:
+                            self.by_paper[(role, paper["id"])] = key
+        except (sqlite3.Error, ValueError, AttributeError) as exc:
+            raise CallStoreError(f"unreadable research.sqlite ({type(exc).__name__})") from exc
+        finally:
+            connection.close()
 
     def key(self, role, paper_id):
         return self.by_paper.get((role, paper_id))

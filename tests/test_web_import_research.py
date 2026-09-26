@@ -94,3 +94,12 @@ def test_papers_missing_expected_downstream_data_produce_warnings(db, tmp_path):
     path.write_text(json.dumps(data))
     result = import_research_run(db, folder)
     assert any("demo:3" in w and "evidence" in w for w in result.warnings)
+
+
+def test_a_corrupt_call_store_is_an_import_error_and_writes_nothing(db, tmp_path):
+    folder = make_demo_run(tmp_path / "run")
+    (folder / "research.sqlite").write_bytes(b"not a sqlite database" * 100)
+    with pytest.raises(ImportFailed, match="unreadable research.sqlite"):
+        import_research_run(db, folder)
+    db.rollback()
+    assert count(db, Run) == 0

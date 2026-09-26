@@ -108,7 +108,10 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
     run.finished_at = datetime.now(UTC)
     db.flush()
 
-    calls = CallIndex(folder)
+    try:
+        calls = CallIndex(folder)
+    except CallStoreError as exc:
+        raise ImportFailed(f"{folder}: {exc}") from exc
     if calls.empty:
         warnings.append("no raw calls found (research.sqlite missing or empty); the drawer cannot show them")
     papers = {c.id: upsert_paper(db, c.id, c.doi, c.title, c.abstract, c.year) for c in gold.candidates}
