@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Model(BaseModel):
@@ -250,3 +250,30 @@ class CallOut(Model):
     prompt_version: str
     input: dict[str, Any]
     output: dict[str, Any]
+
+
+class RunRequest(Model):
+    field_id: uuid.UUID
+    max_papers: int = Field(default=12, ge=1)
+    mode: Literal["live", "demo"] = "live"
+
+
+class JobOut(Model):
+    id: uuid.UUID
+    kind: str
+    status: str
+    progress: dict[str, Any]
+    error: str | None
+    run_id: uuid.UUID | None
+    attempts: int
+    created_at: datetime
+
+
+class StartRunOut(Model):
+    job: JobOut
+    run_id: uuid.UUID
+
+
+class ImportRequest(Model):
+    kind: Literal["research", "eval"]
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$", max_length=200)

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from research_agent.web.api.app import API_PREFIX, create_app
 from research_agent.web.api.deps import get_db
 
-PUBLIC = {("POST", f"{API_PREFIX}/auth/login")}
+PUBLIC = {("POST", f"{API_PREFIX}/auth/login"), ("GET", f"{API_PREFIX}/health")}
 ROLES = ["viewer", "member", "admin"]
 RANK = {"viewer": 0, "member": 1, "admin": 2}
 
@@ -63,6 +63,10 @@ def matrix(imported, paper_id):
         ("GET", "/stages", "viewer"),
         ("GET", "/evals", "viewer"),
         ("POST", "/users", "admin"),
+        ("POST", "/runs", "member"),
+        ("POST", f"/runs/{run}/resume", "member"),
+        ("GET", f"/jobs/{'00000000-0000-0000-0000-000000000000'}", "member"),
+        ("POST", "/imports", "admin"),
     ]
 
 
