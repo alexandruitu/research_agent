@@ -8,3 +8,4 @@ runs/
 evals/
 gold/
 .DS_Store
+.superpowers/
