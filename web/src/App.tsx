@@ -6,9 +6,9 @@ import { Layout } from "./components/Layout";
 import { EvalsPage } from "./pages/EvalsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
-import { UsersPage } from "./pages/PlaceholderPages";
 import { RunsPage } from "./pages/RunsPage";
 import { SystemMapPage } from "./pages/SystemMapPage";
+import { UsersPage } from "./pages/UsersPage";
 
 export function App() {
   return (

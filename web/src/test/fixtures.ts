@@ -124,3 +124,9 @@ export const evalSummary = (over: Partial<EvalSummaryOut> = {}): EvalSummaryOut 
 export const evalDetail = (metrics: Record<string, unknown> = evalMetrics()): EvalDetailOut => ({
   id: EVAL_ID, gold_set: evalSummary().gold_set, run_id: RUN_ID, created_at: "2026-09-26T09:00:00Z", metrics, agreement: (metrics.agreement as Record<string, unknown>) ?? null,
 });
+
+export const userRows = (): UserOut[] => [
+  { id: "10000000-0000-4000-8000-000000000001", email: "admin@example.org", name: "Ada Admin", role: "admin", active: true },
+  { id: "10000000-0000-4000-8000-000000000002", email: "member@example.org", name: "Mia Member", role: "member", active: true },
+  { id: "10000000-0000-4000-8000-000000000003", email: "old@example.org", name: "Olga Old", role: "viewer", active: false },
+];
