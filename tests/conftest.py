@@ -118,3 +118,20 @@ def imported(db, tmp_path):
     evaluated = import_eval_run(db, eval_dir)
     db.commit()
     return {"research": research.run_id, "eval": evaluated.run_id, "report": report}
+
+
+@pytest.fixture
+def fresh_db_url(pg_url, pg_engine):
+    """A brand-new migrated database on the shared server, dropped after the test."""
+    import uuid
+
+    from research_agent.web.db.migrate import upgrade
+
+    name = f"t_{uuid.uuid4().hex[:10]}"
+    with pg_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+        connection.execute(sa.text(f'create database "{name}"'))
+    url = sa.engine.make_url(pg_url).set(database=name).render_as_string(hide_password=False)
+    upgrade(url)
+    yield url
+    with pg_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+        connection.execute(sa.text(f'drop database "{name}" with (force)'))
