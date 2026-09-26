@@ -129,7 +129,7 @@ def build_report(run_dir, target_recall=None, holdout_dir=None, allow_mixed=Fals
     warnings = []
     if len(versions) > 1:
         warnings.append(f"Mixed Jev model versions in this run: {versions}.")
-    other_records = holdout_rows = None
+    other_records = holdout_rows = holdout_sweep = None
     if holdout_dir:
         try:
             _m, other, other_records, other_versions = _load_run(holdout_dir, allow_mixed)
@@ -141,6 +141,7 @@ def build_report(run_dir, target_recall=None, holdout_dir=None, allow_mixed=Fals
                 "(or are mixed); the recommended pair may not transfer."
             )
         holdout_rows = sweep(other_records)
+        holdout_sweep = {"gold": other.name, "n": len(other_records), "rows": holdout_rows}
     # With no screened SR-included paper, "loses nothing" would hold vacuously: recommend nothing.
     has_positives = any(r["label"] == "include" for r in records)
     best = recommend(rows, target_recall, holdout_rows) if has_positives else None
@@ -225,6 +226,7 @@ def build_report(run_dir, target_recall=None, holdout_dir=None, allow_mixed=Fals
         "recommended": best,
         "rejected_on_holdout": rejected,
         "holdout": holdout,
+        "holdout_sweep": holdout_sweep,
         "screen_vs_gold": cohen_kappa(
             ["excluded" if r["llm"] == "exclude" else "kept" for r in records],
             ["kept" if r["label"] == "include" else "excluded" for r in records],

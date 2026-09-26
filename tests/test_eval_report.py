@@ -511,3 +511,20 @@ def test_load_run_is_a_public_accessor_that_accepts_a_gold_path_override(run_dir
     manifest, gold, records, versions = load_run(run_dir, gold_path=tmp_path / "gold.json")
     assert gold.name == "toy" and len(records) == 12 and versions == ["jev-1.13.0"]
     assert manifest["mode"] == "demo"
+
+
+def test_report_keeps_the_holdout_sweep_so_pairs_can_be_judged_on_both_sets(tmp_path):
+    main = screened_run(tmp_path / "a")
+    report = build_report(main, holdout_dir=holdout_run(tmp_path / "b"))
+    stored = report["holdout_sweep"]
+    assert stored["gold"] == "other" and stored["n"] == 12
+    assert {(r["min_confidence"], r["exclude_min_confidence"]) for r in stored["rows"]} == {
+        (r["min_confidence"], r["exclude_min_confidence"]) for r in report["sweep"]
+    }
+    # The vetoed pair from the test above is visible as losing a paper on the holdout.
+    vetoed = next(r for r in stored["rows"] if (r["min_confidence"], r["exclude_min_confidence"]) == (0.8, 0.95))
+    assert vetoed["lost_vs_llm"] >= 1 and vetoed["lost_ids"]
+
+
+def test_holdout_sweep_is_null_without_a_holdout_run(run_dir):
+    assert build_report(run_dir)["holdout_sweep"] is None
