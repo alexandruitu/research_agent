@@ -333,6 +333,47 @@ def test_live_schema_failure_is_retried_then_fails_closed(tmp_path, monkeypatch,
     assert model.calls == 3
 
 
+def test_live_extract_retries_a_hallucinated_quote_then_fails_closed(tmp_path, monkeypatch):
+    abstract = "The average FFR value was 0.84 and 15/49 (31%) stenoses were FFR 0.80. Second sentence."
+    good = Evidence(
+        claims=[Claim(statement="s", quote="15/49 (31%) stenoses were FFR 0.80.")],
+        study_design="x",
+        limitations=["y"],
+    )
+    bad = Evidence(
+        claims=[Claim(statement="s", quote="15/49 (49) stenoses were FFR 0.80.)")],
+        study_design="x",
+        limitations=["y"],
+    )
+
+    class Flaky:
+        def __init__(self, outputs):
+            self.outputs, self.calls = outputs, 0
+
+        def with_structured_output(self, schema, method=None):
+            return self
+
+        def invoke(self, messages):
+            self.calls += 1
+            return self.outputs[min(self.calls, len(self.outputs)) - 1]
+
+    import langchain.chat_models
+
+    def evaluator(directory, model):
+        monkeypatch.setattr(langchain.chat_models, "init_chat_model", lambda *a, **k: model)
+        return Evaluator(Store(directory), "live", {"extract": "test:model"})
+
+    payload = {"paper": {"id": "x", "abstract": abstract}}
+    model = Flaky([bad, good])
+    evidence = evaluator(tmp_path, model).ask("extract", Evidence, payload)
+    assert model.calls == 2
+    assert evidence.claims[0].quote in abstract  # only the validated quote is accepted and cached
+    always_bad = Flaky([bad])
+    with pytest.raises(ValueError, match="exact span"):
+        evaluator(tmp_path / "x", always_bad).ask("extract", Evidence, payload)
+    assert always_bad.calls == 3  # SCHEMA_ATTEMPTS, then fail closed
+
+
 def test_offline_evaluator_serves_cache_and_raises_on_miss(tmp_path):
     from research_agent.schemas import Screen
     from research_agent.storage import MissingCall
