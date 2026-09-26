@@ -134,3 +134,57 @@ class EvalDetailOut(Model):
     created_at: datetime
     metrics: dict[str, Any]
     agreement: dict[str, Any] | None
+
+
+class PaperRef(Model):
+    id: uuid.UUID
+    source_id: str
+    title: str
+    year: int | None
+    doi: str
+
+
+class ScreenCell(Model):
+    tier: str
+    decision: str
+    jev_decision: str | None
+    llm_decision: str | None
+    criteria: dict[str, float]
+
+
+class ExtractCell(Model):
+    claims: int
+    quotes_verified: bool
+
+
+class MissingCell(Model):
+    missing: Literal[True]
+
+
+class ReviewsCell(Model):
+    a: str | None
+    b: str | None
+    adjudicated: bool
+    adjudicator: str | None
+
+
+class RankCell(Model):
+    score: float
+    position: int
+
+
+class PaperRow(Model):
+    paper: PaperRef
+    found_by: str
+    in_sr: bool | None
+    screen: ScreenCell
+    extract: ExtractCell | MissingCell | None
+    reviews: ReviewsCell | MissingCell | None
+    rank: RankCell | None
+
+
+class PaperPage(Model):
+    items: list[PaperRow]
+    total: int
+    page: int
+    page_size: int
