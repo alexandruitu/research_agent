@@ -3,9 +3,10 @@ import { Route, Routes } from "react-router-dom";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
+import { EvalsPage } from "./pages/EvalsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
-import { EvalsPage, SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
+import { SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
 import { RunsPage } from "./pages/RunsPage";
 
 export function App() {
