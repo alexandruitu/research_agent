@@ -210,3 +210,30 @@ def test_nginx_locations_do_not_reset_the_security_headers():
     api_block = re.search(r"location /api/ \{[^}]*\}", text).group(0)
     for name in ("Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options"):
         assert f"proxy_hide_header {name};" in api_block  # one source of truth at the edge
+
+
+CI = ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def test_ci_runs_every_check_and_needs_no_secrets():
+    text = CI.read_text()
+    workflow = yaml.safe_load(text)
+    assert set(workflow["jobs"]) == {"python", "web", "e2e", "docker"}
+    assert "secrets." not in text, "no check may need an API key"
+    assert "pip-audit" in text and "npm audit" in text
+    web = " ".join(step.get("run", "") for step in workflow["jobs"]["web"]["steps"])
+    for command in (
+        "npm ci",
+        "npm run gen:api",
+        "git diff --exit-code src/api/schema.d.ts",
+        "npm run typecheck",
+        "npm run lint",
+        "npm test",
+        "npm run build",
+    ):
+        assert command in web, command
+    python = " ".join(step.get("run", "") for step in workflow["jobs"]["python"]["steps"])
+    assert "ruff check ." in python and "pytest" in python
+    docker = " ".join(step.get("run", "") for step in workflow["jobs"]["docker"]["steps"])
+    assert "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile.web" in docker
+    assert workflow["jobs"]["e2e"]["env"]["PYTHON_DOTENV_DISABLED"] == "1"
