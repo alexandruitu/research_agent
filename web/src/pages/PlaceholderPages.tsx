@@ -4,5 +4,4 @@ const page = (title: string) => () => (
   </section>
 );
 
-export const SystemMapPage = page("System map");
 export const UsersPage = page("Users");

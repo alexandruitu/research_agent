@@ -118,3 +118,11 @@ svg .axis { stroke: var(--line); stroke-width: 1; }
 svg .interval { stroke: var(--accent); stroke-width: 3; }
 svg .dot { fill: var(--accent); }
 .banner--warn { border-left-color: var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
+ol.pipeline { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+ol.pipeline .stage { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; gap: 2px 10px; align-items: center; text-align: left; border: 1px solid var(--line); border-left-width: 6px; border-radius: 8px; padding: 8px 12px; }
+ol.pipeline .stage-status { grid-column: 3; font-size: 12px; }
+ol.pipeline .stage-headline { grid-column: 2 / 4; font-size: 12px; }
+ol.pipeline .stage--measured { background: var(--ok-bg); color: var(--ok-fg); border-left-color: var(--ok-line); }
+ol.pipeline .stage--caveat, ol.pipeline .stage--unmeasured { background: var(--warn-bg); color: var(--warn-fg); border-left-color: var(--warn-line); }
+ol.pipeline .stage--input { background: var(--neutral-bg); color: var(--neutral-fg); }
+ol.pipeline .stage[aria-pressed="true"] { outline: 2px solid var(--accent); }
