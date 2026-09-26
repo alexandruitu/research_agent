@@ -42,3 +42,64 @@ def db(migrated_engine):
     session.close()
     outer.rollback()
     connection.close()
+
+
+PASSWORD = "correct horse battery"
+
+
+@pytest.fixture
+def settings(tmp_path, pg_url):
+    from research_agent.web.settings import load_settings
+
+    return load_settings(
+        {
+            "RESEARCH_WEB_DATABASE_URL": pg_url,
+            "RESEARCH_RUNS_DIR": str(tmp_path / "runs"),
+            "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
+            "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
+            "RESEARCH_WEB_COOKIE_SECURE": "false",
+        }
+    )
+
+
+@pytest.fixture
+def app(settings, db):
+    from research_agent.web.api.app import create_app
+    from research_agent.web.api.deps import get_db
+
+    application = create_app(settings, session_factory=lambda: db)
+    application.dependency_overrides[get_db] = lambda: db
+    return application
+
+
+@pytest.fixture
+def client(app):
+    from fastapi.testclient import TestClient
+
+    return TestClient(app)
+
+
+@pytest.fixture
+def users(db):
+    from research_agent.web.auth import create_user
+
+    made = {
+        role: create_user(db, email=f"{role}@example.org", name=role.title(), role=role, password=PASSWORD)
+        for role in ("viewer", "member", "admin")
+    }
+    db.commit()
+    return made
+
+
+@pytest.fixture
+def sign_in(app, users):
+    """sign_in(role) -> (client, csrf_headers); each call gets its own cookie jar."""
+    from fastapi.testclient import TestClient
+
+    def go(role):
+        c = TestClient(app)
+        r = c.post("/api/v1/auth/login", json={"email": f"{role}@example.org", "password": PASSWORD})
+        assert r.status_code == 200, r.text
+        return c, {"X-CSRF-Token": r.json()["csrf_token"]}
+
+    return go
