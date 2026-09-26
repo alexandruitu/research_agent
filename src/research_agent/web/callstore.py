@@ -5,7 +5,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
+HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 class CallStoreError(ValueError):
@@ -58,7 +58,7 @@ class CallIndex:
 
 
 def read_call(folder, key):
-    if not isinstance(key, str) or not HEX64.match(key):
+    if not isinstance(key, str) or not HEX64.fullmatch(key):
         raise CallStoreError("call key must be 64 lowercase hex characters")
     connection = connect_readonly(folder)
     try:
