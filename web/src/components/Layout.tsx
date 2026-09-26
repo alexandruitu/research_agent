@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -7,6 +7,7 @@ import { StaleBanner } from "./StaleBanner";
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { pathname } = useLocation();
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
@@ -26,7 +27,8 @@ export function Layout() {
       </header>
       <StaleBanner />
       <main id="main" tabIndex={-1}>
-        <ErrorBoundary label="this page">
+        {/* keyed by path: a crash on one page must not stick when the user navigates to another */}
+        <ErrorBoundary key={pathname} label="this page">
           <Outlet />
         </ErrorBoundary>
       </main>

@@ -1,7 +1,7 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api, setCsrfToken } from "../api/client";
@@ -9,7 +9,9 @@ import { createQueryClient } from "../api/queryClient";
 import { App } from "../App";
 import { session } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
+import { renderWithProviders } from "../test/render";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { Layout } from "./Layout";
 import { StaleBanner } from "./StaleBanner";
 
 afterEach(() => {
@@ -84,6 +86,35 @@ describe("ErrorBoundary", () => {
       explode = false;
       await userEvent.click(screen.getByRole("button", { name: "Try again" }));
       expect(screen.getByText("recovered")).toBeInTheDocument();
+    } finally {
+      window.removeEventListener("error", swallow);
+      consoleError.mockRestore();
+    }
+  });
+});
+
+describe("Layout", () => {
+  it("clears a crashed page when the user navigates to another page", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
+    function Boom(): never {
+      throw new Error("boom");
+    }
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const swallow = (event: ErrorEvent) => event.preventDefault();
+    window.addEventListener("error", swallow);
+    try {
+      renderWithProviders(
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Boom />} />
+            <Route path="/runs" element={<p>runs page</p>} />
+          </Route>
+        </Routes>,
+      );
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong in this page");
+      await userEvent.click(screen.getByRole("link", { name: "Runs" }));
+      expect(await screen.findByText("runs page")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     } finally {
       window.removeEventListener("error", swallow);
       consoleError.mockRestore();

@@ -4,7 +4,8 @@ import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
-import { EvalsPage, PapersPage, RunsPage, SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
+import { PapersPage } from "./pages/PapersPage";
+import { EvalsPage, RunsPage, SystemMapPage, UsersPage } from "./pages/PlaceholderPages";
 
 export function App() {
   return (

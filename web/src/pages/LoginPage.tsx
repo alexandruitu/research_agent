@@ -4,6 +4,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 
+/** Only same-app paths: "//host" and "/\\host" are protocol-relative URLs to another origin. */
+const safeFrom = (from: unknown) =>
+  typeof from === "string" && from.startsWith("/") && !from.startsWith("//") && !from.startsWith("/\\") ? from : "/";
+
 export function LoginPage() {
   const { status, login } = useAuth();
   const location = useLocation();
@@ -11,7 +15,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const from = safeFrom((location.state as { from?: unknown } | null)?.from);
 
   if (status === "authenticated") return <Navigate to={from} replace />;
 

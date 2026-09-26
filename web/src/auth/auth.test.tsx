@@ -98,6 +98,31 @@ describe("LoginPage", () => {
   });
 });
 
+describe("LoginPage redirect target", () => {
+  const signedIn = (from: unknown) => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
+    renderWithProviders(
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<p>home</p>} />
+        <Route path="/runs" element={<p>runs page</p>} />
+        <Route path="*" element={<p>somewhere else</p>} />
+      </Routes>,
+      { route: { pathname: "/login", state: { from } } },
+    );
+  };
+
+  it("returns to the page the user was going to", async () => {
+    signedIn("/runs?x=1");
+    expect(await screen.findByText("runs page")).toBeInTheDocument();
+  });
+
+  it.each(["//evil.example/x", "/\\evil.example", "https://evil.example", "runs", 42])("goes home instead of to %s", async (from) => {
+    signedIn(from);
+    expect(await screen.findByText("home")).toBeInTheDocument();
+  });
+});
+
 describe("RequireRole", () => {
   it("blocks users below the required role with an explanation", async () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
