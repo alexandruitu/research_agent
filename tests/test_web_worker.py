@@ -1,4 +1,7 @@
+import itertools
 import json
+import time
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -171,13 +174,14 @@ def test_progress_is_mirrored_with_a_heartbeat_on_every_poll(env):
 
         return FakeProcess(1, polls=3, on_poll=on_poll)
 
-    Worker(settings, factory, spawn=spawn, sleep=lambda s: None).tick()
-    assert (
-        seen
-        and seen[-1][0] == "running"
-        and seen[-1][1]["stages"] == {"plan": "running"}
-        and seen[-1][2] is not None
-    )
+    start = utcnow()
+    ticks = itertools.count()
+    clock = lambda: start + timedelta(seconds=next(ticks))
+    Worker(settings, factory, spawn=spawn, sleep=lambda s: None, clock=clock).tick()
+    assert len(seen) == 3 and all(status == "running" for status, _, _ in seen)
+    assert seen[-1][1]["stages"] == {"plan": "running"}
+    beats = [beat for _, _, beat in seen]
+    assert all(a < b for a, b in itertools.pairwise(beats)), beats  # a new heartbeat on every poll
 
 
 def test_a_run_folder_that_already_has_a_manifest_is_resumed(env):
@@ -341,3 +345,159 @@ def test_run_forever_survives_a_failing_tick_and_redacts_the_log(env, monkeypatc
     worker.run_forever(stop=lambda: len(calls) >= 2)
     assert len(calls) == 2
     assert "worker tick failed" in caplog.text and "sk-sentinel-value-123456" not in caplog.text
+
+
+def capture_spawn(captured, code=1, polls=1):
+    def spawn(spec, env_, log):
+        captured.append(spec)
+        return FakeProcess(code, polls=polls)
+
+    return spawn
+
+
+def test_a_resume_without_a_manifest_starts_fresh_from_the_saved_contract(env):
+    """A run that failed before writing manifest.json cannot be resumed; it is started again instead."""
+    settings, factory, _ = env
+    job_id, run_id, folder = queue_run(factory, settings)
+    with factory() as db:
+        db.get(Job, job_id).payload = {"run_id": str(run_id), "resume": True}  # no topic in the payload
+        db.get(Run, run_id).manifest = {"contract": {"topic": TOPIC, "max_papers": 2, "mode": "demo"}}
+        db.commit()
+    folder.mkdir(parents=True)  # the first attempt made the folder, then failed
+    captured = []
+    Worker(settings, factory, spawn=capture_spawn(captured), sleep=lambda s: None).tick()
+    [spec] = captured
+    assert spec.resume is False and (spec.topic, spec.max_papers, spec.mode) == (TOPIC, 2, "demo")
+
+
+def test_a_resume_job_with_a_manifest_resumes(env):
+    settings, factory, _ = env
+    job_id, run_id, folder = queue_run(factory, settings)
+    folder.mkdir(parents=True)
+    (folder / "manifest.json").write_text("{}")
+    with factory() as db:
+        db.get(Job, job_id).payload = {"run_id": str(run_id), "resume": True}
+        db.commit()
+    captured = []
+    Worker(settings, factory, spawn=capture_spawn(captured), sleep=lambda s: None).tick()
+    assert captured[0].resume is True
+
+
+def test_a_run_that_exceeds_the_time_limit_is_stopped_and_failed(env):
+    settings, factory, _ = env
+    settings = replace(settings, job_timeout_seconds=0.05)
+    job_id, run_id, _folder = queue_run(factory, settings)
+    elapsed, children = [0.0], []
+
+    def sleep(seconds):
+        elapsed[0] += seconds
+
+    def spawn(spec, env_, log):
+        children.append(FakeProcess(0, polls=10**6))  # a hung pipeline: never exits on its own
+        return children[-1]
+
+    worker = Worker(settings, factory, spawn=spawn, sleep=sleep, monotonic=lambda: elapsed[0])
+    assert worker.tick() is True
+    assert children[0].terminated
+    with factory() as db:
+        job, run = db.get(Job, job_id), db.get(Run, run_id)
+        assert job.status == run.status == "failed"
+        assert job.error == run.error == "the run timed out after 0.05 s"
+
+
+@pytest.mark.parametrize("how", ["path", "symlink"])
+def test_a_run_folder_outside_the_runs_directory_is_refused(env, how):
+    settings, factory, tmp_path = env
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    folder = outside
+    if how == "symlink":
+        settings.runs_dir.mkdir(parents=True)
+        folder = settings.runs_dir / "link"
+        folder.symlink_to(outside, target_is_directory=True)
+    job_id, run_id, _folder = queue_run(factory, settings, existing_dir=folder)
+    captured = []
+    Worker(settings, factory, spawn=capture_spawn(captured, code=0), sleep=lambda s: None).tick()
+    assert captured == []  # nothing was started
+    with factory() as db:
+        job, run = db.get(Job, job_id), db.get(Run, run_id)
+        assert job.status == run.status == "failed"
+        assert job.error == run.error == "ValueError: the run folder is outside the runs directory"
+        assert str(tmp_path) not in job.error
+
+
+def test_a_busy_run_folder_gives_the_job_back_without_failing_the_run(env):
+    """Exit code 75: another child holds .run.lock on this folder. Not a failure; try again later."""
+    settings, factory, _ = env
+    job_id, run_id, _folder = queue_run(factory, settings)
+    worker = Worker(settings, factory, spawn=capture_spawn([], code=75), sleep=lambda s: None)
+    assert worker.tick() is False  # nothing finished: run_forever sleeps, drain stops
+    with factory() as db:
+        job, run = db.get(Job, job_id), db.get(Run, run_id)
+        assert (job.status, job.locked_by, job.attempts, job.error) == ("queued", None, 0, None)
+        assert run.status == "queued" and run.error is None
+
+
+def test_a_worker_asked_to_stop_mid_run_stops_the_child_and_gives_the_job_back(env):
+    settings, factory, _ = env
+    job_id, run_id, _folder = queue_run(factory, settings)
+    children = []
+
+    def spawn(spec, env_, log):
+        make_demo_run(spec.run_dir, topic=spec.topic, max_papers=spec.max_papers)
+        polls = itertools.count(1)
+        on_poll = lambda: next(polls) == 2 and worker.request_stop()
+        children.append(FakeProcess(0, polls=5, on_poll=on_poll))
+        return children[-1]
+
+    worker = Worker(settings, factory, spawn=spawn, sleep=lambda s: None)
+    worker.tick()
+    assert children[0].terminated
+    with factory() as db:
+        job, run = db.get(Job, job_id), db.get(Run, run_id)
+        assert (job.status, job.locked_by, job.attempts, job.error) == ("queued", None, 0, None)
+        assert run.status == "queued" and run.error is None
+        assert db.scalar(select(sa.func.count()).select_from(Screening)) == 0
+    assert worker.tick() is False  # a stopping worker claims nothing
+    worker.run_forever()  # returns at once
+    worker.drain()
+
+
+def test_an_import_keeps_the_heartbeat_going(env, monkeypatch):
+    """Importing a large run takes a while; the job must not look stale meanwhile."""
+    import research_agent.web.worker as worker_module
+
+    settings, factory, _ = env
+    job_id, _run_id, _folder = queue_run(factory, settings)
+    real, beats = worker_module.import_research_run, []
+
+    def slow_import(db, folder, created_by=None):
+        for _ in range(3):
+            time.sleep(0.1)  # progress_poll_seconds is 0.01: several heartbeats per sleep
+            with factory() as other:
+                beats.append(other.get(Job, job_id).heartbeat_at)
+        return real(db, folder, created_by=created_by)
+
+    monkeypatch.setattr(worker_module, "import_research_run", slow_import)
+    Worker(settings, factory, spawn=demo_spawn, sleep=lambda s: None).tick()
+    assert all(a < b for a, b in itertools.pairwise(beats)), beats
+    with factory() as db:
+        assert db.get(Job, job_id).status == "done"
+
+
+def test_an_import_job_refuses_a_symlink_that_leaves_the_root(env):
+    settings, factory, tmp_path = env
+    outside = make_demo_run(tmp_path / "elsewhere" / "run")
+    settings.runs_dir.mkdir(parents=True)
+    (settings.runs_dir / "escape").symlink_to(outside, target_is_directory=True)
+    with factory() as db:
+        user = create_user(
+            db, email="a@example.org", name="A", role="admin", password="correct horse battery"
+        )
+        job, _ = enqueue(db, "import", {"kind": "research", "name": "escape"}, user.id)
+        db.commit()
+    Worker(settings, factory, sleep=lambda s: None).tick()
+    with factory() as db:
+        row = db.get(Job, job.id)
+        assert row.status == "failed" and "no such folder under the research directory" in row.error
+        assert db.scalar(select(sa.func.count()).select_from(Run)) == 0

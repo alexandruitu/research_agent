@@ -10,6 +10,8 @@ def test_job_settings_have_safe_defaults():
     assert s.allow_demo is False and s.max_papers_cap == 12 and s.max_active_jobs_per_user == 2
     assert s.job_stale_seconds == 120 and s.job_max_attempts == 3
     assert s.worker_poll_seconds == 2.0 and s.progress_poll_seconds == 2.0
+    assert s.job_timeout_seconds == 3600
+    assert load_settings({**BASE, "RESEARCH_WEB_JOB_TIMEOUT_SECONDS": "90"}).job_timeout_seconds == 90
 
 
 def test_job_settings_can_be_overridden_from_the_environment():
@@ -35,6 +37,10 @@ def test_job_settings_can_be_overridden_from_the_environment():
         ("RESEARCH_WEB_MAX_PAPERS", "31"),
         ("RESEARCH_WEB_WORKER_POLL_SECONDS", "nan"),
         ("RESEARCH_WEB_PROGRESS_POLL_SECONDS", "inf"),
+        ("RESEARCH_WEB_JOB_TIMEOUT_SECONDS", "0"),
+        ("RESEARCH_WEB_JOB_TIMEOUT_SECONDS", "-5"),
+        ("RESEARCH_WEB_JOB_TIMEOUT_SECONDS", "inf"),
+        ("RESEARCH_WEB_JOB_TIMEOUT_SECONDS", "nan"),
     ],
 )
 def test_bad_numbers_are_rejected(name, value):

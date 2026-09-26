@@ -430,3 +430,23 @@ def test_quote_matching_ignores_format_characters():
 
 def test_quote_matching_handles_ligature_inside_a_quote():
     assert _snap("The \ufb01ne \ufb02ow was measured.", "The fine flow was") == "The \ufb01ne \ufb02ow was"
+
+
+def test_the_cli_exits_with_tempfail_when_another_process_holds_the_run_folder(tmp_path, monkeypatch, capsys):
+    """Exit code 75 (EX_TEMPFAIL) tells a caller such as the web worker: busy, try later; not a failure."""
+    import sys
+
+    from research_agent import cli
+    from research_agent.runner import RunLocked, run_lock, run_research
+
+    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)  # never load the real .env
+    monkeypatch.setattr(sys, "argv", ["research-agent", "--run-dir", str(tmp_path), "--", "a topic"])
+    with run_lock(tmp_path):
+        with pytest.raises(SystemExit) as exited:
+            cli.main()
+        with pytest.raises(RunLocked):  # still a ValueError for existing callers
+            run_research(tmp_path, Contract(topic="a topic", max_papers=2))
+    assert exited.value.code == cli.EXIT_LOCKED == 75
+    assert "already running" in capsys.readouterr().err
+    assert not (tmp_path / "progress.json").exists() and not (tmp_path / "manifest.json").exists()
+    assert issubclass(RunLocked, ValueError)

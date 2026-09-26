@@ -62,13 +62,17 @@ def atomic_json(path, data):
     temporary.replace(path)
 
 
+class RunLocked(ValueError):
+    """Another process holds the run folder's lock."""
+
+
 @contextmanager
 def run_lock(path):
     with (Path(path) / ".run.lock").open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ValueError("Această cercetare rulează deja.") from None
+            raise RunLocked("Această cercetare rulează deja.") from None
         try:
             yield
         finally:

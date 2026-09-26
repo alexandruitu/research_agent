@@ -34,9 +34,10 @@ class Settings:
     job_max_attempts: int = 3
     worker_poll_seconds: float = 2.0
     progress_poll_seconds: float = 2.0
+    job_timeout_seconds: float = 3600.0
 
 
-def _number(env, name, default, cast=int, low=None, high=None):
+def _number(env, name, default, cast=int, low=None, high=None, positive=False):
     raw = env.get(name)
     if raw is None or raw == "":
         return default
@@ -46,6 +47,8 @@ def _number(env, name, default, cast=int, low=None, high=None):
         raise SettingsError(f"{name} must be a number, got {raw!r}") from None
     if not math.isfinite(value):
         raise SettingsError(f"{name} must be a finite number, got {raw!r}")
+    if positive and value <= 0:
+        raise SettingsError(f"{name} must be greater than 0, got {value}")
     if (low is not None and value < low) or (high is not None and value > high):
         raise SettingsError(f"{name} must be between {low} and {high}, got {value}")
     return value
@@ -71,6 +74,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         job_max_attempts=_number(env, "RESEARCH_WEB_JOB_MAX_ATTEMPTS", 3, low=1, high=10),
         worker_poll_seconds=_number(env, "RESEARCH_WEB_WORKER_POLL_SECONDS", 2.0, cast=float, low=0.01),
         progress_poll_seconds=_number(env, "RESEARCH_WEB_PROGRESS_POLL_SECONDS", 2.0, cast=float, low=0.01),
+        job_timeout_seconds=_number(
+            env, "RESEARCH_WEB_JOB_TIMEOUT_SECONDS", 3600.0, cast=float, positive=True
+        ),
     )
     if settings.progress_poll_seconds * 3 >= settings.job_stale_seconds:
         # a running job heartbeats once per progress poll; it must never look stale between two beats

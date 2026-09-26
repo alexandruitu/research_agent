@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 MAX_ERROR = 300
+EXIT_LOCKED = 75  # research_agent.cli exits with this (EX_TEMPFAIL) when another process holds .run.lock
 MIN_SECRET = 8  # shorter values are not redacted: replacing them would mangle ordinary text
 # The child needs provider keys but nothing of the web app: no database, no admin password, no web settings.
 DROPPED_PREFIXES = ("RESEARCH_WEB_",)

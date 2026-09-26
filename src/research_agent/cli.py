@@ -3,8 +3,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .runner import run_research
+from .runner import RunLocked, run_research
 from .schemas import Contract
+
+EXIT_LOCKED = 75  # os.EX_TEMPFAIL: another process is running this folder; try again later
 
 
 def main():
@@ -43,6 +45,10 @@ def main():
             resume=args.resume,
             stop_after=args.stop_after,
             on_event=lambda event: print("Completed:", ", ".join(event), flush=True),
+        )
+    except RunLocked:
+        parser.exit(
+            EXIT_LOCKED, "This research is already running in this folder; try again when it finishes.\n"
         )
     except Exception as exc:  # noqa: BLE001 -- CLI boundary deliberately sanitizes provider errors.
         parser.exit(

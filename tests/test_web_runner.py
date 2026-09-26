@@ -157,3 +157,10 @@ def test_sanitize_error_redacts_passwords_tokens_and_the_database_url(monkeypatc
     for secret in ("pass-word-9", "admin-password-123", "pg-password-456", "token-value-789"):
         assert secret not in text
     assert text.startswith("RuntimeError: connect ***")
+
+
+def test_the_worker_and_the_pipeline_agree_on_the_busy_exit_code():
+    import research_agent.cli as pipeline_cli
+    from research_agent.web.runner import EXIT_LOCKED
+
+    assert EXIT_LOCKED == pipeline_cli.EXIT_LOCKED == 75
