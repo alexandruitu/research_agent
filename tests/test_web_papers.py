@@ -130,7 +130,17 @@ def test_sorting_and_paging(sign_in, imported):
 
 @pytest.mark.parametrize(
     "params",
-    [{"page_size": 201}, {"page": 0}, {"sort": "drop table"}, {"decision": "maybe"}, {"tier": "x"}],
+    [
+        {"page_size": 201},
+        {"page": 0},
+        {"page": 10**19},  # would overflow the SQL offset
+        {"sort": "drop table"},
+        {"decision": "maybe"},
+        {"tier": "x"},
+        {"p_min": 0.5},  # a probability bound without the criterion it applies to
+        {"p_max": 0.5},
+        {"criterion": "topic_match", "p_min": 0.7, "p_max": 0.3},
+    ],
 )
 def test_bad_parameters_are_rejected(sign_in, imported, params):
     viewer, _ = sign_in("viewer")
@@ -185,3 +195,11 @@ def test_quotes_verified_is_computed_against_the_stored_abstract(sign_in, import
     rows = rows_by_source(table(viewer, imported["research"]))
     assert rows["demo:3"]["extract"] == {"claims": 1, "quotes_verified": False}
     assert rows["demo:1"]["extract"] == {"claims": 1, "quotes_verified": True}
+
+
+def test_the_in_sr_filter_needs_a_gold_set(sign_in, imported):
+    viewer, _ = sign_in("viewer")
+    for value in ("true", "false"):
+        r = table(viewer, imported["research"], in_sr=value)
+        assert r.status_code == 422 and r.json()["code"] == "validation_error"
+        assert "gold set" in r.json()["message"]

@@ -136,3 +136,15 @@ def test_secrets_never_appear_in_responses_logs_or_error_bodies(
     assert not any(sentinel in text for text in seen)
     # The server log records the failure for operators; the response never carries it.
     assert any("unhandled error" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.parametrize(
+    "sent,echoed",
+    [("abc-123_X.y", True), ("x" * 64, True), ("x" * 65, False), ("a b", False), ("<script>", False)],
+)
+def test_client_request_ids_are_echoed_only_when_short_and_plain(client, sent, echoed):
+    rid = client.get("/api/v1/auth/me", headers={"X-Request-ID": sent}).headers["x-request-id"]
+    if echoed:
+        assert rid == sent
+    else:
+        assert rid != sent and 1 <= len(rid) <= 64 and rid.isalnum()

@@ -61,7 +61,7 @@ class RunCounts(Model):
     kept: int
     dropped: int
     escalated: int
-    in_sr: int
+    in_sr: int | None  # null: the run has no gold set
 
 
 class RunOut(Model):

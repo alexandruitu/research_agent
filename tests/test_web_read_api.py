@@ -111,3 +111,15 @@ def test_fields_show_the_newest_criterion_version_whatever_its_position(sign_in,
     client, _ = sign_in("viewer")
     (criterion,) = get(client, f"/fields/{field.id}").json()["criteria"]
     assert criterion["version"] == 2 and criterion["question"] == "v2"
+
+
+def test_research_runs_have_no_in_sr_count(sign_in, imported):
+    client, _ = sign_in("viewer")
+    assert get(client, f"/runs/{imported['research']}").json()["counts"]["in_sr"] is None
+
+
+def test_run_manifest_never_exposes_absolute_server_paths(sign_in, imported, tmp_path):
+    client, _ = sign_in("viewer")
+    manifest = get(client, f"/runs/{imported['eval']}").json()["manifest"]
+    assert manifest["gold_path"] == "toy.json"
+    assert str(tmp_path) not in json.dumps(manifest)

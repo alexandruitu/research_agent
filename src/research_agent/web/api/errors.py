@@ -1,6 +1,7 @@
 """One error shape for every failure: {"code", "message", "request_id"} (+ "fields" for 422)."""
 
 import logging
+import re
 from uuid import uuid4
 
 from fastapi import Request
@@ -9,6 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = logging.getLogger("research_agent.web")
+REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
 CODES = {
     401: "unauthorized",
     403: "forbidden",
@@ -37,7 +39,9 @@ def _body(request, code, message, **extra):
 def install_error_handlers(app):
     @app.middleware("http")
     async def request_id(request: Request, call_next):
-        rid = request.headers.get("x-request-id") or uuid4().hex[:16]
+        rid = request.headers.get("x-request-id", "")
+        if not REQUEST_ID.fullmatch(rid):  # never echo arbitrary client text into headers and logs
+            rid = uuid4().hex[:16]
         request.state.request_id = rid
         response = await call_next(request)
         response.headers["X-Request-ID"] = rid

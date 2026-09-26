@@ -41,7 +41,14 @@ def test_rate_limiter_forgets_expired_keys():
     for i in range(100):
         limiter.record_failure(f"one-off-{i}")
     now[0] += 61
-    assert limiter.allowed("one-off-0")
-    for i in range(100):
-        limiter.allowed(f"one-off-{i}")
-    assert limiter.failures == {}
+    # Touching one unrelated key must sweep the expired ones: nobody looks the one-off keys up again.
+    limiter.record_failure("someone-else")
+    assert len(limiter.failures) <= 1
+
+
+def test_rate_limiter_caps_the_number_of_keys():
+    limiter = RateLimiter(max_attempts=3, window_seconds=60, clock=lambda: 0.0, max_keys=10)
+    for i in range(50):
+        limiter.record_failure(f"k{i}")
+    assert len(limiter.failures) <= 10
+    assert "k49" in limiter.failures  # the newest key is kept

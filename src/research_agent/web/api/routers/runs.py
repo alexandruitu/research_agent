@@ -1,4 +1,5 @@
 import uuid
+from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy import func, select
@@ -43,7 +44,7 @@ def counts_for(db, run):
             Screening.run_id == run.id, Screening.tier != NOT_SCREENED
         )
     ).all()
-    in_sr = 0
+    in_sr = None  # no gold set: "in the SR" does not apply
     if run.gold_set_id:
         in_sr = db.scalar(
             select(func.count())
@@ -85,7 +86,18 @@ def get_run(run_id: uuid.UUID, user=Depends(require_role("viewer")), db=Depends(
     run = db.get(Run, run_id)
     if run is None:
         raise ApiError(404, "not_found", "No such run")
-    return _run_out(db, run, RunDetailOut, manifest=run.manifest, counts=counts_for(db, run))
+    return _run_out(db, run, RunDetailOut, manifest=public_manifest(run.manifest), counts=counts_for(db, run))
+
+
+def public_manifest(value):
+    """The manifest without server layout: every absolute path (e.g. `gold_path`) becomes its basename."""
+    if isinstance(value, dict):
+        return {k: public_manifest(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [public_manifest(v) for v in value]
+    if isinstance(value, str) and PurePosixPath(value).is_absolute():
+        return PurePosixPath(value).name
+    return value
 
 
 def job_out(job):
