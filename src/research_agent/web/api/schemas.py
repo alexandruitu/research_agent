@@ -23,3 +23,17 @@ class UserOut(Model):
 class SessionOut(Model):
     user: UserOut
     csrf_token: str
+
+
+class UserCreate(Model):
+    email: str
+    name: str
+    role: str
+    password: str
+
+
+class UserPatch(Model):
+    name: str | None = None
+    role: str | None = None
+    active: bool | None = None
+    password: str | None = None

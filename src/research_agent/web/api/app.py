@@ -5,7 +5,7 @@ from ..db.session import make_engine, make_session_factory
 from ..security import RateLimiter
 from ..settings import load_settings
 from .errors import install_error_handlers
-from .routers import auth
+from .routers import auth, users
 
 API_PREFIX = "/api/v1"
 
@@ -22,4 +22,5 @@ def create_app(settings=None, session_factory=None):
     app.state.auth_provider = SessionCookieProvider(settings)
     install_error_handlers(app)
     app.include_router(auth.router, prefix=API_PREFIX)
+    app.include_router(users.router, prefix=API_PREFIX)
     return app
