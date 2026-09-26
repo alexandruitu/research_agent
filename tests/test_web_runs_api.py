@@ -188,3 +188,50 @@ def test_import_endpoint_refuses_a_symlink_that_leaves_the_root(sign_in, setting
     admin, csrf = sign_in("admin")
     r = admin.post("/api/v1/imports", json={"kind": "research", "name": "escape"}, headers=csrf)
     assert r.status_code == 404
+
+
+def failed_run(db, field_id):
+    run = Run(
+        field_id=uuid.UUID(field_id),
+        kind="research",
+        status="failed",
+        error="boom",
+        folder=f"/x/{uuid.uuid4().hex}",
+        manifest={"contract": {"topic": "retrieval augmented generation", "max_papers": 3, "mode": "demo"}},
+    )
+    db.add(run)
+    db.commit()
+    return run
+
+
+def test_a_resume_that_loses_the_race_is_refused(sign_in, field_id, db):
+    """Two resumes read `failed` at once; only the one whose UPDATE flips the row may enqueue."""
+    from sqlalchemy import update
+
+    member, csrf = sign_in("member")
+    run = failed_run(db, field_id)
+    # a concurrent resume already moved the row on; this session still holds the old `failed` copy
+    db.execute(
+        update(Run)
+        .where(Run.id == run.id)
+        .values(status="queued")
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+    assert run.status == "failed"
+    r = member.post(f"/api/v1/runs/{run.id}/resume", headers=csrf)
+    assert r.status_code == 409 and r.json()["code"] == "conflict"
+    assert db.scalar(select(func.count()).select_from(Job)) == 0
+
+
+def test_a_run_whose_job_is_still_active_cannot_be_resumed(sign_in, field_id, db, users):
+    from research_agent.web.jobs import enqueue
+
+    member, csrf = sign_in("member")
+    run = failed_run(db, field_id)
+    enqueue(db, "research", {"run_id": str(run.id), "resume": True}, users["admin"].id)
+    db.commit()
+    r = member.post(f"/api/v1/runs/{run.id}/resume", headers=csrf)
+    assert r.status_code == 409 and r.json()["code"] == "conflict"
+    db.refresh(run)
+    assert run.status == "failed" and run.error == "boom"

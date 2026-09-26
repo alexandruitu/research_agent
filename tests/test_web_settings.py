@@ -40,3 +40,10 @@ def test_job_settings_can_be_overridden_from_the_environment():
 def test_bad_numbers_are_rejected(name, value):
     with pytest.raises(SettingsError, match=name):
         load_settings({**BASE, name: value})
+
+
+def test_the_heartbeat_must_be_much_more_frequent_than_the_stale_cutoff():
+    with pytest.raises(SettingsError, match="RESEARCH_WEB_PROGRESS_POLL_SECONDS"):
+        load_settings(
+            {**BASE, "RESEARCH_WEB_JOB_STALE_SECONDS": "30", "RESEARCH_WEB_PROGRESS_POLL_SECONDS": "10"}
+        )

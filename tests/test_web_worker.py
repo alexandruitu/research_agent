@@ -277,7 +277,8 @@ def test_a_worker_that_lost_its_job_stops_the_child_and_writes_nothing(env, poll
     with factory() as db:
         job, run = db.get(Job, job_id), db.get(Run, run_id)
         assert (job.status, job.locked_by, job.error, job.progress) == ("running", "worker-b", None, {})
-        assert run.status == "running" and run.error is None and run.source_sha256 is None
+        # the requeue queued the run again; worker B has not started it and worker A wrote nothing
+        assert run.status == "queued" and run.error is None and run.source_sha256 is None
         assert db.scalar(select(sa.func.count()).select_from(Screening)) == 0
 
 

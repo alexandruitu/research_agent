@@ -8,7 +8,6 @@ import subprocess
 import time
 from pathlib import Path
 
-from .auth import utcnow
 from .db.models import Job, Run
 from .db.session import make_engine, make_session_factory
 from .importer.common import ImportFailed
@@ -42,12 +41,13 @@ class Worker:
         session_factory=None,
         spawn=spawn_process,
         sleep=time.sleep,
-        clock=utcnow,
+        clock=None,
         worker_id=None,
     ):
         self.settings = settings
         self.factory = session_factory or make_session_factory(make_engine(settings.database_url))
-        self.spawn, self.sleep, self.clock = spawn, sleep, clock
+        self.spawn, self.sleep = spawn, sleep
+        self.clock = clock or (lambda: None)  # None: the database clock (see jobs)
         self.worker_id = worker_id or f"{socket.gethostname()}-{os.getpid()}"
 
     def tick(self):

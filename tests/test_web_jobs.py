@@ -178,3 +178,86 @@ def test_claim_and_requeue_count_attempts_from_the_database_not_a_stale_session(
         assert spent.status == "failed"
     with factory() as check:
         assert check.get(Job, job.id).attempts == 4 and check.get(Job, job.id).status == "failed"
+
+
+def research_job_with_run(db, user_id, run_status="running"):
+    """A research job whose payload points at a run, as `POST /runs` makes them."""
+    from research_agent.web.db.models import Run
+    from research_agent.web.importer.common import get_or_create_field
+
+    field = get_or_create_field(db, "a topic", user_id)
+    run = Run(field_id=field.id, kind="research", status=run_status, manifest={}, created_by=user_id)
+    db.add(run)
+    db.flush()
+    job, _ = enqueue(db, "research", {"run_id": str(run.id)}, user_id)
+    return job, run
+
+
+def test_requeue_stale_moves_the_run_with_its_job(factory, user_ids):
+    """A requeued job's run is queued again; a job that runs out of attempts fails its run too."""
+    from research_agent.web.db.models import Run
+
+    now = utcnow()
+    with factory() as db:
+        again, again_run = research_job_with_run(db, user_ids[0])
+        spent, spent_run = research_job_with_run(db, user_ids[0])
+        for job, attempts in ((again, 1), (spent, 3)):
+            job.status, job.attempts, job.locked_by = "running", attempts, "dead-worker"
+            job.heartbeat_at = now - timedelta(minutes=10)
+        db.commit()
+        requeue_stale(db, stale_after_seconds=120, max_attempts=3, now=now)
+        db.commit()
+    with factory() as check:
+        assert check.get(Job, again.id).status == "queued" and check.get(Run, again_run.id).status == "queued"
+        job, run = check.get(Job, spent.id), check.get(Run, spent_run.id)
+        assert job.status == run.status == "failed" and run.error == job.error
+        assert "stopped responding" in run.error
+
+
+def test_release_gives_the_job_back_without_counting_an_attempt(factory, user_ids):
+    from research_agent.web.db.models import Run
+    from research_agent.web.jobs import release
+
+    with factory() as db:
+        job, run = research_job_with_run(db, user_ids[0], run_status="queued")
+        db.commit()
+        assert claim(db, "w").id == job.id and job.attempts == 1
+        run.status = "running"
+        db.commit()
+        assert release(db, job, worker_id="someone-else") is False
+        assert release(db, job, worker_id="w") is True
+        db.commit()
+    with factory() as check:
+        row = check.get(Job, job.id)
+        assert (row.status, row.locked_by, row.attempts) == ("queued", None, 0)
+        assert check.get(Run, run.id).status == "queued"
+
+
+def test_heartbeats_use_the_database_clock(factory, user_ids):
+    """Every worker stamps and compares heartbeats with PostgreSQL's clock, not its own."""
+    with factory() as db:
+        enqueue(db, "import", {}, user_ids[0])
+        db.commit()
+        job = claim(db, "w")
+        assert job.heartbeat_at == db.scalar(sa.select(sa.func.now()))  # same transaction: same now()
+        db.commit()
+        assert heartbeat(db, job, worker_id="w") is True
+        assert job.heartbeat_at == db.scalar(sa.select(sa.func.now()))
+        db.commit()
+
+
+def test_a_worker_with_a_fast_clock_does_not_steal_a_live_job(factory, user_ids, monkeypatch):
+    import research_agent.web.jobs as jobs_module
+
+    with factory() as db:
+        enqueue(db, "import", {}, user_ids[0])
+        db.commit()
+        job = claim(db, "w")
+        db.commit()
+    monkeypatch.setattr(  # a host whose clock runs an hour fast
+        jobs_module, "utcnow", lambda: utcnow() + timedelta(hours=1), raising=False
+    )
+    with factory() as db:
+        assert requeue_stale(db, stale_after_seconds=120, max_attempts=3) == []
+        db.commit()
+        assert db.get(Job, job.id).status == "running"

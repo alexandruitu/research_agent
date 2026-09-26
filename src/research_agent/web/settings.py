@@ -57,7 +57,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     if not url:
         raise SettingsError("Set RESEARCH_WEB_DATABASE_URL")
     folder = lambda name, default: Path(env.get(name) or PROJECT / default).resolve()
-    return Settings(
+    settings = Settings(
         database_url=url,
         runs_dir=folder("RESEARCH_RUNS_DIR", "runs"),
         evals_dir=folder("RESEARCH_EVALS_DIR", "evals"),
@@ -72,3 +72,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         worker_poll_seconds=_number(env, "RESEARCH_WEB_WORKER_POLL_SECONDS", 2.0, cast=float, low=0.01),
         progress_poll_seconds=_number(env, "RESEARCH_WEB_PROGRESS_POLL_SECONDS", 2.0, cast=float, low=0.01),
     )
+    if settings.progress_poll_seconds * 3 >= settings.job_stale_seconds:
+        # a running job heartbeats once per progress poll; it must never look stale between two beats
+        raise SettingsError(
+            "RESEARCH_WEB_PROGRESS_POLL_SECONDS times 3 must be less than RESEARCH_WEB_JOB_STALE_SECONDS"
+        )
+    return settings

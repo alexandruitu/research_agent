@@ -2,7 +2,7 @@ import uuid
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, Header, Query, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from ...db.models import Field, GoldLabel, GoldSet, Job, Run, Screening
 from ...jobs import enqueue
@@ -180,9 +180,28 @@ def resume_run(
     run = db.get(Run, run_id)
     if run is None:
         raise ApiError(404, "not_found", "No such run")
-    if run.kind != "research" or run.status != "failed":
-        raise ApiError(409, "conflict", "Only a failed research run can be resumed")
+    conflict = ApiError(409, "conflict", "Only a failed research run can be resumed")
+    if run.kind != "research":
+        raise conflict
     _check_active_cap(db, user, settings)
+    active = db.scalar(
+        select(func.count())
+        .select_from(Job)
+        .where(Job.status.in_(("queued", "running")), Job.payload["run_id"].astext == str(run.id))
+    )
+    if active:
+        raise conflict
+    # Check and act in one statement: of two concurrent resumes only one UPDATE finds the row `failed`
+    # (the other waits for its row lock, then re-reads the row as `queued`).
+    flipped = db.execute(
+        update(Run)
+        .where(Run.id == run.id, Run.kind == "research", Run.status == "failed")
+        .values(status="queued", error=None)
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    if flipped != 1:
+        raise conflict
+    db.refresh(run)
     contract = run.manifest.get("contract") or {}
     field = db.get(Field, run.field_id)
     payload = {
@@ -194,6 +213,5 @@ def resume_run(
         "resume": True,
     }
     job, _ = enqueue(db, "research", payload, user.id)
-    run.status, run.error = "queued", None
     db.commit()
     return StartRunOut(job=job_out(job), run_id=run.id)
