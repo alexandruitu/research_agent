@@ -13,3 +13,4 @@ gold/
 *.log
 deploy/.env
 deploy/worker.env
+web/node_modules
