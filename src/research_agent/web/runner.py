@@ -45,6 +45,9 @@ def child_environment():
         if k not in DROPPED_FROM_CHILD and not k.startswith(DROPPED_PREFIXES)
     }
     env["PYTHONUNBUFFERED"] = "1"
+    # The pipeline CLI calls load_dotenv(); on an editable install it would find the repository's .env and
+    # put back what was removed above. python-dotenv (>= 1.2) skips loading when this is set.
+    env["PYTHON_DOTENV_DISABLED"] = "1"
     return env
 
 

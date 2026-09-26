@@ -91,7 +91,26 @@ behind a TLS reverse proxy; see `docs/deployment.md`.
   `worker.log` in the run folder, and the checkpoint is kept so `POST /runs/{id}/resume` continues it.
 - **Safety nets.** `Idempotency-Key` makes a repeated start return the same job; caps limit `max_papers` and
   active runs per user; a worker whose heartbeat goes stale loses the job (another worker resumes it) and
-  stops its child instead of writing over the new owner.
+  stops its child instead of writing over the new owner. Heartbeats use the database clock, so hosts with
+  different clocks cannot steal live jobs; imports keep the heartbeat going from a separate thread. The run
+  follows its job: requeued → `queued`, out of attempts → `failed` with the same message.
+- **Resume.** `POST /runs/{id}/resume` is atomic (one `UPDATE … WHERE status='failed'`) and refused while a
+  queued or running job already carries the run. The worker passes `--resume` only when the folder has a
+  `manifest.json`; otherwise it starts the run again from the saved contract. Run folders must lie under
+  `RESEARCH_RUNS_DIR` (symlinks resolved), or the job fails without starting anything.
+- **Time limit.** `RESEARCH_WEB_JOB_TIMEOUT_SECONDS` (default 3600) bounds one run; past it the child is
+  stopped and the job and run fail with `the run timed out after N s`. `RESEARCH_WEB_PROGRESS_POLL_SECONDS`
+  times 3 must stay below `RESEARCH_WEB_JOB_STALE_SECONDS`.
+- **Graceful stop.** SIGTERM or SIGINT (`docker stop`, Ctrl-C) asks `research-web worker` to stop: a running
+  child is stopped and its job goes back to the queue without counting an attempt (the run shows `queued`
+  and continues from its checkpoint on the next claim). `dev --with-worker` stops and joins its worker
+  thread when the API exits. A child that finds the folder locked by another process exits with 75
+  (`EX_TEMPFAIL`); the worker then gives the job back the same way instead of failing the run.
+- **.env.** The child never loads a `.env` (`PYTHON_DOTENV_DISABLED=1`), so it sees exactly the worker's
+  environment minus the removed variables. `research-web dev --with-worker` loads `.env` into its own process
+  environment for the worker's keys (not into the API settings, not into logs); set
+  `PYTHON_DOTENV_DISABLED=1` to skip that. `research-web worker` never reads `.env`: give it the keys in
+  its environment (`deploy/worker.env` in Docker).
 
 Checked on 2026-09-26: a demo run with 3 papers went queued → running → done with every stage `completed`,
 a repeated start with the same key returned 200 and the same job, the run shows 3 screened / 3 kept with

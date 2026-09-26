@@ -164,3 +164,18 @@ def test_the_worker_and_the_pipeline_agree_on_the_busy_exit_code():
     from research_agent.web.runner import EXIT_LOCKED
 
     assert EXIT_LOCKED == pipeline_cli.EXIT_LOCKED == 75
+
+
+def test_the_child_never_loads_a_dotenv_file(monkeypatch):
+    """The pipeline CLI calls load_dotenv(); on an editable install that would find the repository's .env
+    and put back keys and settings the worker removed. python-dotenv honours PYTHON_DOTENV_DISABLED."""
+    import io
+
+    from dotenv import load_dotenv
+
+    env = child_environment()
+    assert env["PYTHON_DOTENV_DISABLED"] == "1"
+    monkeypatch.setenv("PYTHON_DOTENV_DISABLED", env["PYTHON_DOTENV_DISABLED"])
+    monkeypatch.delenv("RESEARCH_DOTENV_PROBE", raising=False)
+    assert load_dotenv(stream=io.StringIO("RESEARCH_DOTENV_PROBE=loaded\n")) is False
+    assert "RESEARCH_DOTENV_PROBE" not in __import__("os").environ

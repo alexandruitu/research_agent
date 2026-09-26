@@ -63,6 +63,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     command: ["research-web", "worker"]
+    init: true  # PID 1 forwards docker stop's SIGTERM, so the worker stops its child and requeues the job
+    stop_grace_period: 30s  # time to stop the child (up to 10 s) and give the job back before SIGKILL
     environment: *app-env
     env_file:
       - worker.env

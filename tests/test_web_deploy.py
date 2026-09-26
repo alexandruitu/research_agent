@@ -23,13 +23,72 @@ def test_services_and_startup_order(compose):
     assert "healthcheck" in services["db"] and "healthcheck" in services["api"]
 
 
+SECRET_SUFFIXES = ("_API_KEY", "_SECRET", "_TOKEN")
+DEPLOY = ROOT / "deploy"
+
+
+def env_names(service):
+    """Variable names from `environment`, whether written as a mapping or as a list of NAME[=value]."""
+    env = service.get("environment") or {}
+    return set(env) if isinstance(env, dict) else {item.split("=", 1)[0] for item in env}
+
+
+def volume_source(volume):
+    """The host side of a volume, with a `${VAR:-default}` source read as its default."""
+    if isinstance(volume, dict):
+        return str(volume.get("source", ""))
+    if volume.startswith("${"):
+        variable = volume[2 : volume.index("}")]
+        return variable.split(":-", 1)[1] if ":-" in variable else ""
+    return volume.split(":", 1)[0]
+
+
+def key_problems(service):
+    """Every way a service could see the worker's provider keys."""
+    problems = []
+    if "env_file" in service:
+        problems.append("reads an env_file")
+    leaked = {n for n in env_names(service) if n in KEYS or n.endswith(SECRET_SUFFIXES)}
+    if leaked:
+        problems.append(f"carries {sorted(leaked)}")
+    for volume in service.get("volumes") or []:
+        source = volume_source(volume)
+        if "/" not in source and not source.startswith("."):
+            continue  # a named volume
+        host = (DEPLOY / source).resolve()
+        if host.name.endswith(".env") or any((path / ".env").is_relative_to(host) for path in (ROOT, DEPLOY)):
+            problems.append(f"mounts {source}, which is or contains a .env file")
+    return problems
+
+
 def test_provider_keys_exist_only_in_the_worker(compose):
     for name in ("db", "migrate", "api"):
-        service = compose["services"][name]
-        assert "env_file" not in service, f"{name} must not read the worker key file"
-        env = service.get("environment") or {}
-        assert not any(key in env for key in KEYS), f"{name} must not carry provider keys"
+        assert key_problems(compose["services"][name]) == [], name
     assert compose["services"]["worker"]["env_file"] == ["worker.env"]
+
+
+@pytest.mark.parametrize(
+    "service",
+    [
+        {"environment": ["RESEARCH_RUNS_DIR=/data/runs", "ANTHROPIC_API_KEY"]},
+        {"environment": {"MISTRAL_API_KEY": "${MISTRAL_API_KEY}"}},
+        {"environment": ["HF_TOKEN=x"]},
+        {"env_file": "worker.env"},
+        {"volumes": ["./worker.env:/app/worker.env:ro"]},
+        {"volumes": ["../.env:/app/.env:ro"]},
+        {"volumes": ["..:/app:ro"]},
+        {"volumes": ["${SRC:-..}:/app:ro"]},
+        {"volumes": [{"type": "bind", "source": ".", "target": "/deploy"}]},
+    ],
+)
+def test_the_key_check_catches_every_way_in(service):
+    assert key_problems(service)
+
+
+def test_the_worker_forwards_stop_signals_to_python(compose):
+    """With `init`, docker stop's SIGTERM reaches the worker, which stops its child and requeues the job."""
+    worker = compose["services"]["worker"]
+    assert worker["init"] is True and worker["stop_grace_period"] == "30s"
 
 
 def test_the_api_mounts_run_folders_read_only_and_the_worker_can_write_runs(compose):

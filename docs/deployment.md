@@ -17,6 +17,12 @@ The `api`, `migrate` and `db` services never see them. `deploy/.env` holds only 
 (and optional host paths) and is read by Docker Compose for variable substitution.
 Both files are git-ignored; never commit them.
 
+The worker runs with `init: true` and `stop_grace_period: 30s`: `docker compose stop worker` delivers SIGTERM to
+Python, which stops a running pipeline child and puts its job back in the queue (no attempt counted); the run
+continues from its checkpoint when the worker starts again. One run may take at most
+`RESEARCH_WEB_JOB_TIMEOUT_SECONDS` (default 3600; set it in `deploy/worker.env`), after which it fails with
+`the run timed out after N s`. The pipeline child never reads a `.env` file.
+
 ## 2. First deployment
 
 ```bash

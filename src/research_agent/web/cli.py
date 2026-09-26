@@ -4,9 +4,13 @@ import argparse
 import getpass
 import json
 import os
+import signal
 import sys
 import threading
+from contextlib import contextmanager
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from .api.app import create_app
 from .auth import AuthError, create_user
@@ -151,19 +155,22 @@ def cmd_dev(args, settings):
     if args.import_all:
         run_imports(dev_settings, find_import_targets(dev_settings))
     print(f"API on http://{args.host}:{args.port}/api/v1 (Ctrl-C to stop; data in {data})")
-    stop = threading.Event()
-    if args.with_worker:
-        threading.Thread(
-            target=Worker(dev_settings).run_forever,
-            kwargs={"stop": stop.is_set},
-            daemon=True,
-            name="dev-worker",
-        ).start()
-        print("worker started in this process")
-    try:
+    if not args.with_worker:
         uvicorn.run(create_app(dev_settings), host=args.host, port=args.port, log_level="info")
-    finally:
-        stop.set()
+        return 0
+    # The worker runs pipeline children that need provider keys: load .env into this process's environment
+    # (never into dev_settings or a log). PYTHON_DOTENV_DISABLED=1 turns this off.
+    load_dotenv()
+    worker = Worker(dev_settings)
+    thread = threading.Thread(target=worker.run_forever, name="dev-worker")  # joined below, never abandoned
+    with stop_on_signals(worker):  # uvicorn re-raises the signal it stopped on once it has shut down
+        thread.start()
+        print("worker started in this process")
+        try:
+            uvicorn.run(create_app(dev_settings), host=args.host, port=args.port, log_level="info")
+        finally:
+            worker.request_stop()  # a running child is stopped and its job goes back to the queue
+            thread.join()
     return 0
 
 
@@ -174,16 +181,33 @@ def cmd_serve(args, settings):
     return 0
 
 
+@contextmanager
+def stop_on_signals(worker):
+    """SIGTERM and SIGINT ask the worker to stop instead of killing the process: the pipeline child runs in
+    its own session, so killing the worker would leave it running (and spending credits)."""
+    handlers = {
+        signum: signal.signal(signum, lambda *_: worker.request_stop())
+        for signum in (signal.SIGTERM, signal.SIGINT)
+    }
+    try:
+        yield
+    finally:
+        for signum, handler in handlers.items():
+            signal.signal(signum, handler)
+
+
 def cmd_worker(args, settings):
     worker = Worker(settings)
-    if args.once:
-        worker.drain()
-        return 0
-    print(f"worker {worker.worker_id} started (Ctrl-C to stop)")
-    try:
+    with stop_on_signals(worker):
+        if args.once:
+            try:
+                worker.drain()
+            except Exception as exc:  # noqa: BLE001 -- CLI boundary: one redacted line, non-zero exit
+                print("FAILED: " + " ".join(sanitize_error(exc).split()))
+                return 1
+            return 0
+        print(f"worker {worker.worker_id} started (Ctrl-C to stop)")
         worker.run_forever()
-    except KeyboardInterrupt:
-        pass
     return 0
 
 
