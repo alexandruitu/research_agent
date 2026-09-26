@@ -105,3 +105,31 @@ def test_an_unexpected_import_error_is_reported_sanitized_and_the_others_continu
     assert sentinel not in out
     assert "created" in out and "toy" in out  # the eval run was still imported
     assert scalar(cli_settings.database_url, select(func.count()).select_from(Run)) == 1
+
+
+def test_worker_once_drains_the_queue_and_exits(cli_settings, tmp_path):
+    from research_agent.web.auth import create_user
+    from research_agent.web.db.models import Job
+    from research_agent.web.db.session import make_engine, make_session_factory
+    from research_agent.web.jobs import enqueue
+
+    assert main(["worker", "--once"], settings=cli_settings) == 0  # empty queue: exits at once
+    factory = make_session_factory(make_engine(cli_settings.database_url))
+    with factory() as db:
+        admin = create_user(
+            db, email="a@example.org", name="A", role="admin", password="correct horse battery"
+        )
+        enqueue(db, "import", {"kind": "research", "name": "demo"}, admin.id)
+        db.commit()
+    assert main(["worker", "--once"], settings=cli_settings) == 0
+    assert scalar(cli_settings.database_url, select(Job.status)) == "done"
+    assert scalar(cli_settings.database_url, select(func.count()).select_from(Run)) == 1
+
+
+def test_serve_and_dev_are_registered(capsys):
+    from research_agent.web.cli import build_parser
+
+    parser = build_parser()
+    assert parser.parse_args(["serve", "--port", "9000"]).port == 9000
+    dev = parser.parse_args(["dev", "--with-worker", "--allow-demo"])
+    assert dev.with_worker is True and dev.allow_demo is True

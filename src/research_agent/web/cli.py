@@ -5,6 +5,7 @@ import getpass
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 from .api.app import create_app
@@ -16,6 +17,7 @@ from .importer.evals import import_eval_run
 from .importer.research import import_research_run
 from .runner import sanitize_error
 from .settings import load_settings
+from .worker import Worker
 
 
 def detect_kind(folder):
@@ -137,6 +139,8 @@ def cmd_dev(args, settings):
     server = pgserver.get_server(data, cleanup_mode="stop")
     url = server.get_uri().replace("postgresql://", "postgresql+psycopg://", 1)
     env = dict(os.environ, RESEARCH_WEB_DATABASE_URL=url, RESEARCH_WEB_COOKIE_SECURE="false")
+    if args.allow_demo:
+        env["RESEARCH_WEB_ALLOW_DEMO"] = "true"
     dev_settings = load_settings(env)
     upgrade(url)
     if args.admin_email:
@@ -147,7 +151,39 @@ def cmd_dev(args, settings):
     if args.import_all:
         run_imports(dev_settings, find_import_targets(dev_settings))
     print(f"API on http://{args.host}:{args.port}/api/v1 (Ctrl-C to stop; data in {data})")
-    uvicorn.run(create_app(dev_settings), host=args.host, port=args.port, log_level="info")
+    stop = threading.Event()
+    if args.with_worker:
+        threading.Thread(
+            target=Worker(dev_settings).run_forever,
+            kwargs={"stop": stop.is_set},
+            daemon=True,
+            name="dev-worker",
+        ).start()
+        print("worker started in this process")
+    try:
+        uvicorn.run(create_app(dev_settings), host=args.host, port=args.port, log_level="info")
+    finally:
+        stop.set()
+    return 0
+
+
+def cmd_serve(args, settings):
+    import uvicorn
+
+    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level="info")
+    return 0
+
+
+def cmd_worker(args, settings):
+    worker = Worker(settings)
+    if args.once:
+        worker.drain()
+        return 0
+    print(f"worker {worker.worker_id} started (Ctrl-C to stop)")
+    try:
+        worker.run_forever()
+    except KeyboardInterrupt:
+        pass
     return 0
 
 
@@ -175,7 +211,16 @@ def build_parser():
     p.add_argument("--admin-email")
     p.add_argument("--admin-name", default="Admin")
     p.add_argument("--import-all", action="store_true")
+    p.add_argument("--with-worker", action="store_true", help="also run the job worker in this process")
+    p.add_argument("--allow-demo", action="store_true", help="allow demo-mode runs (offline, no model calls)")
     p.set_defaults(func=cmd_dev)
+    p = sub.add_parser("serve", help="run the API (behind a reverse proxy that terminates TLS)")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.set_defaults(func=cmd_serve)
+    p = sub.add_parser("worker", help="run the job worker (the only process that needs LLM provider keys)")
+    p.add_argument("--once", action="store_true", help="process queued jobs, then exit")
+    p.set_defaults(func=cmd_worker)
     return parser
 
 
