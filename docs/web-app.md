@@ -4,8 +4,7 @@
 
 The backend of the department web app: a PostgreSQL database, importers that load finished research
 runs and eval runs, sign-in with roles, and a read-only JSON API under `/api/v1` for the paper table,
-the paper drawer, runs, evals and the System map. The worker (start and resume runs from the browser)
-and the React frontend come in plans 2 and 3 (`docs/superpowers/plans/2026-09-26-web-app-*.md`).
+the paper drawer, runs, evals and the System map. The React frontend comes in plan 3 (`docs/superpowers/plans/2026-09-26-web-app-*.md`).
 
 ## Requirements
 
@@ -68,6 +67,37 @@ adjudicator uncertain).
   A test fails if any route lacks a role guard.
 - LLM provider keys never enter the API process; the API docs endpoints are off.
 
+## Runs and the worker
+
+The API never runs the pipeline. `POST /api/v1/runs` (members) writes a job row and returns 202; a worker
+claims it from PostgreSQL (`FOR UPDATE SKIP LOCKED`), runs the existing pipeline in a child process,
+mirrors `progress.json` into the job every poll, and imports the finished run into the database. A run
+goes `queued` → `running` → `done` (or `failed`). The browser polls `GET /api/v1/jobs/{id}`.
+
+Locally, start the API with a worker thread and demo runs allowed (demo mode makes no model calls):
+
+```bash
+research-web dev --with-worker --allow-demo --import-all --admin-email you@example.org
+```
+
+In production the worker is its own process (`research-web worker`) and the API is `research-web serve`
+behind a TLS reverse proxy; see `docs/deployment.md`.
+
+- **Keys.** Live runs need the provider keys in the *worker's* environment only. The child process gets them;
+  the database URL and every `RESEARCH_WEB_*` variable are removed from its environment. Keys never go on a
+  command line, into the database, into errors or into the API. Tests never start a live run.
+- **Failures** are stored as `failed at stage '<stage>': <ErrorType>: <safe message>` or
+  `the run process exited with code <n>`, never raw provider output; the child's output stays in
+  `worker.log` in the run folder, and the checkpoint is kept so `POST /runs/{id}/resume` continues it.
+- **Safety nets.** `Idempotency-Key` makes a repeated start return the same job; caps limit `max_papers` and
+  active runs per user; a worker whose heartbeat goes stale loses the job (another worker resumes it) and
+  stops its child instead of writing over the new owner.
+
+Checked on 2026-09-26: a demo run with 3 papers went queued → running → done with every stage `completed`,
+a repeated start with the same key returned 200 and the same job, the run shows 3 screened / 3 kept with
+3 rows in the table, and a start without the CSRF header was refused with 403.
+
 ## Deployment
 
-Docker Compose files arrive in plan 2. They cannot be run on a machine without Docker.
+Docker Compose files live in `deploy/`; see `docs/deployment.md`. They cannot be run on a machine without
+Docker, so they are checked by tests as data only until a Docker host (or CI) builds them.

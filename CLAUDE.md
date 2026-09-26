@@ -13,6 +13,7 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
 - Live: `research-agent "topic" --mode live --max-papers 5 --run-dir runs/live-01` (cere `.env`)
 - UI: `research-ui`
 - Web (backend): `research-web dev --import-all --admin-email <email>` (server local, PostgreSQL embedded, parola în `RESEARCH_WEB_ADMIN_PASSWORD`); vezi `docs/web-app.md`
+- Web (producție): `research-web serve` (API) și `research-web worker` (singurul proces cu chei); vezi `docs/deployment.md`
 - Eval: `research-eval --help` · `build-gold` · `screen` · `agreement` · `report` (vezi README, secțiunea Evaluare)
 
 ## Principii (nu le încălca)
