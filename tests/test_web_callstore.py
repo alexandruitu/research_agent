@@ -46,7 +46,18 @@ def test_read_call_returns_input_and_output(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "bad", ["", "abc", "../etc/passwd", "F" * 64, "g" * 64, "a" * 63, "a" * 65, "a" * 64 + "\n", "a'; drop table calls;--"]
+    "bad",
+    [
+        "",
+        "abc",
+        "../etc/passwd",
+        "F" * 64,
+        "g" * 64,
+        "a" * 63,
+        "a" * 65,
+        "a" * 64 + "\n",
+        "a'; drop table calls;--",
+    ],
 )
 def test_call_keys_must_be_64_lowercase_hex(tmp_path, bad):
     make_store(tmp_path)
