@@ -181,3 +181,73 @@ def paper_table(db, run, q):
         for s, p, va, vb, vj, n, score, position, label in rows
     ]
     return items, total
+
+
+ROLE_ORDER = {"a": 0, "b": 1, "adjudicator": 2}
+
+
+def paper_drawer(db, run, paper):
+    screening = db.scalar(select(Screening).where(Screening.run_id == run.id, Screening.paper_id == paper.id))
+    if screening is None:
+        return None
+    scores = db.execute(
+        select(Criterion.key, Criterion.question, CriterionScore.probability, CriterionScore.jev_version)
+        .join(CriterionScore, CriterionScore.criterion_id == Criterion.id)
+        .where(CriterionScore.screening_id == screening.id)
+        .order_by(Criterion.position, Criterion.key)
+    ).all()
+    label = (
+        db.scalar(
+            select(GoldLabel).where(GoldLabel.gold_set_id == run.gold_set_id, GoldLabel.paper_id == paper.id)
+        )
+        if run.gold_set_id
+        else None
+    )
+    claims = db.scalars(
+        select(EvidenceClaim)
+        .where(EvidenceClaim.run_id == run.id, EvidenceClaim.paper_id == paper.id)
+        .order_by(EvidenceClaim.created_at, EvidenceClaim.id)
+    )
+    reviews = sorted(
+        db.scalars(select(Review).where(Review.run_id == run.id, Review.paper_id == paper.id)),
+        key=lambda r: ROLE_ORDER[r.role],
+    )
+    rank = db.scalar(select(Ranking).where(Ranking.run_id == run.id, Ranking.paper_id == paper.id))
+    return {
+        "paper": {
+            "id": paper.id,
+            "source_id": paper.source_id,
+            "title": paper.title,
+            "abstract": paper.abstract,
+            "year": paper.year,
+            "doi": paper.doi,
+        },
+        "found_by": screening.found_by,
+        "in_sr": None if run.gold_set_id is None else (label is not None and label.label == "include"),
+        "label_source": label.label_source if label else None,
+        "screening": {
+            "tier": screening.tier,
+            "decision": screening.decision,
+            "jev_decision": screening.jev_decision,
+            "llm_decision": screening.llm_decision,
+            "reason": screening.reason,
+            "call_key": screening.call_key,
+            "criteria": [
+                {"key": k, "question": q, "probability": p, "jev_version": v} for k, q, p, v in scores
+            ],
+        },
+        "claims": [{"statement": c.statement, "quote": c.quote, "call_key": c.call_key} for c in claims],
+        "reviews": [
+            {
+                "role": r.role,
+                "verdict": r.verdict,
+                "relevance": r.relevance,
+                "methods": r.methods,
+                "support": r.support,
+                "detail": r.detail,
+                "call_key": r.call_key,
+            }
+            for r in reviews
+        ],
+        "rank": {"score": rank.score, "position": rank.position} if rank else None,
+    }

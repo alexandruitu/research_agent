@@ -188,3 +188,65 @@ class PaperPage(Model):
     total: int
     page: int
     page_size: int
+
+
+class PaperDetail(Model):
+    id: uuid.UUID
+    source_id: str
+    title: str
+    abstract: str
+    year: int | None
+    doi: str
+
+
+class CriterionScoreOut(Model):
+    key: str
+    question: str
+    probability: float
+    jev_version: str
+
+
+class ScreeningOut(Model):
+    tier: str
+    decision: str
+    jev_decision: str | None
+    llm_decision: str | None
+    reason: str
+    call_key: str | None
+    criteria: list[CriterionScoreOut]
+
+
+class ClaimOut(Model):
+    statement: str
+    quote: str
+    call_key: str | None
+
+
+class ReviewOut(Model):
+    role: str
+    verdict: str
+    relevance: int
+    methods: int
+    support: int
+    detail: dict[str, Any]
+    call_key: str | None
+
+
+class DrawerOut(Model):
+    paper: PaperDetail
+    found_by: str
+    in_sr: bool | None
+    label_source: str | None
+    screening: ScreeningOut
+    claims: list[ClaimOut]
+    reviews: list[ReviewOut]
+    rank: RankCell | None
+
+
+class CallOut(Model):
+    key: str
+    role: str
+    model: str
+    prompt_version: str
+    input: dict[str, Any]
+    output: dict[str, Any]
