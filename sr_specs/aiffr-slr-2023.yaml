@@ -1,0 +1,32 @@
+name: aiffr-slr-2023
+citation: >-
+  Artificial intelligence in estimating fractional flow reserve: a systematic literature review of techniques (BMC Cardiovasc Disord 2023; doi 10.1186/s12872-023-03447-w; CC BY; search date not stated, cutoff assumed 2023-06-30)
+topic: artificial intelligence techniques for estimating fractional flow reserve
+query: '(TITLE_ABS:("fractional flow reserve")) AND (TITLE_ABS:("machine learning" OR "deep learning" OR "artificial intelligence" OR "neural network")) AND (FIRST_PDATE:[2010-01-01 TO 2023-06-30])'
+included:
+  - doi: 10.3390/app12146964
+  - doi: 10.2478/jtim-2022-0018
+  - doi: 10.1016/j.cmpb.2022.106827
+  - doi: 10.1016/j.amjcard.2020.10.022
+  - doi: 10.1016/j.cma.2021.113892
+  - doi: 10.1117/12.2548471
+  - doi: 10.1038/s41598-020-77507-y
+  - doi: 10.1039/C9RA08999C
+  - doi: 10.1016/j.neunet.2019.11.017
+  - doi: 10.1177/0954411920946526
+  - doi: 10.48550/arXiv.1911.04940
+  - doi: 10.1016/j.cma.2019.05.005
+  - doi: 10.1007/s00330-017-5223-z
+  - doi: 10.1109/TMI.2019.2953054
+  - doi: 10.1016/j.atherosclerosis.2019.10.022
+  - doi: 10.1016/j.acra.2019.12.013
+  - doi: 10.1093/ehjci/jez160
+  - doi: 10.11909/j.issn.1671-5411.2019.01.010
+  - doi: 10.48550/arXiv.1912.06417
+  - doi: 10.1161/JAHA.118.011685
+  - doi: 10.1007/s00330-018-5822-3
+  - doi: 10.1371/journal.pmed.1002693
+  - doi: 10.1007/978-3-030-01364-6_9
+  - doi: 10.1016/j.media.2017.11.008
+  - doi: 10.1007/s12350-017-0834-y
+  - doi: 10.1152/japplphysiol.00752.2015

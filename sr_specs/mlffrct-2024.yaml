@@ -1,0 +1,22 @@
+name: mlffrct-2024
+citation: >-
+  Evaluating machine learning accuracy in detecting significant coronary stenosis using CCTA-derived fractional flow reserve: a systematic review and meta-analysis (Int J Cardiol Heart Vasc 2024; doi 10.1016/j.ijcha.2024.101528; CC BY-NC; search to Aug 2023)
+topic: machine learning or deep learning estimation of CT-derived fractional flow reserve from coronary CT angiography
+query: '(TITLE_ABS:("fractional flow reserve" OR "FFR-CT" OR "FFRCT" OR "CT-FFR")) AND (TITLE_ABS:("machine learning" OR "deep learning" OR "artificial intelligence")) AND (FIRST_PDATE:[2010-01-01 TO 2023-08-31])'
+included:
+  - doi: 10.1007/s00330-021-08468-7
+  - doi: 10.3389/fcvm.2021.788703
+  - doi: 10.1148/radiol.2019190098
+  - doi: 10.1093/ehjci/jeab062
+  - doi: 10.1016/j.cjca.2019.08.026
+  - doi: 10.2214/AJR.18.20774
+  - doi: 10.1253/circj.CJ-19-0163
+  - doi: 10.1007/s00330-018-5834-z
+  - doi: 10.1007/s10554-018-1419-9
+  - doi: 10.1148/radiol.2018171291
+  - doi: 10.1161/CIRCIMAGING.117.007217
+  - doi: 10.1016/j.amjcard.2017.08.034
+  - doi: 10.1007/s00330-019-06571-4
+  - doi: 10.1093/ehjci/jez160
+  - doi: 10.3892/etm.2022.11637
+  - doi: 10.11909/j.issn.1671-5411.2019.01.010
