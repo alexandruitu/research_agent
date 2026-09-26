@@ -1,0 +1,59 @@
+stages:
+  - id: topic
+    title: Topic
+    kind: input
+    summary: The field's topic sentence and the criteria papers are judged against.
+    limits: In this version each field has a single criterion, built from the topic sentence.
+  - id: plan
+    title: Plan
+    summary: A language model turns the topic into up to three literature search queries.
+    limits: Query quality has not been measured.
+  - id: search
+    title: Search
+    summary: Europe PMC is searched with the planned queries and duplicate records are merged.
+    limits: One page of results per query; abstracts only, no full text.
+    measured_by: [retrieval_recall.k, retrieval_recall.n]
+    headline: "recall {retrieval_recall.k}/{retrieval_recall.n}"
+    data_link: evals
+  - id: dedup
+    title: Deduplicate
+    summary: Records are merged by DOI, or by title and year when a DOI is missing. Code only.
+    limits: Verified by unit tests, not measured on real data.
+  - id: screen
+    title: Screen
+    summary: >-
+      Decides which papers are worth reading further. Tier 1, Jev, answers the criteria as yes/no
+      probabilities and decides when it is confident; tier 2, Claude, screens the rest. A paper is dropped
+      automatically only when Jev is very sure.
+    limits: Works on the abstract only, so a paper whose abstract never names the method can be lost.
+    measured_by: [strategies.cascade.recall.k, strategies.cascade.recall.n]
+    headline: "recall {strategies.cascade.recall.k}/{strategies.cascade.recall.n}"
+    data_link: papers
+  - id: extract
+    title: Extract
+    summary: Claims are extracted with quotes that must appear exactly in the abstract; anything else is rejected.
+    limits: Abstract-level claims only.
+    measured_by: [agreement.n]
+    headline: "{agreement.n} papers, quotes verified"
+    data_link: papers
+  - id: reviewers
+    title: Reviewers A and B
+    summary: Two independent reviews of each kept paper, one supportive and one critical, scored 0 to 4.
+    limits: Both reviewers are currently the same model family, so their agreement overstates independence.
+    measured_by: [agreement.verdict.kappa]
+    headline: "kappa {agreement.verdict.kappa:.2f}"
+    caveat_when: agreement.same_family
+    caveat: one model family
+    data_link: evals
+  - id: adjudicate
+    title: Adjudicate
+    summary: A stronger model resolves reviewer disagreements against the abstract.
+    limits: Fires rarely, so its quality is hard to measure.
+    measured_by: [agreement.adjudication_rate.k, agreement.adjudication_rate.n]
+    headline: "fired {agreement.adjudication_rate.k} of {agreement.adjudication_rate.n}"
+    data_link: papers
+  - id: rank
+    title: Rank
+    summary: A score computed in code from the reviews (relevance 40%, methods 30%, support 30%).
+    limits: The inputs are model-assigned scores that have not been validated against ground truth.
+    data_link: papers
