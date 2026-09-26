@@ -14,6 +14,7 @@ from .db.session import make_engine, make_session_factory
 from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
+from .runner import sanitize_error
 from .settings import load_settings
 
 
@@ -56,6 +57,10 @@ def run_imports(settings, targets):
                 db.rollback()
                 failures += 1
                 print(f"FAILED    {kind:8} {path.name}: {exc}")
+            except Exception as exc:  # noqa: BLE001 -- one broken folder must not stop the others
+                db.rollback()
+                failures += 1
+                print(f"FAILED    {kind:8} {path.name}: {sanitize_error(exc)}")
     return 1 if failures else 0
 
 

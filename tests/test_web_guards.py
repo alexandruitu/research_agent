@@ -99,8 +99,16 @@ def test_role_matrix(app, users, imported, db, role):
             )
 
 
-def test_security_headers_are_on_every_response(client, sign_in):
-    for response in (client.get("/api/v1/auth/me"), client.get("/api/v1/nope")):
+def test_security_headers_are_on_every_response(app, client, sign_in):
+    @app.get("/api/v1/boom")
+    def boom():
+        raise RuntimeError("unexpected")
+
+    crashing = TestClient(app, raise_server_exceptions=False)
+    crash = crashing.get("/api/v1/boom", headers={"X-Request-ID": "trace-500"})
+    assert crash.status_code == 500 and crash.json()["request_id"] == "trace-500"
+    for response in (client.get("/api/v1/auth/me"), client.get("/api/v1/nope"), crash):
+        assert response.headers["x-request-id"]
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["cache-control"] == "no-store"
         assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
@@ -134,8 +142,11 @@ def test_secrets_never_appear_in_responses_logs_or_error_bodies(
     assert crash.json()["message"] == "Unexpected error" and "provider" not in crash.text
     seen.append(crash.text)
     assert not any(sentinel in text for text in seen)
-    # The server log records the failure for operators; the response never carries it.
+    # The server log records the failure for operators; the response never carries it, nor does the log
+    # carry the secret (message and traceback are redacted).
     assert any("unhandled error" in record.getMessage() for record in caplog.records)
+    assert "provider said no" in caplog.text and "RuntimeError" in caplog.text
+    assert sentinel not in caplog.text
 
 
 @pytest.mark.parametrize(

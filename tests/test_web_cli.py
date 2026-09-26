@@ -85,3 +85,23 @@ def test_openapi_dump_lists_the_routes_and_no_secrets(cli_settings, tmp_path):
 def test_migrate_is_repeatable(cli_settings):
     assert main(["migrate"], settings=cli_settings) == 0
     assert main(["migrate"], settings=cli_settings) == 0
+
+
+def test_an_unexpected_import_error_is_reported_sanitized_and_the_others_continue(
+    cli_settings, monkeypatch, capsys
+):
+    from research_agent.web import cli
+
+    sentinel = "sk-ant-SENTINEL-cli-1234567890"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", sentinel)
+
+    def explode(db, path, **kwargs):
+        raise RuntimeError(f"disk said no, key {sentinel}")
+
+    monkeypatch.setattr(cli, "import_research_run", explode)
+    assert main(["import", "--all"], settings=cli_settings) == 1
+    out = capsys.readouterr().out
+    assert "FAILED" in out and "demo: RuntimeError: disk said no" in out
+    assert sentinel not in out
+    assert "created" in out and "toy" in out  # the eval run was still imported
+    assert scalar(cli_settings.database_url, select(func.count()).select_from(Run)) == 1

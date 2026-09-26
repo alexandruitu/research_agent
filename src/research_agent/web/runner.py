@@ -102,9 +102,13 @@ def _secret_values():
     return sorted((v for v in values if len(v) >= MIN_SECRET), key=len, reverse=True)
 
 
-def sanitize_error(exc):
-    """`Type: message`, with the values of every secret variable (see `_secret_values`) replaced, cut to 300."""
-    text = f"{type(exc).__name__}: {exc}"
+def redact(text):
+    """`text` with the values of every secret variable (see `_secret_values`) replaced by ***."""
     for value in _secret_values():
         text = text.replace(value, "***")
-    return text[:MAX_ERROR]
+    return text
+
+
+def sanitize_error(exc):
+    """`Type: message`, redacted (see `redact`), cut to 300."""
+    return redact(f"{type(exc).__name__}: {exc}")[:MAX_ERROR]
