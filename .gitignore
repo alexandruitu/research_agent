@@ -7,3 +7,4 @@ runs/
 *.sqlite*
 evals/
 gold/
+.DS_Store
