@@ -52,9 +52,9 @@ def load_records(gold, store, evaluator, jev, allow_mixed=False):
     return records, sorted(versions)
 
 
-def _load_run(run_dir, allow_mixed):
+def _load_run(run_dir, allow_mixed, gold_path=None):
     manifest = read_manifest(run_dir)
-    gold = load_gold(manifest["gold_path"])
+    gold = load_gold(gold_path or manifest["gold_path"])
     if gold.content_sha256 != manifest["gold_sha256"]:
         raise ReportError("gold file changed since this run was screened; re-run `research-eval screen`")
     store = Store(run_dir)
@@ -62,6 +62,12 @@ def _load_run(run_dir, allow_mixed):
     jev = JevScreener(store, "offline", model=manifest["jev_model"])
     records, versions = load_records(gold, store, evaluator, jev, allow_mixed)
     return manifest, gold, records, versions
+
+
+def load_run(run_dir, allow_mixed=False, gold_path=None):
+    """Public accessor (used by the web importer): (manifest, gold, records, jev_model_versions).
+    `gold_path` overrides the path recorded in the manifest, for runs moved to another machine."""
+    return _load_run(run_dir, allow_mixed, gold_path)
 
 
 def _provider(models, role):

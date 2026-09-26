@@ -503,3 +503,11 @@ def test_markdown_has_the_lost_column_and_is_deterministic(tmp_path):
     ]
     lost = {(c[0], c[1]): c[4] for c in cells if len(c) == 9}  # sweep rows: include, exclude, ..., lost, ...
     assert lost[("0.6", "0.9")] == "1" and lost[("0.8", "0.95")] == "0"  # MED:3 is lost at the default pair
+
+
+def test_load_run_is_a_public_accessor_that_accepts_a_gold_path_override(run_dir, tmp_path):
+    from research_agent.eval.report import load_run
+
+    manifest, gold, records, versions = load_run(run_dir, gold_path=tmp_path / "gold.json")
+    assert gold.name == "toy" and len(records) == 12 and versions == ["jev-1.13.0"]
+    assert manifest["mode"] == "demo"
