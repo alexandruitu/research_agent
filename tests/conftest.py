@@ -103,3 +103,18 @@ def sign_in(app, users):
         return c, {"X-CSRF-Token": r.json()["csrf_token"]}
 
     return go
+
+
+@pytest.fixture
+def imported(db, tmp_path):
+    """A demo research run and a toy eval run imported into the database (folders live in the roots)."""
+    from web_fixtures import make_demo_run, make_eval_run
+
+    from research_agent.web.importer.evals import import_eval_run
+    from research_agent.web.importer.research import import_research_run
+
+    research = import_research_run(db, make_demo_run(tmp_path / "runs" / "demo"))
+    eval_dir, _gold, report = make_eval_run(tmp_path)
+    evaluated = import_eval_run(db, eval_dir)
+    db.commit()
+    return {"research": research.run_id, "eval": evaluated.run_id, "report": report}

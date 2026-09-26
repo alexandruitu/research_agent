@@ -59,12 +59,23 @@ def add_jev_block(directory, paper_id, probability=0.93):
 
 
 def make_eval_run(
-    base, name="toy", positive_ids=(1, 2, 3, 4), jev_p=None, llm_exclude=None, with_agreement=True
+    base,
+    name="toy",
+    positive_ids=(1, 2, 3, 4),
+    jev_p=None,
+    llm_exclude=None,
+    with_agreement=True,
+    no_abstract=(),
 ):
-    """A real eval run: toy gold, Jev (mock HTTP) + demo LLM screen on every paper, agreement, report."""
+    """A real eval run: toy gold, Jev (mock HTTP) + demo LLM screen on every paper, agreement, report.
+    Papers numbered in `no_abstract` have no abstract, so they are never screened (as on real gold sets)."""
     base = Path(base)
     gold_path = base / "gold" / f"{name}.json"
-    gold = write_gold(make_gold(n=12, positive_ids=positive_ids, name=name), gold_path)
+    gold = make_gold(n=12, positive_ids=positive_ids, name=name)
+    for candidate in gold.candidates:
+        if int(candidate.id.split(":")[1]) in no_abstract:
+            candidate.abstract, candidate.flags = "", ["no_abstract"]
+    gold = write_gold(gold, gold_path)
     run = base / "evals" / name
     store = Store(run)
     jev = JevScreener(store, "k", client=jev_client(JEV_P if jev_p is None else jev_p))
