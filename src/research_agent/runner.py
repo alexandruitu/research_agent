@@ -1,8 +1,10 @@
 """Shared CLI/UI execution with checkpoint persistence and atomic progress snapshots."""
 
 import fcntl
+import hashlib
 import json
 import os
+import shutil
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -12,7 +14,7 @@ from pathlib import Path
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .agents import PROMPT_VERSION, Evaluator, live_models
-from .connectors import DemoConnector, EuropePMC
+from .connectors import DemoConnector, EuropePMC, SourceUnavailable, domain_connector
 from .graph import build_graph
 from .jev import DEFAULT_MODEL, JEV_SCREEN_VERSION, JevScreener, JevThresholds
 from .report import write_report
@@ -48,6 +50,33 @@ FIELDS = dict(
 )
 
 
+FAILED = (
+    "The stage did not finish. Check source access, the key and the configured model, then resume the run. "
+    "The checkpoint is kept."
+)
+
+
+def make_connector(contract, store):
+    if contract.domain is not None:
+        return domain_connector(contract.domain, store, contract.mode)
+    return DemoConnector(store) if contract.mode == "demo" else EuropePMC(store)
+
+
+def copy_domain(path, contract, domain_file):
+    """domain.json in the run folder is the exact file the run was started with (or the validated spec)."""
+    target = Path(path) / "domain.json"
+    if domain_file is not None:
+        shutil.copyfile(domain_file, target)
+    else:
+        target.write_text(json.dumps(contract.domain.model_dump(), ensure_ascii=False, indent=2))
+    field = contract.domain.field
+    return {
+        "file": "domain.json",
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+        "field": field.model_dump() if field else None,
+    }
+
+
 def read_json(path, default=None):
     try:
         return json.loads(Path(path).read_text())
@@ -72,7 +101,7 @@ def run_lock(path):
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise RunLocked("Această cercetare rulează deja.") from None
+            raise RunLocked("This research is already running.") from None
         try:
             yield
         finally:
@@ -116,7 +145,9 @@ class Progress:
             atomic_json(self.path, self.data)
 
 
-def run_research(path, contract=None, models=None, resume=False, stop_after=None, on_event=None):
+def run_research(
+    path, contract=None, models=None, resume=False, stop_after=None, on_event=None, domain_file=None
+):
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("LANGGRAPH_STRICT_MSGPACK", "true")
@@ -125,16 +156,16 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
         if resume:
             manifest = read_json(manifest_path)
             if not manifest:
-                raise ValueError("Nu există o cercetare salvată în acest director.")
+                raise ValueError("There is no saved research in this folder.")
             if manifest["prompt_version"] != PROMPT_VERSION:
-                raise ValueError("Versiunea prompturilor s-a schimbat; începe o cercetare nouă.")
+                raise ValueError("The prompt version changed; start a new research run.")
             saved = Contract.model_validate(manifest["contract"])
             if contract and contract.topic != saved.topic:
-                raise ValueError("Topic-ul nu poate fi schimbat la reluare.")
+                raise ValueError("The topic cannot be changed when resuming.")
             contract, models = saved, manifest["models"]
         else:
             if manifest_path.exists():
-                raise ValueError("Cercetarea există deja; reia sau alege un director nou.")
+                raise ValueError("This research already exists; resume it or choose a new folder.")
             contract = Contract.model_validate(contract)
             models = models or (live_models() if contract.mode == "live" else {})
             manifest = {
@@ -144,6 +175,7 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
                     **({"jev": DEFAULT_MODEL} if contract.jev else {}),
                 },
                 "jev_screen_version": JEV_SCREEN_VERSION if contract.jev else None,
+                "domain": copy_domain(path, contract, domain_file) if contract.domain else None,
                 "prompt_version": PROMPT_VERSION,
                 "score_version": "m1.1",
                 "packages": {
@@ -157,7 +189,7 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
         try:
             store = Store(path)
             evaluator = Evaluator(store, contract.mode, models)
-            connector = DemoConnector(store) if contract.mode == "demo" else EuropePMC(store)
+            connector = make_connector(contract, store)
             jev = (
                 JevScreener.from_env(
                     store, JevThresholds(contract.jev_min_confidence, contract.jev_exclude_min_confidence)
@@ -192,10 +224,11 @@ def run_research(path, contract=None, models=None, resume=False, stop_after=None
             progress.write(status="completed", count=len(result["ranking"]))
             return result
         except Exception as exc:
-            # No raw provider exception: it can contain credentials or request bodies.
+            # No raw provider exception: it can contain credentials or request bodies. A source failure
+            # names only the source.
             progress.write(
                 status="failed",
                 error_type=type(exc).__name__,
-                message="Etapa nu s-a încheiat. Verifică accesul la sursă, cheia și modelul configurat; apoi reia cercetarea. Checkpoint-ul este păstrat.",
+                message=exc.source if isinstance(exc, SourceUnavailable) else FAILED,
             )
             raise

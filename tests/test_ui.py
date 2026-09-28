@@ -28,7 +28,7 @@ def test_runner_progress_pause_resume_and_report(tmp_path):
 def test_lock_blocks_duplicate_workers(tmp_path):
     with run_lock(tmp_path):
         assert is_running(tmp_path)
-        with pytest.raises(ValueError, match="deja"):
+        with pytest.raises(ValueError, match="already running"):
             run_research(tmp_path, Contract(topic="test topic"))
     assert not is_running(tmp_path)
 
