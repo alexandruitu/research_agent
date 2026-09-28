@@ -1,0 +1,200 @@
+{
+  "demo": {
+    "screens": {
+      "demo:1": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:10": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:11": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:12": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:2": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:3": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:4": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:5": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:6": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:7": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:8": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      },
+      "demo:9": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": null
+      }
+    },
+    "ranking": [
+      [
+        "demo:1",
+        60.0
+      ],
+      [
+        "demo:10",
+        60.0
+      ],
+      [
+        "demo:11",
+        60.0
+      ],
+      [
+        "demo:12",
+        60.0
+      ],
+      [
+        "demo:2",
+        60.0
+      ],
+      [
+        "demo:3",
+        60.0
+      ],
+      [
+        "demo:4",
+        60.0
+      ],
+      [
+        "demo:5",
+        60.0
+      ],
+      [
+        "demo:6",
+        60.0
+      ],
+      [
+        "demo:7",
+        60.0
+      ]
+    ]
+  },
+  "jev": {
+    "screens": {
+      "MED:1": {
+        "decision": "include",
+        "reason": "Jev: topic_match p=0.99 (jev-1.13.0)",
+        "tier": "jev",
+        "jev": "include"
+      },
+      "MED:2": {
+        "decision": "exclude",
+        "reason": "Jev: topic_match p=0.01 (jev-1.13.0)",
+        "tier": "jev",
+        "jev": "exclude"
+      },
+      "MED:3": {
+        "decision": "exclude",
+        "reason": "off topic",
+        "tier": "llm",
+        "jev": "escalate"
+      },
+      "MED:4": {
+        "decision": "include",
+        "reason": "Jev: topic_match p=0.90 (jev-1.13.0)",
+        "tier": "jev",
+        "jev": "include"
+      },
+      "MED:5": {
+        "decision": "exclude",
+        "reason": "Jev: topic_match p=0.03 (jev-1.13.0)",
+        "tier": "jev",
+        "jev": "exclude"
+      },
+      "MED:6": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": "escalate"
+      },
+      "MED:7": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": "escalate"
+      },
+      "MED:8": {
+        "decision": "include",
+        "reason": "Synthetic demo routing only.",
+        "tier": "llm",
+        "jev": "escalate"
+      },
+      "MED:9": {
+        "decision": "uncertain",
+        "reason": "No abstract available; retained in audit, unranked.",
+        "tier": "rule",
+        "jev": null
+      }
+    },
+    "ranking": [
+      [
+        "MED:1",
+        60.0
+      ],
+      [
+        "MED:4",
+        60.0
+      ],
+      [
+        "MED:6",
+        60.0
+      ],
+      [
+        "MED:7",
+        60.0
+      ],
+      [
+        "MED:8",
+        60.0
+      ]
+    ]
+  }
+}
