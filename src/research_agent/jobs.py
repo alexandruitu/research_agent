@@ -37,11 +37,11 @@ def launch(path, contract=None, models=None, credentials=None, resume=False, sto
     with GUARD:
         process = PROCESSES.get(str(path))
         if (process and process.poll() is None) or is_running(path):
-            raise ValueError("Această cercetare rulează deja.")
+            raise ValueError("This research is already running.")
         args = [sys.executable, "-m", "research_agent.cli", "--run-dir", str(path)]
         if resume:
             if not (path / "manifest.json").exists():
-                raise ValueError("Nu există un checkpoint de reluat.")
+                raise ValueError("There is no checkpoint to resume.")
             args += ["--resume"]
         else:
             contract = Contract.model_validate(contract)
@@ -88,7 +88,7 @@ def status(path):
     if process is not None and exitcode is not None:
         return {
             "status": "failed",
-            "message": "Pornirea a eșuat. Verifică modelele și configurația; apoi încearcă din nou.",
+            "message": "The run could not start. Check the models and the configuration, then try again.",
         }
     return {"status": "paused"}
 

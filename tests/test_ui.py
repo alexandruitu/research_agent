@@ -61,7 +61,7 @@ def test_subprocess_environment_and_no_secrets_on_disk(tmp_path, monkeypatch):
     assert kwargs["env"]["ANTHROPIC_API_KEY"] == "not-a-real-secret"
     assert kwargs["env"]["RESEARCH_REVIEWER_B_MODEL"] == "anthropic:test"
     assert not list(tmp_path.glob("*.json"))
-    with pytest.raises(ValueError, match="deja"):
+    with pytest.raises(ValueError, match="already running"):
         jobs.launch(tmp_path, Contract(topic="test research"))
     jobs.PROCESSES.pop(str(tmp_path.resolve()))
 
@@ -94,3 +94,21 @@ def test_configuration_validation_and_demo_launch(tmp_path, monkeypatch):
     assert fake.call_count == 1
     assert fake.call_args.args[1].topic == "test topic"
     assert read_json(tmp_path / "ui-settings.json")["topic"] == "test topic"
+
+
+def test_failure_messages_are_english(tmp_path, monkeypatch):
+    import research_agent.jobs as jobs_module
+
+    run = tmp_path / "run"
+    with pytest.raises(ValueError, match="There is no checkpoint to resume."):
+        jobs_module.launch(run, resume=True)
+
+    class Done:
+        def poll(self):
+            return 1
+
+    monkeypatch.setitem(jobs_module.PROCESSES, str((tmp_path / "gone").resolve()), Done())
+    assert jobs_module.status(tmp_path / "gone")["message"].startswith("The run could not start.")
+    source = (Path(jobs_module.__file__).parent / "ui.py").read_text()
+    for romanian in ("Introdu un subiect", "Lipsește cheia", "nu a putut porni", "Nu se poate relua"):
+        assert romanian not in source

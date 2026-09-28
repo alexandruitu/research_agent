@@ -148,17 +148,17 @@ def configuration():
     if submitted:
         errors = []
         if len(topic.strip()) < 3:
-            errors.append("Introdu un subiect de cel puțin 3 caractere.")
+            errors.append("Enter a topic of at least 3 characters.")
         if live:
             if not models["default"].strip():
-                errors.append("Completează modelul principal.")
+                errors.append("Fill in the main model.")
             for value in [models["default"], *[v for k, v in models.items() if k != "default" and v.strip()]]:
                 provider, separator, model = value.strip().partition(":")
                 if not separator or not model or provider not in ("openai", "anthropic"):
-                    errors.append("Interfața V1 acceptă modelele openai:ID și anthropic:ID.")
+                    errors.append("This interface accepts openai:ID and anthropic:ID models.")
                 key = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}.get(provider)
                 if key and not (credentials.get(key) or os.getenv(key)):
-                    errors.append(f"Lipsește cheia pentru {provider}.")
+                    errors.append(f"The key for {provider} is missing.")
         if errors:
             for error in dict.fromkeys(errors):
                 st.error(error)
@@ -187,7 +187,7 @@ def configuration():
                 stop_after=pauses.get(pause),
             )
         except (ValueError, OSError) as exc:
-            st.error(f"Cercetarea nu a putut porni ({type(exc).__name__}).")
+            st.error(f"The research could not start ({type(exc).__name__}).")
             return
         st.session_state.active_run = str(path)
         st.session_state.clear_credentials = True
@@ -401,7 +401,7 @@ def research(path):
             if current.get("message"):
                 st.error(current["message"])
             if current.get("error_type"):
-                st.caption("Tip eroare: " + current["error_type"])
+                st.caption("Error type: " + current["error_type"])
             st.caption("Reluarea folosește configurația salvată și checkpoint-urile existente.")
             resume_keys = {}
             if contract.get("mode") == "live":
@@ -419,7 +419,7 @@ def research(path):
                 try:
                     launch(path, resume=True, credentials=resume_keys)
                 except (ValueError, OSError):
-                    st.error("Nu se poate relua acum; verifică dacă cercetarea rulează deja.")
+                    st.error("Cannot resume now; check whether the research is already running.")
                 else:
                     st.session_state.clear_credentials = True
                     st.rerun()
