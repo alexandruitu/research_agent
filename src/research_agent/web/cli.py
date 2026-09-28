@@ -159,8 +159,9 @@ def cmd_dev(args, settings):
         uvicorn.run(create_app(dev_settings), host=args.host, port=args.port, log_level="info")
         return 0
     # The worker runs pipeline children that need provider keys: load .env into this process's environment
-    # (never into dev_settings or a log). PYTHON_DOTENV_DISABLED=1 turns this off.
-    load_dotenv()
+    # (never into dev_settings or a log). Keys live only in .env, so it overrides stray shell variables
+    # (e.g. an unrelated ANTHROPIC_API_KEY exported by the shell). PYTHON_DOTENV_DISABLED=1 turns this off.
+    load_dotenv(override=True)
     worker = Worker(dev_settings)
     thread = threading.Thread(target=worker.run_forever, name="dev-worker")  # joined below, never abandoned
     with stop_on_signals(worker):  # uvicorn re-raises the signal it stopped on once it has shut down

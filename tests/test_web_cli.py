@@ -220,7 +220,7 @@ def test_dev_with_worker_stops_and_joins_the_worker_on_shutdown(
     monkeypatch.setattr(pgserver, "get_server", lambda *a, **k: Server())
     monkeypatch.setattr(cli, "upgrade", lambda url: None)
     monkeypatch.setattr(cli, "create_app", lambda settings: object())
-    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: loaded.append(True))
+    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: loaded.append(k.get("override")))
     monkeypatch.setattr(fake_worker, "behaviour", staticmethod(lambda worker: worker.stop_requested.wait(5)))
 
     def serve(app, **kwargs):
@@ -231,7 +231,7 @@ def test_dev_with_worker_stops_and_joins_the_worker_on_shutdown(
     assert main(["dev", "--data-dir", str(tmp_path / "pg"), "--with-worker"]) == 0
     assert seen["alive"] and seen["daemon"] is False
     assert fake_worker.made[0].stop_requested.is_set() and not seen["thread"].is_alive()  # stopped, joined
-    assert loaded == [True]  # the worker's provider keys come from .env, only with --with-worker
+    assert loaded == [True]  # .env wins over stray shell variables, only with --with-worker
 
     loaded.clear()
     monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: None)
