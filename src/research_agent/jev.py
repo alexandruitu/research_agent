@@ -18,6 +18,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from .connectors import digest
+from .criteria import decide_jev
 from .storage import MissingCall
 
 JEV_SCREEN_VERSION = "jev-screen.1"
@@ -78,6 +79,26 @@ def default_criteria(topic):
     }
 
 
+def criteria_questions(domain):
+    """One Noul question per field criterion, keyed by the criterion key. Exclusion criteria use the same
+    form: p is the probability that the exclusion applies."""
+    questions = {}
+    for kind in ("include", "exclude"):
+        for criterion in domain["criteria"][kind]:
+            questions[criterion["key"]] = {
+                "type": "noul",
+                "instructions": (
+                    f"Research topic: {domain['topic']}. Is this true of the paper? {criterion['text']} "
+                    "Judge only from the title and abstract in the state."
+                ),
+                "criteria": {
+                    "true": "The title or abstract shows that the statement is true of the paper.",
+                    "false": "The title and abstract show that it is false, or give no sign that it is true.",
+                },
+            }
+    return questions
+
+
 class _Noul(BaseModel):
     type: Literal["noul"]
     noul: float
@@ -118,25 +139,22 @@ class JevScreener:
             raise ValueError("Set TYPESAFE_API_KEY in .env to use the Jev screening tier")
         return cls(store, key, thresholds=thresholds, **kwargs)
 
-    def _request(self, topic, paper):
+    def _request(self, topic, paper, questions=None):
         # Evidence only: never a prior verdict or conclusion.
         state = {"title": paper["title"], "abstract": paper["abstract"]}
-        questions = self.criteria or default_criteria(topic)
+        questions = questions or self.criteria or default_criteria(topic)
         inputs = {"model": self.model, "state": state, "questions": questions}
         key = digest({"role": "jev_screen", "version": JEV_SCREEN_VERSION, "inputs": inputs})
         return key, inputs, questions
 
-    def cached_probabilities(self, topic, paper):
-        """Raw probabilities and API model version from the cache only; never calls the API."""
-        key, _inputs, questions = self._request(topic, paper)
+    def _cached(self, key, questions):
         raw = self.store.cached(key)
         if raw is None:
             raise MissingCall(f"jev_screen call not in cache ({key[:12]})")
         response = self._parse(raw, questions)
         return {q: response.answers[q].noul for q in questions}, response.model
 
-    def screen(self, topic, paper):
-        key, inputs, questions = self._request(topic, paper)
+    def _answers(self, key, inputs, questions):
         raw = self.store.cached(key)
         cached = raw is not None
         if not cached:
@@ -144,13 +162,40 @@ class JevScreener:
         response = self._parse(raw, questions)
         if not cached:
             self.store.record(key, "jev_screen", self.model, JEV_SCREEN_VERSION, inputs, raw)
-        probabilities = {q: response.answers[q].noul for q in questions}
+        return {q: response.answers[q].noul for q in questions}, response.model, cached
+
+    def cached_probabilities(self, topic, paper):
+        """Raw probabilities and API model version from the cache only; never calls the API."""
+        key, _inputs, questions = self._request(topic, paper)
+        return self._cached(key, questions)
+
+    def cached_criteria_probabilities(self, paper, domain):
+        key, _inputs, questions = self._request(domain["topic"], paper, criteria_questions(domain))
+        return self._cached(key, questions)
+
+    def screen(self, topic, paper):
+        key, inputs, questions = self._request(topic, paper)
+        probabilities, version, cached = self._answers(key, inputs, questions)
         return {
             "decision": self.decide(probabilities),
             "probabilities": probabilities,
-            "model_version": response.model,
+            "model_version": version,
             "min_confidence": self.thresholds.min_confidence,
             "exclude_min_confidence": self.thresholds.exclude_min_confidence,
+            "cached": cached,
+        }
+
+    def screen_criteria(self, paper, domain):
+        """Per-criterion Jev screen of a field; thresholds come from the field (domain.json)."""
+        key, inputs, questions = self._request(domain["topic"], paper, criteria_questions(domain))
+        probabilities, version, cached = self._answers(key, inputs, questions)
+        decision, decided_by = decide_jev(probabilities, domain["criteria"], domain["thresholds"])
+        return {
+            "decision": decision,
+            "decided_by": decided_by,
+            "probabilities": probabilities,
+            "model_version": version,
+            "thresholds": dict(domain["thresholds"]),
             "cached": cached,
         }
 

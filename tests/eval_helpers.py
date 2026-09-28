@@ -90,3 +90,21 @@ class StubEvaluator(Evaluator):
             if payload["paper"]["id"] in self.exclude:
                 return Screen(decision="exclude", reason="off topic")
         return super()._demo(role, payload)
+
+
+def jev_criteria_client(probability):
+    """Mock TypeSafe client answering every question in the request.
+    `probability(index, key)` -> p, with index the N in the title 'Paper N title' (None if absent)."""
+    calls = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        match = re.search(r"Paper (\d+) title", body["state"]["title"])
+        index = int(match.group(1)) if match else None
+        calls.append((index, sorted(body["questions"])))
+        answers = {key: {"type": "noul", "noul": probability(index, key)} for key in body["questions"]}
+        return httpx.Response(200, json={"model": "jev-1.13.0", "answers": answers})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    client.calls = calls
+    return client
