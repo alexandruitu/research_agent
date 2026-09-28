@@ -1,4 +1,7 @@
+import json
+
 import pytest
+from eval_helpers import europepmc, jev_criteria_client, row
 
 from research_agent.agents import (
     PROMPT_VERSION,
@@ -7,8 +10,12 @@ from research_agent.agents import (
     EvidenceQuoteError,
     snap_screen,
 )
+from research_agent.connectors import DemoConnector, EuropePMC
 from research_agent.criteria import screen_payload
-from research_agent.schemas import CriteriaScreen, CriterionAnswer, Screen
+from research_agent.graph import build_graph
+from research_agent.jev import JevScreener
+from research_agent.report import write_report
+from research_agent.schemas import Contract, CriteriaScreen, CriterionAnswer, DomainSpec, Screen
 from research_agent.storage import Store
 
 ABSTRACT = "We review prior work on CT-FFR. No new patients were enrolled."
@@ -126,3 +133,121 @@ def test_live_screen_retries_a_mangled_quote_then_fails_closed(tmp_path, monkeyp
             "screen_criteria", CriteriaScreen, screen_payload(DOMAIN, PAPER)
         )
     assert always_bad.calls == 3
+
+
+FIELD = DomainSpec.model_validate(
+    {
+        "schema": 1,
+        "field": {"id": "f1", "name": "ML CT-FFR", "version": 2},
+        "topic": "deep learning CT-FFR",
+        "criteria": {
+            "include": [{"key": "i1", "text": "Uses deep learning."}],
+            "exclude": [{"key": "e1", "text": "Is a review."}],
+        },
+        "sources": [{"name": "europepmc"}],
+    }
+)
+
+
+class QuotingEvaluator(Evaluator):
+    """Demo evaluator whose criteria screen drops MED:6 by e1 and is unsure about MED:7."""
+
+    def _demo(self, role, payload):
+        if role == "screen_criteria" and payload["paper"]["id"] == "MED:6":
+            return screen(("i1", "yes", ""), ("e1", "yes", "Abstract 6 on the topic."), reason="a review")
+        if role == "screen_criteria" and payload["paper"]["id"] == "MED:7":
+            return screen(("i1", "unclear", ""), ("e1", "no", ""), reason="unclear")
+        return super()._demo(role, payload)
+
+
+def field_run(tmp_path):
+    store = Store(tmp_path)
+    rows = [row(i) for i in range(1, 8)] + [row(8, abstract="")]
+    probabilities = {
+        1: (0.9, 0.1),
+        2: (0.01, 0.1),
+        3: (0.9, 0.99),
+        4: (0.5, 0.5),
+        6: (0.5, 0.5),
+        7: (0.5, 0.5),
+    }
+    jev = JevScreener(
+        store,
+        "k",
+        client=jev_criteria_client(lambda i, key: probabilities.get(i, (0.5, 0.5))[0 if key == "i1" else 1]),
+    )
+    contract = Contract(topic=FIELD.topic, domain=FIELD).model_dump()
+    graph = build_graph(EuropePMC(store, europepmc({"*": rows})), QuotingEvaluator(store), jev=jev)
+    return graph.invoke({"contract": contract})
+
+
+def test_field_run_screens_per_criterion_and_names_the_decider(tmp_path):
+    screens = field_run(tmp_path)["screens"]
+    assert screens["MED:1"]["decision"] == "include" and screens["MED:1"]["tier"] == "jev"
+    assert screens["MED:1"]["decided_by"] is None
+    assert screens["MED:1"]["criteria"] == {
+        "i1": {"jev_p": 0.9, "llm": None, "quote": None},
+        "e1": {"jev_p": 0.1, "llm": None, "quote": None},
+    }
+    assert (screens["MED:2"]["decision"], screens["MED:2"]["decided_by"]) == ("exclude", "i1")
+    assert screens["MED:2"]["reason"] == "Jev: i1 p=0.01, e1 p=0.10 (jev-1.13.0); dropped by i1"
+    assert (screens["MED:3"]["decision"], screens["MED:3"]["decided_by"]) == ("exclude", "e1")
+    assert screens["MED:4"]["tier"] == "llm" and screens["MED:4"]["decision"] == "include"
+    assert screens["MED:4"]["jev"]["decision"] == "escalate"
+    assert screens["MED:4"]["criteria"]["i1"] == {"jev_p": 0.5, "llm": "yes", "quote": None}
+    assert screens["MED:6"]["decision"] == "exclude" and screens["MED:6"]["decided_by"] == "e1"
+    assert screens["MED:6"]["criteria"]["e1"] == {
+        "jev_p": 0.5,
+        "llm": "yes",
+        "quote": "Abstract 6 on the topic.",
+    }
+    assert screens["MED:6"]["reason"] == "a review"
+    assert screens["MED:7"]["decision"] == "uncertain" and screens["MED:7"]["decided_by"] is None
+    assert screens["MED:8"] == {
+        "decision": "uncertain",
+        "reason": "No abstract available; retained in audit, unranked.",
+        "tier": "rule",
+        "decided_by": None,
+        "criteria": {k: {"jev_p": None, "llm": None, "quote": None} for k in ("i1", "e1")},
+    }
+
+
+def test_field_run_report_json_is_a_superset_of_todays_shape(tmp_path):
+    result = field_run(tmp_path)
+    write_report(result, tmp_path, {"models": {"all": "synthetic-demo-v1"}})
+    state = json.loads((tmp_path / "report.json").read_text())["state"]
+    assert state["contract"]["domain"]["field"] == {"id": "f1", "name": "ML CT-FFR", "version": 2}
+    assert state["papers"][0]["sources"] == ["europepmc"]
+    for screen_entry in state["screens"].values():
+        assert {"decision", "reason", "tier", "decided_by", "criteria"} <= set(screen_entry)
+    markdown = (tmp_path / "report.md").read_text()
+    assert "Field: ML CT-FFR · version 2" in markdown and "Found by: europepmc" in markdown
+
+
+def test_legacy_screens_gain_topic_match_cells(tmp_path):
+    store = Store(tmp_path)
+    contract = Contract(topic="retrieval augmented generation", max_papers=2).model_dump()
+    screens = build_graph(DemoConnector(store), Evaluator(store)).invoke({"contract": contract})["screens"]
+    assert screens["demo:1"]["criteria"] == {} and screens["demo:1"]["decided_by"] is None
+
+
+def test_plan_payload_is_unchanged_for_legacy_runs_and_gets_the_criteria_for_fields(tmp_path):
+    seen = []
+
+    class Recording(Evaluator):
+        def ask(self, role, schema, payload):
+            if role == "plan":
+                seen.append(payload)
+            return super().ask(role, schema, payload)
+
+    store = Store(tmp_path)
+    legacy = Contract(topic="retrieval augmented generation", max_papers=1).model_dump()
+    build_graph(DemoConnector(store), Recording(store), interrupt_after=["plan"]).invoke({"contract": legacy})
+    field = Contract(topic=FIELD.topic, domain=FIELD, max_papers=1).model_dump()
+    build_graph(DemoConnector(store), Recording(store), interrupt_after=["plan"]).invoke({"contract": field})
+    assert "domain" not in seen[0] and seen[0]["topic"] == "retrieval augmented generation"
+    assert seen[1]["criteria"] == FIELD.model_dump()["criteria"] and seen[1]["years"] == {
+        "from": None,
+        "to": None,
+    }
+    assert "domain" not in seen[1]

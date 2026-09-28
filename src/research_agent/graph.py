@@ -5,7 +5,19 @@ from langgraph.graph import END, START, StateGraph
 
 from .agents import validate_evidence
 from .connectors import deduplicate
-from .schemas import Decision, Evidence, Paper, Plan, Review, Screen
+from .criteria import criterion_keys, decide_llm, screen_payload
+from .schemas import CriteriaScreen, Decision, Evidence, Paper, Plan, Review, Screen
+
+NO_ABSTRACT = "No abstract available; retained in audit, unranked."
+
+
+def plan_payload(contract):
+    """Legacy runs send exactly today's payload; a field adds its criteria and year range."""
+    payload = {k: v for k, v in contract.items() if k != "domain"}
+    if contract.get("domain"):
+        payload["criteria"] = contract["domain"]["criteria"]
+        payload["years"] = contract["domain"]["years"]
+    return payload
 
 
 class State(TypedDict, total=False):
@@ -34,7 +46,7 @@ def score(review):
 
 def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, observer=None, jev=None):
     def plan(s):
-        return {"plan": evaluator.ask("plan", Plan, s["contract"]).model_dump()}
+        return {"plan": evaluator.ask("plan", Plan, plan_payload(s["contract"])).model_dump()}
 
     def discover(s):
         papers = []
@@ -49,36 +61,73 @@ def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, o
         papers.sort(key=lambda p: min(order.get(src.record_id, 10**9) for src in p.provenance))
         return {"papers": [p.model_dump() for p in papers[: s["contract"]["max_papers"]]]}
 
+    def screen_topic(topic, paper):
+        # Tier 1 (optional): Jev decides only when confident; otherwise the LLM sees the same
+        # payload as without Jev (evidence, never Jev's conclusion).
+        verdict = jev.screen(topic, paper) if jev else None
+        if verdict and verdict["decision"] != "escalate":
+            entry = {
+                "decision": verdict["decision"],
+                "reason": "Jev: "
+                + ", ".join(f"{q} p={p:.2f}" for q, p in verdict["probabilities"].items())
+                + f" ({verdict['model_version']})",
+                "tier": "jev",
+            }
+        else:
+            entry = {
+                **evaluator.ask("screen", Screen, {"topic": topic, "paper": paper}).model_dump(),
+                "tier": "llm",
+            }
+        if verdict:
+            entry["jev"] = verdict
+        entry["decided_by"] = "topic_match" if entry["decision"] == "exclude" else None
+        entry["criteria"] = {
+            q: {"jev_p": p, "llm": None, "quote": None}
+            for q, p in (verdict or {}).get("probabilities", {}).items()
+        }
+        return entry
+
+    def screen_criteria(domain, paper):
+        cells = {k: {"jev_p": None, "llm": None, "quote": None} for k in criterion_keys(domain["criteria"])}
+        verdict = jev.screen_criteria(paper, domain) if jev else None
+        for key, p in (verdict or {}).get("probabilities", {}).items():
+            cells[key]["jev_p"] = p
+        if verdict and verdict["decision"] != "escalate":
+            dropped = f"; dropped by {verdict['decided_by']}" if verdict["decided_by"] else ""
+            entry = {
+                "decision": verdict["decision"],
+                "reason": "Jev: "
+                + ", ".join(f"{k} p={p:.2f}" for k, p in verdict["probabilities"].items())
+                + f" ({verdict['model_version']}){dropped}",
+                "tier": "jev",
+                "decided_by": verdict["decided_by"],
+            }
+        else:
+            answer = evaluator.ask("screen_criteria", CriteriaScreen, screen_payload(domain, paper))
+            for a in answer.answers:
+                cells[a.key]["llm"], cells[a.key]["quote"] = a.answer, a.quote or None
+            decision, decided_by = decide_llm({a.key: a.answer for a in answer.answers}, domain["criteria"])
+            entry = {"decision": decision, "reason": answer.reason, "tier": "llm", "decided_by": decided_by}
+        entry["criteria"] = cells
+        if verdict:
+            entry["jev"] = verdict
+        return entry
+
     def screen(s):
-        topic, results = s["contract"]["topic"], {}
+        topic, domain, results = s["contract"]["topic"], s["contract"].get("domain"), {}
         for paper in s["papers"]:
             if not paper["abstract"]:
+                keys = criterion_keys(domain["criteria"]) if domain else []
                 results[paper["id"]] = {
-                    **Screen(
-                        decision="uncertain", reason="No abstract available; retained in audit, unranked."
-                    ).model_dump(),
+                    **Screen(decision="uncertain", reason=NO_ABSTRACT).model_dump(),
                     "tier": "rule",
+                    "decided_by": None,
+                    "criteria": {k: {"jev_p": None, "llm": None, "quote": None} for k in keys},
                 }
-                continue
-            # Tier 1 (optional): Jev decides only when confident; otherwise the LLM sees the same
-            # payload as without Jev (evidence, never Jev's conclusion).
-            verdict = jev.screen(topic, paper) if jev else None
-            if verdict and verdict["decision"] != "escalate":
-                entry = {
-                    "decision": verdict["decision"],
-                    "reason": "Jev: "
-                    + ", ".join(f"{q} p={p:.2f}" for q, p in verdict["probabilities"].items())
-                    + f" ({verdict['model_version']})",
-                    "tier": "jev",
-                }
+            elif domain:
+                results[paper["id"]] = screen_criteria(domain, paper)
             else:
-                entry = {
-                    **evaluator.ask("screen", Screen, {"topic": topic, "paper": paper}).model_dump(),
-                    "tier": "llm",
-                }
-            if verdict:
-                entry["jev"] = verdict
-            results[paper["id"]] = entry
+                results[paper["id"]] = screen_topic(topic, paper)
         return {"screens": results}
 
     def extract(s):

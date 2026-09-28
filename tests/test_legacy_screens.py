@@ -65,6 +65,14 @@ def test_legacy_topic_runs_keep_todays_decisions(tmp_path, name):
     assert summary(RUNS[name](tmp_path)) == json.loads(BASELINE.read_text())[name]
 
 
+def test_legacy_jev_screens_record_topic_match_and_the_decider(tmp_path):
+    screens = jev_run(tmp_path)["screens"]
+    assert screens["MED:2"]["criteria"] == {"topic_match": {"jev_p": 0.01, "llm": None, "quote": None}}
+    assert screens["MED:2"]["decided_by"] == "topic_match"
+    assert screens["MED:3"]["decided_by"] == "topic_match"  # the LLM excluded it
+    assert screens["MED:1"]["decided_by"] is None and screens["MED:9"]["criteria"] == {}
+
+
 if __name__ == "__main__" and sys.argv[1:] == ["--write"]:
     import tempfile
 

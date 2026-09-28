@@ -10,6 +10,11 @@ def write_report(state, directory, manifest):
         "",
         f"Topic: {state['contract']['topic']}",
         "",
+        *(
+            [f"Field: {field['name']} · version {field['version']}", ""]
+            if (field := (state["contract"].get("domain") or {}).get("field"))
+            else []
+        ),
         f"Mode: **{state['contract']['mode']}** · scope: **ABSTRACT ONLY**",
         "",
         "DEMO: all papers and evaluations are synthetic."
@@ -59,6 +64,8 @@ def write_report(state, directory, manifest):
             *[f"- {x}" for x in r["takeaways"]],
             "",
             f"Adjudicated: {d['adjudicated']}. {d['reason']}",
+            "",
+            f"Found by: {', '.join(p.get('sources') or []) or 'not recorded'}",
             "",
             "**Evidence and provenance**",
             "",
