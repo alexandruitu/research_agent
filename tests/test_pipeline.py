@@ -191,9 +191,11 @@ def test_europe_pmc_parsing_and_raw_provenance(tmp_path):
 
 
 def test_source_failure_is_not_reported_as_empty(tmp_path):
+    from research_agent.connectors import SourceUnavailable
+
     with (
         httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(400))) as client,
-        pytest.raises(httpx.HTTPStatusError),
+        pytest.raises(SourceUnavailable, match="europepmc"),
     ):
         EuropePMC(Store(tmp_path), client).search("bad", 2)
 

@@ -29,76 +29,102 @@ def normalize_doi(value):
     return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value.strip(), flags=re.IGNORECASE).lower()
 
 
+RETRYABLE = (429, 500, 502, 503, 504)
+
+
+class SourceUnavailable(RuntimeError):
+    """A source failed after retries or answered with something unreadable. Fail closed: the run stops
+    (checkpoint kept). The message is only the source name, so it is safe to show and to log."""
+
+    def __init__(self, source):
+        super().__init__(source)
+        self.source = source
+
+
+def fetch(client, url, params, source, decode):
+    """One GET with the Europe PMC policy of M1: 3 attempts, backoff 1 s then 2 s on transport errors and
+    429/5xx, 30 s timeout. Any failure, including an undecodable body, raises SourceUnavailable."""
+
+    def attempts(http):
+        for attempt in range(3):
+            try:
+                response = http.get(url, params=params)
+                response.raise_for_status()
+                return decode(response)
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                retryable = (
+                    not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code in RETRYABLE
+                )
+                if not retryable or attempt == 2:
+                    raise SourceUnavailable(source) from exc
+                time.sleep(2**attempt)
+            except ValueError as exc:
+                raise SourceUnavailable(source) from exc
+
+    if client is not None:
+        return attempts(client)
+    with httpx.Client(timeout=30, follow_redirects=True) as http:
+        return attempts(http)
+
+
 class Connector(Protocol):
     def search(self, query: str, limit: int) -> list[Paper]: ...
 
 
 class EuropePMC:
+    name = "europepmc"
     endpoint = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
-    def __init__(self, store, client=None):
+    def __init__(self, store, client=None, years=None):
         self.store = store
         self.client = client
+        self.years = years
+
+    def full_query(self, query):
+        if self.years is None or (self.years.start is None and self.years.end is None):
+            return query
+        return f"({query}) AND (PUB_YEAR:[{self.years.start or 1900} TO {self.years.end or 9999}])"
 
     def search(self, query, limit):
+        query = self.full_query(query)
         params = {"query": query, "format": "json", "resultType": "core", "pageSize": limit}
-
-        # A single bounded page per query in M1; raw payload retained before parsing.
-        def fetch(client):
-            for attempt in range(3):
-                try:
-                    response = client.get(self.endpoint, params=params)
-                    response.raise_for_status()
-                    return response.json()
-                except (httpx.TransportError, httpx.HTTPStatusError) as exc:
-                    retryable = not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code in (
-                        429,
-                        500,
-                        502,
-                        503,
-                        504,
-                    )
-                    if not retryable or attempt == 2:
-                        raise
-                    time.sleep(2**attempt)
-
-        if self.client is not None:
-            payload = fetch(self.client)
-        else:
-            with httpx.Client(timeout=30) as client:
-                payload = fetch(client)
+        # A single bounded page per query; raw payload retained before parsing.
+        payload = fetch(self.client, self.endpoint, params, self.name, lambda response: response.json())
         raw_hash = self.store.raw(payload)
         retrieved = datetime.now(UTC).isoformat()
-        result = []
-        for row in payload["resultList"]["result"]:
-            source, rid = row["source"], row["id"]
-            result.append(
-                Paper(
-                    id=f"{source}:{rid}",
-                    title=plain(row.get("title")),
-                    abstract=plain(row.get("abstractText")),
-                    year=str(row.get("pubYear", "")),
-                    doi=normalize_doi(row.get("doi", "")),
-                    provenance=[
-                        Source(
-                            connector="europe_pmc",
-                            record_id=f"{source}:{rid}",
-                            url=f"https://europepmc.org/article/{source}/{rid}",
-                            query=query,
-                            retrieved_at=retrieved,
-                            raw_sha256=raw_hash,
-                        )
-                    ],
+        try:
+            return [self._paper(row, query, retrieved, raw_hash) for row in payload["resultList"]["result"]]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SourceUnavailable(self.name) from exc
+
+    def _paper(self, row, query, retrieved, raw_hash):
+        source, rid = row["source"], row["id"]
+        return Paper(
+            id=f"{source}:{rid}",
+            title=plain(row.get("title")),
+            abstract=plain(row.get("abstractText")),
+            year=str(row.get("pubYear", "")),
+            doi=normalize_doi(row.get("doi", "")),
+            sources=[self.name],
+            provenance=[
+                Source(
+                    connector="europe_pmc",
+                    record_id=f"{source}:{rid}",
+                    url=f"https://europepmc.org/article/{source}/{rid}",
+                    query=query,
+                    retrieved_at=retrieved,
+                    raw_sha256=raw_hash,
                 )
-            )
-        return result
+            ],
+        )
 
 
 class DemoConnector:
     """Synthetic fixtures, intentionally not real publications or scientific evidence."""
 
-    def __init__(self, store):
+    def __init__(self, store, source="demo"):
         self.store = store
+        self.source = source
 
     def search(self, query, limit):
         papers = []
@@ -115,6 +141,7 @@ class DemoConnector:
                     id=f"demo:{i}",
                     **row,
                     year="2026",
+                    sources=[self.source],
                     provenance=[
                         Source(
                             connector="synthetic_fixture",
