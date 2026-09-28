@@ -7,15 +7,19 @@ from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
 from .connectors import digest
-from .schemas import Claim, Decision, Evidence, Plan, Review, Screen
+from .schemas import Claim, CriteriaScreen, CriterionAnswer, Decision, Evidence, Plan, Review, Screen
 from .storage import MissingCall
 
-PROMPT_VERSION = "m1.1"
+PROMPT_VERSION = "m1.2"  # m1.2: per-criterion screen (screen_criteria); older roles unchanged
 SCHEMA_ATTEMPTS = 3
 
 
 class EvidenceQuoteError(ValueError):
     """A claim's quote is not an exact span of the abstract (after typography folding)."""
+
+
+class CriteriaAnswerError(ValueError):
+    """The per-criterion screen does not answer each criterion exactly once, or omits a required quote."""
 
 
 def _dump(result):
@@ -35,6 +39,12 @@ Relevance = alignment with topic. State strengths, weaknesses and takeaways grou
 INSTRUCTIONS = {
     "plan": "Produce 1-3 focused Europe PMC literature search queries for the topic. Do not add a year filter unless requested.",
     "screen": "Screen title and abstract for topic relevance. Missing or ambiguous evidence -> uncertain.",
+    "screen_criteria": (
+        "Screen title and abstract against each criterion of the field. For every criterion key answer yes, "
+        "no or unclear from the title and abstract only; missing or ambiguous evidence -> unclear. For every "
+        "'no' on an inclusion criterion and every 'yes' on an exclusion criterion, quote the exact contiguous "
+        "abstract text that shows it; otherwise give an empty quote. One answer per criterion key, then a short reason."
+    ),
     "extract": "Extract 1-5 supported claims with verbatim abstract quotes, study design and limitations. Unknown design -> not reported.",
     "review_a": "Independently assess contribution and strongest supported interpretation, while checking weaknesses.",
     "review_b": "Independently challenge evidence, confounding, validity and overstated conclusions. Acknowledge supported strengths.",
@@ -43,18 +53,22 @@ INSTRUCTIONS = {
 
 
 class Evaluator:
-    def __init__(self, store, mode="demo", models=None, offline=False):
+    def __init__(self, store, mode="demo", models=None, offline=False, prompt_version=PROMPT_VERSION):
         self.store = store
         self.mode = mode
         self.models = models or {}
         self.offline = offline
+        self.prompt_version = prompt_version  # an old run's version reads that run's cache
 
     def model_for(self, role):
         if self.mode == "demo":
             return "synthetic-demo-v1"
+        if role == "screen_criteria" and role not in self.models:
+            role = "screen"
         return self.models[role]
 
     def ask(self, role, schema, payload):
+        payload = without_sources(payload)
         model = self.model_for(role)
         inputs = {
             "system": SYSTEM,
@@ -62,7 +76,7 @@ class Evaluator:
             "payload": payload,
             "schema": schema.model_json_schema(),
         }
-        key = digest({"model": model, "role": role, "version": PROMPT_VERSION, "inputs": inputs})
+        key = digest({"model": model, "role": role, "version": self.prompt_version, "inputs": inputs})
         cached = self.store.cached(key)
         if cached is not None:
             return schema.model_validate(cached)
@@ -82,25 +96,20 @@ class Evaluator:
             messages = [("system", SYSTEM + "\n" + INSTRUCTIONS[role]), ("human", canonical_json(payload))]
             for attempt in range(SCHEMA_ATTEMPTS):
                 try:
-                    result = structured.invoke(messages)
-                    if role == "extract":
-                        # A quote the model mangled (e.g. "(49)" for "(31%)") is a bad generation, not a
-                        # matching bug: regenerate. Only quotes validated against the abstract are accepted.
-                        result = snap_evidence(
-                            schema.model_validate(_dump(result)), payload["paper"]["abstract"]
-                        )
+                    # A quote the model mangled (e.g. "(49)" for "(31%)") is a bad generation, not a
+                    # matching bug: regenerate. Only quotes validated against the abstract are accepted.
+                    result = checked(role, schema.model_validate(_dump(structured.invoke(messages))), payload)
                     break
-                except (ValidationError, OutputParserException, EvidenceQuoteError):
+                except (ValidationError, OutputParserException, EvidenceQuoteError, CriteriaAnswerError):
                     # langchain-anthropic raises OutputParserException for a schema mismatch or truncated JSON;
                     # tool-calling models occasionally emit a nested field as a JSON string.
                     # Retry the identical request; still fail closed once attempts run out.
                     if attempt == SCHEMA_ATTEMPTS - 1:
                         raise
-        result = schema.model_validate(_dump(result))
+        result = checked(role, schema.model_validate(_dump(result)), payload)
         if role == "extract":
-            result = snap_evidence(result, payload["paper"]["abstract"])
             validate_evidence(result, payload["paper"]["abstract"])
-        self.store.record(key, role, model, PROMPT_VERSION, inputs, result.model_dump())
+        self.store.record(key, role, model, self.prompt_version, inputs, result.model_dump())
         return result
 
     def _demo(self, role, payload):
@@ -110,6 +119,13 @@ class Evaluator:
             )
         if role == "screen":
             return Screen(decision="include", reason="Synthetic demo routing only.")
+        if role == "screen_criteria":
+            answers = [
+                CriterionAnswer(key=c["key"], answer="yes" if kind == "include" else "no", quote="")
+                for kind in ("include", "exclude")
+                for c in payload["criteria"][kind]
+            ]
+            return CriteriaScreen(answers=answers, reason="Synthetic demo routing only.")
         if role == "extract":
             quote = payload["paper"]["abstract"].split(". ")[0] + "."
             return Evidence(
@@ -169,19 +185,58 @@ def _fold(text):
     return "".join(folded), starts, ends
 
 
-def snap_evidence(evidence, abstract):
-    """Models often normalise typography (thin space, NBSP). Match modulo whitespace/Unicode form,
-    then store the abstract's own text so every quote stays an exact substring of the source."""
+def without_sources(payload):
+    """Which connectors found a paper is provenance, not evidence: it never reaches a model or a cache key."""
+    paper = payload.get("paper") if isinstance(payload, dict) else None
+    if isinstance(paper, dict) and "sources" in paper:
+        return {**payload, "paper": {k: v for k, v in paper.items() if k != "sources"}}
+    return payload
+
+
+def checked(role, result, payload):
+    if role == "extract":
+        return snap_evidence(result, payload["paper"]["abstract"])
+    if role == "screen_criteria":
+        return snap_screen(result, payload["criteria"], payload["paper"]["abstract"])
+    return result
+
+
+def snap_quote(quote, abstract):
+    """Models often normalise typography (thin space, NBSP). Match modulo whitespace/Unicode form, then
+    return the abstract's own text so every quote stays an exact substring of the source."""
     folded, starts, ends = _fold(abstract)
-    claims = []
-    for claim in evidence.claims:
-        quote = _fold(claim.quote.strip())[0]
-        start = folded.find(quote) if quote else -1
-        if start < 0:
-            raise EvidenceQuoteError("Evidence quote is not an exact span in the retrieved abstract")
-        span = abstract[starts[start] : ends[start + len(quote) - 1]]
-        claims.append(claim.model_copy(update={"quote": span}))
+    needle = _fold(quote.strip())[0]
+    start = folded.find(needle) if needle else -1
+    if start < 0:
+        raise EvidenceQuoteError("Evidence quote is not an exact span in the retrieved abstract")
+    return abstract[starts[start] : ends[start + len(needle) - 1]]
+
+
+def snap_evidence(evidence, abstract):
+    claims = [
+        claim.model_copy(update={"quote": snap_quote(claim.quote, abstract)}) for claim in evidence.claims
+    ]
     return evidence.model_copy(update={"claims": claims})
+
+
+def snap_screen(screen, criteria, abstract):
+    """Each criterion answered exactly once (in the field's order); every non-empty quote snapped to the
+    abstract; a quote is required for 'no' on an inclusion criterion and 'yes' on an exclusion criterion."""
+    kinds = {c["key"]: kind for kind in ("include", "exclude") for c in criteria[kind]}
+    answers = {a.key: a for a in screen.answers}
+    if len(answers) != len(screen.answers) or set(answers) != set(kinds):
+        raise CriteriaAnswerError("the screen must answer each criterion key exactly once")
+    ordered = []
+    for key, kind in kinds.items():
+        answer = answers[key]
+        required = (kind == "include" and answer.answer == "no") or (
+            kind == "exclude" and answer.answer == "yes"
+        )
+        if required and not answer.quote.strip():
+            raise CriteriaAnswerError(f"criterion {key}: this answer needs a quote from the abstract")
+        quote = snap_quote(answer.quote, abstract) if answer.quote.strip() else ""
+        ordered.append(answer.model_copy(update={"quote": quote}))
+    return screen.model_copy(update={"answers": ordered})
 
 
 def live_models():

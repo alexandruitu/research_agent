@@ -170,6 +170,17 @@ class Screen(Model):
     reason: str
 
 
+class CriterionAnswer(Model):
+    key: str
+    answer: Literal["yes", "no", "unclear"]
+    quote: str  # exact abstract text; required for 'no' on inclusion and 'yes' on exclusion, else ""
+
+
+class CriteriaScreen(Model):
+    answers: list[CriterionAnswer] = Field(min_length=1, max_length=20)
+    reason: str
+
+
 class Claim(Model):
     statement: str
     quote: str = Field(min_length=10)
