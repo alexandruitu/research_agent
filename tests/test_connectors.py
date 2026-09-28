@@ -1,12 +1,23 @@
 import json
+from pathlib import Path
 
 import httpx
 import pytest
 from eval_helpers import row
 
 from research_agent import connectors
-from research_agent.connectors import DemoConnector, EuropePMC, SourceUnavailable
-from research_agent.schemas import Years
+from research_agent.connectors import (
+    ArXiv,
+    DemoConnector,
+    EuropePMC,
+    MultiSource,
+    OpenAlex,
+    SourceUnavailable,
+    deduplicate,
+    domain_connector,
+    rebuild_abstract,
+)
+from research_agent.schemas import DomainSpec, Paper, Source, Years
 from research_agent.storage import Store
 
 
@@ -94,10 +105,6 @@ def test_raw_payload_is_cached_before_parsing(tmp_path):
     assert json.loads(raw[0])["resultList"]["result"][0]["id"] == "7"
 
 
-from pathlib import Path
-
-from research_agent.connectors import OpenAlex, rebuild_abstract
-
 FIXTURES = Path(__file__).parent / "fixtures"
 # Recorded 2026-09-28: GET https://api.openalex.org/works?search=CT%20fractional%20flow%20reserve%20deep%20learning
 # &filter=from_publication_date:2018-01-01&per-page=3&select=id,doi,title,publication_year,abstract_inverted_index
@@ -152,8 +159,6 @@ def test_openalex_failures_fail_closed(tmp_path, status, body):
         OpenAlex(Store(tmp_path), recording(body, status=status)).search("q", 2)
 
 
-from research_agent.connectors import ArXiv
-
 ARXIV = (FIXTURES / "arxiv_query.xml").read_text()
 ARXIV_ERROR = """<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/api/errors#incorrect_id_format</id>
@@ -202,3 +207,90 @@ def test_arxiv_waits_three_seconds_between_requests(tmp_path):
 def test_arxiv_failures_fail_closed(tmp_path, status, body):
     with pytest.raises(SourceUnavailable, match="arxiv"):
         ArXiv(Store(tmp_path), recording(body, status=status)).search("q", 2)
+
+
+def paper(pid, source, doi="", title="Same title", year="2024", abstract="text"):
+    return Paper(
+        id=pid,
+        title=title,
+        abstract=abstract,
+        year=year,
+        doi=doi,
+        sources=[source],
+        provenance=[
+            Source(connector=source, record_id=pid, url=pid, query="q", retrieved_at="r", raw_sha256="h")
+        ],
+    )
+
+
+def test_dedup_merges_across_sources_and_keeps_every_source():
+    merged = deduplicate(
+        [
+            paper("MED:1", "europepmc", doi="10.1/x", abstract="short"),
+            paper("openalex:W1", "openalex", doi="https://doi.org/10.1/X", abstract="the longer abstract"),
+            paper("arxiv:1", "arxiv", title="Other"),
+            paper("arxiv:2", "arxiv", title="Title only", year="2023"),
+            paper("MED:2", "europepmc", title="Title only!", year="2023"),
+        ]
+    )
+    by_id = {p.id: p for p in merged}
+    assert set(by_id) == {"openalex:W1", "arxiv:1", "MED:2"}
+    assert by_id["openalex:W1"].sources == ["europepmc", "openalex"]
+    assert len(by_id["openalex:W1"].provenance) == 2
+    assert by_id["MED:2"].sources == ["arxiv", "europepmc"]  # same normalized title and year
+    assert by_id["arxiv:1"].sources == ["arxiv"]
+
+
+def test_a_preprint_and_a_journal_version_from_different_years_stay_separate():
+    merged = deduplicate([paper("arxiv:1", "arxiv", year="2022"), paper("MED:1", "europepmc", year="2023")])
+    assert len(merged) == 2
+
+
+def test_multisource_sends_each_query_to_every_source_with_its_own_limit(tmp_path):
+    calls = []
+
+    class Fake:
+        def __init__(self, name):
+            self.name = name
+
+        def search(self, query, limit):
+            calls.append((self.name, query, limit))
+            return [paper(f"{self.name}:1", self.name)]
+
+    papers = MultiSource([(Fake("a"), 5), (Fake("b"), 7)]).search("q", 12)
+    assert calls == [("a", "q", 5), ("b", "q", 7)] and [p.id for p in papers] == ["a:1", "b:1"]
+
+
+def spec(sources, years=None):
+    return DomainSpec.model_validate(
+        {
+            "schema": 1,
+            "topic": "deep learning CT-FFR",
+            "criteria": {"include": [{"key": "i1", "text": "Uses deep learning."}]},
+            "sources": sources,
+            **({"years": years} if years else {}),
+        }
+    )
+
+
+def test_domain_connector_builds_live_sources_with_years_and_contact(tmp_path):
+    domain = spec(
+        [
+            {"name": "europepmc", "max_results": 10},
+            {"name": "openalex", "contact": "a@b.org"},
+            {"name": "arxiv"},
+        ],
+        years={"from": 2019, "to": None},
+    )
+    multi = domain_connector(domain, Store(tmp_path), "live")
+    (epmc, n1), (openalex, n2), (arxiv, n3) = multi.sources
+    assert (type(epmc), type(openalex), type(arxiv)) == (EuropePMC, OpenAlex, ArXiv)
+    assert (n1, n2, n3) == (10, 100, 100)
+    assert epmc.years.start == openalex.years.start == arxiv.years.start == 2019
+    assert openalex.contact == "a@b.org"
+
+
+def test_domain_connector_in_demo_mode_uses_synthetic_records_per_source(tmp_path):
+    multi = domain_connector(spec([{"name": "europepmc"}, {"name": "arxiv"}]), Store(tmp_path), "demo")
+    merged = deduplicate(multi.search("q", 3))
+    assert len(merged) == 12 and all(p.sources == ["arxiv", "europepmc"] for p in merged)

@@ -287,6 +287,35 @@ class DemoConnector:
         return papers
 
 
+class MultiSource:
+    """A field's sources: every planned query goes to every source, each with its own max_results.
+    The graph's per-query `limit` bounds legacy single-source runs only and is ignored here."""
+
+    def __init__(self, sources):
+        self.sources = list(sources)  # [(connector, max_results)]
+
+    def search(self, query, limit):
+        papers = []
+        for connector, max_results in self.sources:
+            papers.extend(connector.search(query, max_results))
+        return papers
+
+
+def domain_connector(domain, store, mode):
+    sources = []
+    for source in domain.sources:
+        if mode == "demo":
+            connector = DemoConnector(store, source=source.name)
+        elif source.name == "europepmc":
+            connector = EuropePMC(store, years=domain.years)
+        elif source.name == "openalex":
+            connector = OpenAlex(store, years=domain.years, contact=source.contact)
+        else:
+            connector = ArXiv(store, years=domain.years)
+        sources.append((connector, source.max_results))
+    return MultiSource(sources)
+
+
 def deduplicate(papers):
     # Resolve known identifiers first; ambiguous title-only records stay separate.
     groups = []
@@ -320,6 +349,7 @@ def deduplicate(papers):
     for group in groups:
         primary = min(group, key=lambda p: (-len(p.abstract), p.id)).model_copy(deep=True)
         primary.doi = next((p.doi for p in group if p.doi), "")
+        primary.sources = sorted({s for p in group for s in p.sources})
         sources = {canonical_json(s.model_dump()): s for p in group for s in p.provenance}
         primary.provenance = [sources[k] for k in sorted(sources)]
         result.append(primary)
