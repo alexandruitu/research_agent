@@ -119,6 +119,67 @@ class EuropePMC:
         )
 
 
+def rebuild_abstract(index):
+    """OpenAlex ships abstracts as {word: [positions]}; put every word back at its position."""
+    if not index:
+        return ""
+    return " ".join(
+        word for _position, word in sorted((p, w) for w, positions in index.items() for p in positions)
+    )
+
+
+class OpenAlex:
+    name = "openalex"
+    endpoint = "https://api.openalex.org/works"
+    select = "id,doi,title,publication_year,abstract_inverted_index"
+
+    def __init__(self, store, client=None, years=None, contact=None):
+        self.store = store
+        self.client = client
+        self.years = years
+        self.contact = contact  # polite pool; never recorded in provenance
+
+    def search(self, query, limit):
+        params = {"search": query, "per-page": min(limit, 200), "select": self.select}
+        filters = []
+        if self.years is not None and self.years.start is not None:
+            filters.append(f"from_publication_date:{self.years.start}-01-01")
+        if self.years is not None and self.years.end is not None:
+            filters.append(f"to_publication_date:{self.years.end}-12-31")
+        if filters:
+            params["filter"] = ",".join(filters)
+        if self.contact:
+            params["mailto"] = self.contact
+        payload = fetch(self.client, self.endpoint, params, self.name, lambda response: response.json())
+        raw_hash = self.store.raw(payload)
+        retrieved = datetime.now(UTC).isoformat()
+        try:
+            return [self._paper(row, query, retrieved, raw_hash) for row in payload["results"]]
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise SourceUnavailable(self.name) from exc
+
+    def _paper(self, row, query, retrieved, raw_hash):
+        work = row["id"].rsplit("/", 1)[-1]
+        return Paper(
+            id=f"openalex:{work}",
+            title=plain(row.get("title")),
+            abstract=rebuild_abstract(row.get("abstract_inverted_index")),
+            year=str(row.get("publication_year") or ""),
+            doi=normalize_doi(row.get("doi") or ""),
+            sources=[self.name],
+            provenance=[
+                Source(
+                    connector="openalex",
+                    record_id=f"openalex:{work}",
+                    url=row["id"],
+                    query=query,
+                    retrieved_at=retrieved,
+                    raw_sha256=raw_hash,
+                )
+            ],
+        )
+
+
 class DemoConnector:
     """Synthetic fixtures, intentionally not real publications or scientific evidence."""
 

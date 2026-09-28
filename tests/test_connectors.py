@@ -92,3 +92,61 @@ def test_raw_payload_is_cached_before_parsing(tmp_path):
     with store.connect() as db:
         raw = db.execute("SELECT payload FROM raw WHERE hash=?", (paper.provenance[0].raw_sha256,)).fetchone()
     assert json.loads(raw[0])["resultList"]["result"][0]["id"] == "7"
+
+
+from pathlib import Path
+
+from research_agent.connectors import OpenAlex, rebuild_abstract
+
+FIXTURES = Path(__file__).parent / "fixtures"
+# Recorded 2026-09-28: GET https://api.openalex.org/works?search=CT%20fractional%20flow%20reserve%20deep%20learning
+# &filter=from_publication_date:2018-01-01&per-page=3&select=id,doi,title,publication_year,abstract_inverted_index
+OPENALEX = json.loads((FIXTURES / "openalex_works.json").read_text())
+
+
+def test_rebuild_abstract_orders_words_by_position():
+    assert rebuild_abstract({"b": [1], "a": [0, 2]}) == "a b a"
+    assert rebuild_abstract(None) == "" and rebuild_abstract({}) == ""
+
+
+def test_openalex_parses_recorded_works(tmp_path):
+    store = Store(tmp_path)
+    first, second = OpenAlex(store, recording(OPENALEX)).search("ct ffr", 2)
+    assert first.id == "openalex:W2807965844" and first.year == "2018"
+    assert first.doi == "10.1161/circimaging.117.007217"
+    assert first.title.startswith("Diagnostic Accuracy of a Machine-Learning Approach")
+    assert first.abstract.startswith(
+        "Background: Coronary computed tomographic angiography (CTA) is a reliable"
+    )
+    assert first.abstract.endswith("performs equally well as CFD-based CT-FFR.")
+    assert first.sources == ["openalex"]
+    assert first.provenance[0].url == "https://openalex.org/W2807965844"
+    assert first.provenance[0].connector == "openalex"
+    assert second.id == "openalex:W4281259955" and second.abstract == ""
+    with store.connect() as db:
+        raw = db.execute("SELECT payload FROM raw WHERE hash=?", (first.provenance[0].raw_sha256,)).fetchone()
+    assert json.loads(raw[0])["results"][0]["id"] == "https://openalex.org/W2807965844"
+
+
+def test_openalex_request_parameters(tmp_path):
+    client = recording(OPENALEX)
+    OpenAlex(Store(tmp_path), client, years=Years(start=2018, end=2024), contact="team@example.org").search(
+        "ct ffr", 500
+    )
+    OpenAlex(Store(tmp_path), client).search("ct ffr", 20)
+    with_all, plain_request = (r.url.params for r in client.requests)
+    assert with_all["search"] == "ct ffr" and with_all["per-page"] == "200"
+    assert with_all["filter"] == "from_publication_date:2018-01-01,to_publication_date:2024-12-31"
+    assert with_all["mailto"] == "team@example.org"
+    assert with_all["select"] == "id,doi,title,publication_year,abstract_inverted_index"
+    assert (
+        "filter" not in plain_request and "mailto" not in plain_request and plain_request["per-page"] == "20"
+    )
+
+
+@pytest.mark.parametrize(
+    "status,body", [(500, OPENALEX), (200, {"meta": {}}), (200, {"results": [{"title": "x"}]})]
+)
+def test_openalex_failures_fail_closed(tmp_path, status, body):
+    with pytest.raises(SourceUnavailable, match="openalex"):
+        OpenAlex(Store(tmp_path), recording(body, status=status)).search("q", 2)
