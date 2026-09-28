@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from ..agents import Evaluator, live_models
 from ..connectors import EuropePMC
 from ..jev import JevScreener
+from ..schemas import read_domain
 from ..storage import Store
 from .agreement import run_agreement
 from .gold import load_gold, load_sr_spec, write_gold
@@ -45,7 +46,8 @@ def cmd_build_gold(args):
 
 def cmd_screen(args):
     gold = load_gold(args.gold)
-    check_run_dir(args.run_dir, gold)  # before any API call
+    domain = read_domain(args.field).model_dump() if args.field else None
+    check_run_dir(args.run_dir, gold, domain)  # before any API call
     store = Store(args.run_dir)
     evaluator, jev = make_evaluator(store, args.mode), make_jev(store)
 
@@ -53,7 +55,7 @@ def cmd_screen(args):
         if n % 25 == 0:
             print(f"screened {n}", flush=True)
 
-    result = run_screen(gold, store, evaluator, jev, progress)
+    result = run_screen(gold, store, evaluator, jev, progress, domain)
     write_manifest(
         args.run_dir,
         gold_path=args.gold,
@@ -62,6 +64,7 @@ def cmd_screen(args):
         models=evaluator.models,
         jev_model=jev.model,
         screened=result,
+        domain=domain,
     )
     print(
         f"Screened {result['screened']} candidates · Jev {result['jev_model_versions']} · run: {args.run_dir}"
@@ -115,6 +118,7 @@ def build_parser():
     p.add_argument("gold")
     p.add_argument("--run-dir", required=True)
     p.add_argument("--mode", choices=["live", "demo"], default="live")
+    p.add_argument("--field", help="screen with a field's criteria (a domain.json file)")
     p.set_defaults(func=cmd_screen)
 
     p = sub.add_parser("agreement", help="reviewers A/B on all positives plus sampled negatives")

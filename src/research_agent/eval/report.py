@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 
 from ..agents import Evaluator
+from ..criteria import decide_llm, satisfied, screen_payload
 from ..jev import JevScreener, JevThresholds
-from ..schemas import Screen
+from ..schemas import CriteriaScreen, Screen
 from ..storage import MissingCall, Store
 from .gold import gold_paper, load_gold
 from .metrics import STRATEGIES, cohen_kappa, evaluate, rate, recommend, sweep, weighted_kappa
@@ -16,7 +17,7 @@ class ReportError(RuntimeError):
     """The report cannot be computed faithfully (missing calls, mixed model versions, stale gold)."""
 
 
-def load_records(gold, store, evaluator, jev, allow_mixed=False):
+def load_records(gold, store, evaluator, jev, allow_mixed=False, domain=None):
     """Cached Jev probabilities + LLM screen decision for every candidate with an abstract."""
     records, versions, missing = [], set(), 0
     for candidate in gold.candidates:
@@ -24,8 +25,16 @@ def load_records(gold, store, evaluator, jev, allow_mixed=False):
             continue
         paper = gold_paper(candidate, gold).model_dump()
         try:
-            probabilities, version = jev.cached_probabilities(gold.topic, paper)
-            llm = evaluator.ask("screen", Screen, {"topic": gold.topic, "paper": paper}).decision
+            if domain:
+                # Per-criterion run: replay the two-threshold sweep on "criterion satisfied" probabilities
+                # (exclusion inverted); the LLM decision is the code's decision over its answers.
+                raw, version = jev.cached_criteria_probabilities(paper, domain)
+                probabilities = satisfied(raw, domain["criteria"])
+                answer = evaluator.ask("screen_criteria", CriteriaScreen, screen_payload(domain, paper))
+                llm = decide_llm({a.key: a.answer for a in answer.answers}, domain["criteria"])[0]
+            else:
+                probabilities, version = jev.cached_probabilities(gold.topic, paper)
+                llm = evaluator.ask("screen", Screen, {"topic": gold.topic, "paper": paper}).decision
         except MissingCall:
             missing += 1
             continue
@@ -58,9 +67,11 @@ def _load_run(run_dir, allow_mixed, gold_path=None):
     if gold.content_sha256 != manifest["gold_sha256"]:
         raise ReportError("gold file changed since this run was screened; re-run `research-eval screen`")
     store = Store(run_dir)
-    evaluator = Evaluator(store, manifest["mode"], manifest["models"], offline=True)
+    evaluator = Evaluator(
+        store, manifest["mode"], manifest["models"], offline=True, prompt_version=manifest["prompt_version"]
+    )
     jev = JevScreener(store, "offline", model=manifest["jev_model"])
-    records, versions = load_records(gold, store, evaluator, jev, allow_mixed)
+    records, versions = load_records(gold, store, evaluator, jev, allow_mixed, manifest.get("field"))
     return manifest, gold, records, versions
 
 
@@ -201,6 +212,8 @@ def build_report(run_dir, target_recall=None, holdout_dir=None, allow_mixed=Fals
         },
         "run": {
             "prompt_version": manifest["prompt_version"],
+            # Only field runs carry it, so legacy metrics.json keeps its exact shape.
+            **({"field": manifest["field"]["field"]} if manifest.get("field") else {}),
             "jev_screen_version": manifest["jev_screen_version"],
             "models": manifest["models"],
         },
