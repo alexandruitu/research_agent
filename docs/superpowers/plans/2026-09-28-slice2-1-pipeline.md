@@ -54,7 +54,7 @@
 | `tests/fixtures/{openalex_works.json,arxiv_query.xml,legacy_screens.json}` | recorded API responses; legacy baseline |
 | `tests/test_legacy_screens.py`, `test_domain.py`, `test_connectors.py`, `test_criteria.py`, `test_jev_criteria.py`, `test_screen_criteria.py`, `test_domain_run.py`, `test_eval_field.py` | new tests |
 
-Before every commit: `. .venv/bin/activate && ruff format src tests && ruff check . && pytest -q` (all green, web tests included). Stage exact files only. Commit trailer: `-m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`.
+Before every commit: `. .venv/bin/activate && ruff format src tests && ruff check . && pytest -q` (all green, web tests included). Note: `ruff format` rewraps one long line in `tests/test_web_deploy.py` (not part of this plan); restore it with `git checkout tests/test_web_deploy.py` rather than committing it. Stage exact files only. Commit trailer: `-m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`.
 
 ---
 
@@ -1253,7 +1253,7 @@ def satisfied(probabilities, criteria):
 
 Note: `1 - 0.3` is `0.7000000000000001`; `round(..., 12)` keeps the test exact.
 
-- [ ] **Step 4: Run** `pytest -q tests/test_criteria.py` → `17 passed`; full `pytest -q`.
+- [ ] **Step 4: Run** `pytest -q tests/test_criteria.py` → `15 passed`; full `pytest -q`.
 
 - [ ] **Step 5: Commit**
 
@@ -2322,12 +2322,14 @@ def main():
     )
 ```
 
+In `tests/test_ui.py::test_lock_blocks_duplicate_workers` change `match="deja"` to `match="already running"` (the runner's `RunLocked` message is now English; the `jobs.launch` assertion in `test_subprocess_environment_and_no_secrets_on_disk` changes in Task 12).
+
 - [ ] **Step 4: Run** `pytest -q tests/test_domain_run.py tests/test_ui.py tests/test_pipeline.py tests/test_web_runner.py`; full `pytest -q`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/research_agent/runner.py src/research_agent/cli.py tests/test_domain_run.py
+git add src/research_agent/runner.py src/research_agent/cli.py tests/test_domain_run.py tests/test_ui.py
 git commit -m "Run a field with --domain FILE: domain.json copied and recorded, English runner messages" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
@@ -2360,7 +2362,7 @@ def test_failure_messages_are_english(tmp_path, monkeypatch):
         assert romanian not in source
 ```
 
-(add `from pathlib import Path` and `import pytest` to the test module imports if missing.)
+(add `from pathlib import Path` and `import pytest` to the test module imports if missing, and change `match="deja"` to `match="already running"` in `test_subprocess_environment_and_no_secrets_on_disk`.)
 
 - [ ] **Step 2: Run** `pytest -q tests/test_ui.py::test_failure_messages_are_english` → FAIL.
 
@@ -2626,7 +2628,7 @@ with `from ..schemas import read_domain` and, in `build_parser` for `screen`:
         except MissingCall:
 ```
 
-`_load_run`: `evaluator = Evaluator(store, manifest["mode"], manifest["models"], offline=True, prompt_version=manifest["prompt_version"])` and `load_records(gold, store, evaluator, jev, allow_mixed, manifest.get("field"))`. In `build_report`, `"run"` gains `"field": (manifest.get("field") or {}).get("field"),`.
+`_load_run`: `evaluator = Evaluator(store, manifest["mode"], manifest["models"], offline=True, prompt_version=manifest["prompt_version"])` and `load_records(gold, store, evaluator, jev, allow_mixed, manifest.get("field"))`. In `build_report`, `"run"` gains `**({"field": manifest["field"]["field"]} if manifest.get("field") else {}),` (only field runs carry the key, so a legacy `metrics.json` keeps its exact shape; `test_eval_report.py` compares it with `==`).
 
 `StubEvaluator.__init__(self, store, exclude=(), **kwargs)` already forwards `prompt_version`.
 

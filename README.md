@@ -42,6 +42,22 @@ Retry-urile furnizorului pot produce cereri suplimentare. Maximum 2 review-uri s
 restul lucrului per etapă este secvențial. Timeout model 60s, maximum 2 retry-uri SDK,
 output limitat la 2500 tokens/apel. Nu este implementat un buget monetar strict.
 
+## Câmpuri (domain.json)
+
+Un câmp = topic + criterii de includere (toate trebuie să fie adevărate) și excludere (oricare elimină
+lucrarea) + surse (Europe PMC, OpenAlex, arXiv) + interval de ani + praguri Jev. Aplicația web scrie
+`domain.json`; din linia de comandă:
+
+```bash
+research-agent --domain field.json --mode demo --run-dir runs/field-demo
+research-eval screen gold/toy.json --run-dir runs/eval-field --field field.json
+```
+
+`domain.json` se copiază în directorul run-ului și apare în `manifest.json`. În `report.json`, fiecare
+screen are `criteria` (per criteriu: `jev_p`, răspunsul LLM `yes|no|unclear`, citatul verificat) și
+`decided_by` (criteriul care a eliminat lucrarea sau `null`); fiecare lucrare are `sources`.
+Run-urile cu topic pozițional rămân neschimbate (o singură întrebare `topic_match`).
+
 ## Reluare după întrerupere
 
 ```sh
