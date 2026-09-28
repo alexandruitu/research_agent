@@ -150,3 +150,55 @@ def test_openalex_request_parameters(tmp_path):
 def test_openalex_failures_fail_closed(tmp_path, status, body):
     with pytest.raises(SourceUnavailable, match="openalex"):
         OpenAlex(Store(tmp_path), recording(body, status=status)).search("q", 2)
+
+
+from research_agent.connectors import ArXiv
+
+ARXIV = (FIXTURES / "arxiv_query.xml").read_text()
+ARXIV_ERROR = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>http://arxiv.org/api/errors#incorrect_id_format</id>
+<title>Error</title><summary>incorrect id format</summary></entry></feed>"""
+
+
+def test_arxiv_query_uses_words_categories_and_dates(tmp_path):
+    arxiv = ArXiv(Store(tmp_path), years=Years(start=2018))
+    assert arxiv.search_query('"deep learning" AND (FFR OR CT-FFR)') == (
+        "all:deep AND all:learning AND all:FFR AND all:CT-FFR"
+        " AND (cat:cs.CV OR cat:eess.IV OR cat:physics.med-ph)"
+        " AND submittedDate:[201801010000 TO 300012312359]"
+    )
+    assert ArXiv(Store(tmp_path)).search_query("a b c d e f g h i j") == (
+        "all:a AND all:b AND all:c AND all:d AND all:e AND all:f AND all:g AND all:h"
+        " AND (cat:cs.CV OR cat:eess.IV OR cat:physics.med-ph)"
+    )
+
+
+def test_arxiv_parses_recorded_entries_and_caches_the_atom_text(tmp_path):
+    store = Store(tmp_path)
+    client = recording(ARXIV)
+    first, second = ArXiv(store, client).search("fractional flow reserve", 500)
+    assert client.requests[0].url.params["max_results"] == "200"
+    assert client.requests[0].url.params["start"] == "0"
+    assert first.id == "arxiv:1805.11472" and first.year == "2018" and first.doi == ""
+    assert first.title == "Comparison of 1D and 3D Models for the Estimation of Fractional Flow Reserve"
+    assert first.abstract.startswith("In this work we propose to validate the predictive capabilities")
+    assert "  " not in first.abstract and "\n" not in first.abstract
+    assert first.sources == ["arxiv"] and first.provenance[0].url == "https://arxiv.org/abs/1805.11472"
+    assert second.id == "arxiv:2308.04923" and second.year == "2023"
+    with store.connect() as db:
+        raw = db.execute("SELECT payload FROM raw WHERE hash=?", (first.provenance[0].raw_sha256,)).fetchone()
+    assert json.loads(raw[0]) == {"atom": ARXIV}
+
+
+def test_arxiv_waits_three_seconds_between_requests(tmp_path):
+    waits = []
+    arxiv = ArXiv(Store(tmp_path), recording(ARXIV), sleep=waits.append)
+    arxiv.search("a", 1)
+    arxiv.search("b", 1)
+    assert waits == [3]
+
+
+@pytest.mark.parametrize("status,body", [(503, ARXIV), (200, ARXIV_ERROR), (200, "<feed><entry>")])
+def test_arxiv_failures_fail_closed(tmp_path, status, body):
+    with pytest.raises(SourceUnavailable, match="arxiv"):
+        ArXiv(Store(tmp_path), recording(body, status=status)).search("q", 2)

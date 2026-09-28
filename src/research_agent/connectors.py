@@ -5,6 +5,7 @@ import html
 import json
 import re
 import time
+import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -172,6 +173,74 @@ class OpenAlex:
                     connector="openalex",
                     record_id=f"openalex:{work}",
                     url=row["id"],
+                    query=query,
+                    retrieved_at=retrieved,
+                    raw_sha256=raw_hash,
+                )
+            ],
+        )
+
+
+ARXIV_CATEGORIES = ("cs.CV", "eess.IV", "physics.med-ph")
+ATOM = {"a": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+OPERATORS = {"AND", "OR", "NOT", "ANDNOT"}
+
+
+class ArXiv:
+    """arXiv Atom API. Python's expat refuses entity-expansion attacks; arXiv is the only producer here."""
+
+    name = "arxiv"
+    endpoint = "https://export.arxiv.org/api/query"
+
+    def __init__(self, store, client=None, years=None, sleep=time.sleep):
+        self.store = store
+        self.client = client
+        self.years = years
+        self.sleep = sleep
+        self.requested = False
+
+    def search_query(self, query):
+        words = [w for w in re.findall(r"\w[\w.\-]*", query) if w.upper() not in OPERATORS][:8]
+        parts = [" AND ".join(f"all:{w}" for w in words)] if words else []
+        parts.append("(" + " OR ".join(f"cat:{c}" for c in ARXIV_CATEGORIES) + ")")
+        if self.years is not None and (self.years.start is not None or self.years.end is not None):
+            parts.append(
+                f"submittedDate:[{self.years.start or 1900}01010000 TO {self.years.end or 3000}12312359]"
+            )
+        return " AND ".join(parts)
+
+    def search(self, query, limit):
+        if self.requested:
+            self.sleep(3)  # arXiv API terms: no more than one request every three seconds
+        self.requested = True
+        search_query = self.search_query(query)
+        params = {"search_query": search_query, "start": 0, "max_results": min(limit, 200)}
+        text = fetch(self.client, self.endpoint, params, self.name, lambda response: response.text)
+        raw_hash = self.store.raw({"atom": text})
+        retrieved = datetime.now(UTC).isoformat()
+        try:
+            entries = ET.fromstring(text).findall("a:entry", ATOM)
+            return [self._paper(entry, search_query, retrieved, raw_hash) for entry in entries]
+        except (ET.ParseError, AttributeError, ValueError) as exc:
+            raise SourceUnavailable(self.name) from exc
+
+    def _paper(self, entry, query, retrieved, raw_hash):
+        link = entry.findtext("a:id", namespaces=ATOM).strip()
+        if "/api/errors" in link:
+            raise ValueError("arXiv returned an error entry")
+        arxiv_id = re.sub(r"v\d+$", "", link.rsplit("/abs/", 1)[-1])
+        return Paper(
+            id=f"arxiv:{arxiv_id}",
+            title=" ".join(entry.findtext("a:title", default="", namespaces=ATOM).split()),
+            abstract=" ".join(entry.findtext("a:summary", default="", namespaces=ATOM).split()),
+            year=entry.findtext("a:published", default="", namespaces=ATOM)[:4],
+            doi=normalize_doi(entry.findtext("arxiv:doi", default="", namespaces=ATOM)),
+            sources=[self.name],
+            provenance=[
+                Source(
+                    connector="arxiv",
+                    record_id=f"arxiv:{arxiv_id}",
+                    url=f"https://arxiv.org/abs/{arxiv_id}",
                     query=query,
                     retrieved_at=retrieved,
                     raw_sha256=raw_hash,

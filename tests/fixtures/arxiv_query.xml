@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Recorded 2026-09-28 from: GET https://export.arxiv.org/api/query?search_query=all:%22fractional%20flow%20reserve%22%20AND%20(cat:cs.CV%20OR%20cat:eess.IV%20OR%20cat:physics.med-ph)&start=0&max_results=2 ; author lists trimmed to the first author. -->
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/aAzFO50d9abTu+v1E1WkERHHn7s</id>
+  <title>arXiv Query: search_query=all:"fractional flow reserve" AND (cat:cs.CV OR cat:eess.IV OR cat:physics.med-ph)&amp;id_list=&amp;start=0&amp;max_results=2</title>
+  <updated>2026-09-28T17:33:50Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=all:%22fractional+flow+reserve%22+AND+(cat:cs.CV+OR+(cat:eess.IV+OR+cat:physics.med-ph))&amp;start=0&amp;max_results=2&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>2</opensearch:itemsPerPage>
+  <opensearch:totalResults>28</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/1805.11472v1</id>
+    <title>Comparison of 1D and 3D Models for the Estimation of Fractional Flow Reserve</title>
+    <updated>2018-05-29T13:50:55Z</updated>
+    <link href="https://arxiv.org/abs/1805.11472v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1805.11472v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In this work we propose to validate the predictive capabilities of one-dimensional (1D) blood flow models with full three-dimensional (3D) models in the context of patient-specific coronary hemodynamics in hyperemic conditions. Such conditions mimic the state of coronary circulation during the acquisition of the Fractional Flow Reserve (FFR) index. Demonstrating that 1D models accurately reproduce FFR estimates obtained with 3D models has implications in the approach to computationally estimate FFR. To this end, a sample of 20 patients was employed from which 29 3D geometries of arterial trees were constructed, 9 obtained from coronary computed tomography angiography (CCTA) and 20 from intra-vascular ultrasound (IVUS). For each 3D arterial model, a 1D counterpart was generated. The same outflow and inlet pressure boundary conditions were applied to both (3D and 1D) models. In the 1D setting, pressure losses at stenoses and bifurcations were accounted for through specific lumped models. Comparisons between 1D models ($\text{FFR}_{\text{1D}}$) and 3D models ($\text{FFR}_{\text{3D}}$) were performed in terms of predicted $\text{FFR}$ value. Compared to $\text{FFR}_{\text{3D}}$, $\text{FFR}_{\text{1D}}$ resulted with a difference of 0.00$\pm$0.03 and overall predictive capability AUC, Acc, Spe, Sen, PPV and NPV of 0.97, 0.98, 0.90, 0.99, 0.82, and 0.99, with an FFR threshold of 0.8. We conclude that inexpensive $\text{FFR}_{\text{1D}}$ simulations can be reliably used as a surrogate of demanding $\text{FFR}_{\text{3D}}$ computations.</summary>
+    <category term="physics.med-ph" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-05-29T13:50:55Z</published>
+    <arxiv:comment>11 pages, 2 figures, 2 tables, submited to Scientific Reports</arxiv:comment>
+    <arxiv:primary_category term="physics.med-ph"/>
+    <author>
+      <name>P. J. Blanco</name>
+    </author>
+    </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2308.04923v1</id>
+    <title>Deep Learning-Based Prediction of Fractional Flow Reserve along the Coronary Artery</title>
+    <updated>2023-08-09T12:45:18Z</updated>
+    <link href="https://arxiv.org/abs/2308.04923v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2308.04923v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Functionally significant coronary artery disease (CAD) is caused by plaque buildup in the coronary arteries, potentially leading to narrowing of the arterial lumen, i.e. coronary stenosis, that significantly obstructs blood flow to the myocardium. The current reference for establishing the presence of a functionally significant stenosis is invasive fractional flow reserve (FFR) measurement. To avoid invasive measurements, non-invasive prediction of FFR from coronary CT angiography (CCTA) has emerged. For this, machine learning approaches, characterized by fast inference, are increasingly developed. However, these methods predict a single FFR value per artery i.e. they don't provide information about the stenosis location or treatment strategy. We propose a deep learning-based method to predict the FFR along the artery from CCTA scans. This study includes CCTA images of 110 patients who underwent invasive FFR pullback measurement in 112 arteries. First, a multi planar reconstruction (MPR) of the artery is fed to a variational autoencoder to characterize the artery, i.e. through the lumen area and unsupervised artery encodings. Thereafter, a convolutional neural network (CNN) predicts the FFR along the artery. The CNN is supervised by multiple loss functions, notably a loss function inspired by the Earth Mover's Distance (EMD) to predict the correct location of FFR drops and a histogram-based loss to explicitly supervise the slope of the FFR curve. To train and evaluate our model, eight-fold cross-validation was performed. The resulting FFR curves show good agreement with the reference allowing the distinction between diffuse and focal CAD distributions in most cases. Quantitative evaluation yielded a mean absolute difference in the area under the FFR pullback curve (AUPC) of 1.7. The method may pave the way towards fast, accurate, automatic prediction of FFR along the artery from CCTA.</summary>
+    <category term="eess.IV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="physics.med-ph" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-08-09T12:45:18Z</published>
+    <arxiv:primary_category term="eess.IV"/>
+    <author>
+      <name>Nils Hampe</name>
+    </author>
+    </entry>
+</feed>
