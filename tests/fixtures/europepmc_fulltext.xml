@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article article-type="research-article">
+  <front>
+    <article-meta>
+      <title-group>
+        <article-title>Prognostic value of CT-derived fractional flow reserve for major adverse cardiovascular events in patients with suspected or known coronary artery disease: a systematic review and meta-analysis</article-title>
+      </title-group>
+      <article-id pub-id-type="pmcid">PMC13202077</article-id>
+      <permissions>
+        <license license-type="" />
+      </permissions>
+      <abstract>
+        <p>AbstractBackgroundFractional flow reserve derived from CT (FFR-CT) enables non-invasive functional assessment of coronary stenoses in patients with suspected or known coronary artery disease, but evidence regarding its p</p>
+      </abstract>
+    </article-meta>
+  </front>
+  <body>
+    <sec sec-type="background">
+      <title>Background</title>
+      <p>Coronary artery disease remains the leading cause of death worldwide.</p>
+      <p>Over the past decade, coronary CT angiography (CTA) has emerged as the preferred first-line imaging modality for patients with suspected coronary artery disease.</p>
+    </sec>
+    <sec sec-type="methods">
+      <title>Methods</title>
+      <p>This systematic review and meta-analysis followed the Preferred Reporting Items for Systematic Reviews and Meta-Analyses V.2020 guidelines15 and was registered with PROSPERO (CRD420261276897).</p>
+      <p>We searched PubMed, Embase (Ovid) and Scopus from database inception through December 2025.</p>
+    </sec>
+    <sec sec-type="results">
+      <title>Results</title>
+      <p>Our database search identified 4521 records: 1002 from PubMed, 939 from Embase and 2580 from Scopus.</p>
+      <p>Of these 46 studies, 24 could not contribute to the pooled analysis, 10 reported only risk ratios, ORs or risk differences rather than HRs; six used different comparisons (such as FFR-CT-guided strategy vs usual care); f</p>
+    </sec>
+    <sec sec-type="discussion">
+      <title>Discussion</title>
+      <p>This systematic review and meta-analysis represents the most comprehensive assessment of FFR-CT prognostic value to date, pooling data from 22 studies with over 20 000 patients followed for up to 10 years.</p>
+      <p>The prognostic value we observed for FFR-CT closely mirrors that established for invasive fractional flow reserve in landmark trials.</p>
+    </sec>
+    <sec sec-type="conclusions">
+      <title>Conclusions</title>
+      <p>In conclusion, this meta-analysis demonstrates that FFR-CT ≤0.80 identifies patients at nearly fourfold increased risk of MACEs, with consistent prognostic value across technologies, geographic regions and follow-up dura</p>
+    </sec>
+  </body>
+  <back>
+    <ref-list>
+      <title>References</title>
+      <ref>
+        <mixed-citation>Reference text that must never reach a reviewer.</mixed-citation>
+      </ref>
+    </ref-list>
+  </back>
+</article>
