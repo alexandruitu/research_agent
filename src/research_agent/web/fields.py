@@ -221,9 +221,19 @@ def domain_content(domain):
     )
 
 
+def _matches(stored, wanted):
+    """Same topic, criteria and years, and the run's sources are among the version's (a run searches only
+    the version's sources that were enabled when it started)."""
+    same = {k: v for k, v in stored.items() if k != "sources"} == {
+        k: v for k, v in wanted.items() if k != "sources"
+    }
+    return same and set(wanted["sources"]) <= set(stored["sources"])
+
+
 def version_for_domain(db, domain, created_by=None):
-    """The field version a field run used: one with identical content, preferring the field named in the
-    snapshot; otherwise a new version (`note = "imported"`) of that field, or of a new field."""
+    """The field version a field run used: the version the snapshot names when its content matches, else
+    any version with matching content (see `_matches`), else a new version (`note = "imported"`) of the
+    named field, or of a new field."""
     wanted = domain_content(domain)
     ref = domain.get("field") or {}
     same = [
@@ -231,12 +241,14 @@ def version_for_domain(db, domain, created_by=None):
         for version in db.scalars(
             select(FieldVersion)
             .where(FieldVersion.topic == domain["topic"])
-            .order_by(FieldVersion.created_at)
+            .order_by(FieldVersion.created_at, FieldVersion.version)
         )
-        if stored_content(db, version) == wanted
+        if _matches(stored_content(db, version), wanted)
     ]
     if same:
-        version = next((v for v in same if str(v.field_id) == ref.get("id")), same[0])
+        named = [v for v in same if str(v.field_id) == ref.get("id")]
+        exact = [v for v in named if v.version == ref.get("version")]
+        version = (exact or named or same)[0]
         return db.get(Field, version.field_id), version
     field = None
     if ref.get("id"):

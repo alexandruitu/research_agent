@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from ..callstore import CallIndex, CallStoreError
 from ..db.models import CriterionScore, EvidenceClaim, Ranking, Review, Run, Screening
-from ..fields import legacy_version
+from ..fields import legacy_version, version_for_domain
 from .common import (
     ImportFailed,
     ImportResult,
@@ -42,6 +42,14 @@ def _review_row(run, paper, role, review, call_key, **detail_extra):
     )
 
 
+def decided_by(screen):
+    """The criterion that dropped the paper. Reports written before slice 2 lack the key; for them (legacy
+    runs, one topic question) it is `topic_match` on an exclusion, as the pipeline now records it."""
+    if "decided_by" in screen:
+        return screen["decided_by"]
+    return "topic_match" if screen.get("decision") == "exclude" else None
+
+
 def import_research_run(db, folder, created_by=None):
     folder = Path(folder).resolve()
     report_path = folder / "report.json"
@@ -62,7 +70,11 @@ def import_research_run(db, folder, created_by=None):
 
 def _import(db, folder, digest, run, state, manifest, created_by):
     warnings = []
-    field_row, version_row = legacy_version(db, state["contract"]["topic"], created_by)
+    domain = state["contract"].get("domain")  # a field run (domain.json); None: a legacy topic run
+    if domain:
+        field_row, version_row = version_for_domain(db, domain, created_by)
+    else:
+        field_row, version_row = legacy_version(db, state["contract"]["topic"], created_by)
     status = "updated" if run is not None else "created"
     if run is None:
         run = Run(
@@ -87,6 +99,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
         p["id"]: upsert_paper(db, p["id"], p.get("doi"), p["title"], p.get("abstract"), p.get("year"))
         for p in state["papers"]
     }
+    found_by = {p["id"]: sorted(p.get("sources") or []) for p in state["papers"]}
 
     for pid, screen in state["screens"].items():
         if pid not in papers:
@@ -95,7 +108,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
         jev = screen.get("jev") or {}
         key = None
         if tier == "llm":
-            key = calls.key("screen", pid)
+            key = (calls.key("screen_criteria", pid) if domain else None) or calls.key("screen", pid)
         elif tier == "jev":
             key = calls.jev_key(paper.title, paper.abstract)
         if key is None and tier != "rule" and not calls.empty:
@@ -110,18 +123,35 @@ def _import(db, folder, digest, run, state, manifest, created_by):
             llm_decision=screen["decision"] if tier == "llm" else None,
             reason=screen.get("reason", ""),
             call_key=key,
+            decided_by=decided_by(screen),
+            sources=found_by.get(pid, []),
         )
         db.add(row)
         db.flush()
-        for name, probability in (jev.get("probabilities") or {}).items():
-            db.add(
-                CriterionScore(
-                    screening_id=row.id,
-                    criterion_id=criterion(db, field_row, name, version_row).id,
-                    probability=probability,
-                    jev_version=jev.get("model_version", ""),
+        if domain:  # per criterion: Jev p, LLM answer, quote (rows with nothing in them are skipped)
+            for name, cell in (screen.get("criteria") or {}).items():
+                if all(cell.get(k) is None for k in ("jev_p", "llm", "quote")):
+                    continue
+                db.add(
+                    CriterionScore(
+                        screening_id=row.id,
+                        criterion_id=criterion(db, field_row, name, version_row).id,
+                        probability=cell.get("jev_p"),
+                        llm_answer=cell.get("llm"),
+                        quote=cell.get("quote"),
+                        jev_version=jev.get("model_version", ""),
+                    )
                 )
-            )
+        else:
+            for name, probability in (jev.get("probabilities") or {}).items():
+                db.add(
+                    CriterionScore(
+                        screening_id=row.id,
+                        criterion_id=criterion(db, field_row, name, version_row).id,
+                        probability=probability,
+                        jev_version=jev.get("model_version", ""),
+                    )
+                )
         if screen["decision"] != "exclude" and tier != "rule" and pid not in state["evidence"]:
             warnings.append(f"{pid}: kept by the screen but has no evidence (expected extraction)")
 

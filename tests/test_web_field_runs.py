@@ -223,3 +223,120 @@ def pipeline_spawn(spec, env, log):
     contract = Contract(topic=domain.topic, domain=domain, mode=spec.mode, max_papers=spec.max_papers)
     run_research(spec.run_dir, contract=contract, domain_file=spec.domain_file)
     return Done()
+
+
+def criterion_rows(db, run_id):
+    from research_agent.web.db.models import Criterion, CriterionScore, Screening
+
+    return sorted(
+        db.execute(
+            sa.select(
+                Screening.sources,
+                Criterion.key,
+                Criterion.kind,
+                CriterionScore.probability,
+                CriterionScore.llm_answer,
+                CriterionScore.quote,
+            )
+            .join(CriterionScore, CriterionScore.screening_id == Screening.id)
+            .join(Criterion, Criterion.id == CriterionScore.criterion_id)
+            .where(Screening.run_id == run_id)
+        ).all()
+    )
+
+
+def test_a_field_run_goes_through_the_worker_and_imports_linked_to_its_version(world):
+    settings, factory, sign_in = world
+    field_id = new_field(sign_in)
+    r = start(sign_in, field_id)
+    run_id = uuid.UUID(r.json()["run_id"])
+    Worker(settings, factory, spawn=pipeline_spawn, sleep=lambda s: None).tick()
+    with factory() as db:
+        from research_agent.web.db.models import FieldVersion, Screening
+
+        run = db.get(Run, run_id)
+        assert run.status == "done", run.error
+        version = db.get(FieldVersion, run.field_version_id)
+        assert (str(version.field_id), version.version, version.note) == (field_id, 1, "")
+        assert (Path(run.folder) / "domain.json").read_bytes() == (
+            Path(run.folder) / DOMAIN_REQUEST
+        ).read_bytes()
+        screenings = db.scalars(sa.select(Screening).where(Screening.run_id == run_id)).all()
+        assert len(screenings) == 3 and all(s.sources == ["europepmc"] for s in screenings)
+        assert all(s.call_key for s in screenings)  # the screen_criteria calls are found
+        rows = criterion_rows(db, run_id)
+        assert {(key, kind, p, llm) for _, key, kind, p, llm, _ in rows} == {
+            ("e1", "exclude", None, "no"),
+            ("i1", "include", None, "yes"),
+        }
+    member, _ = sign_in("member")
+    body = member.get(f"{API}/fields/{field_id}").json()
+    assert body["current"]["run_count"] == 1 and body["last_run"]["field_version"] == 1
+
+
+def test_an_unknown_snapshot_becomes_an_imported_version_and_is_reused(world, tmp_path):
+    from research_agent.schemas import DomainSpec
+    from research_agent.web.db.models import Field, FieldVersion
+    from research_agent.web.importer.research import import_research_run
+
+    settings, factory, _sign_in = world
+    domain = DomainSpec.model_validate(
+        {
+            "schema": 1,
+            "field": {"id": str(uuid.uuid4()), "name": "Imported field", "version": 7},
+            "topic": "retrieval augmented generation",
+            "criteria": {"include": [{"key": "i1", "text": "Uses retrieval."}]},
+            "sources": [{"name": "arxiv"}],
+        }
+    )
+    folders = []
+    for name in ("a", "b"):
+        folder = settings.runs_dir / name
+        run_research(folder, contract=Contract(topic=domain.topic, domain=domain, mode="demo", max_papers=2))
+        folders.append(folder)
+    with factory() as db:
+        first = import_research_run(db, folders[0])
+        assert import_research_run(db, folders[0]).status == "unchanged"
+        second = import_research_run(db, folders[1])
+        db.commit()
+        a, b = db.get(Run, first.run_id), db.get(Run, second.run_id)
+        assert a.field_version_id == b.field_version_id  # same content: one version
+        version = db.get(FieldVersion, a.field_version_id)
+        field = db.get(Field, version.field_id)
+        assert (version.note, version.version, field.name, field.current_version) == (
+            "imported",
+            1,
+            "Imported field",
+            1,
+        )
+        assert version.sources == {"names": ["arxiv"], "years": {"from": None, "to": None}}
+        rows = criterion_rows(db, a.id)
+        assert rows and all(sources == ["arxiv"] for sources, *_ in rows)
+
+
+def test_old_legacy_reports_get_topic_match_as_the_decider_of_a_drop(world, tmp_path):
+    from web_fixtures import make_demo_run
+
+    from research_agent.web.db.models import Paper, Screening
+    from research_agent.web.importer.research import import_research_run
+
+    settings, factory, _ = world
+    folder = make_demo_run(settings.runs_dir / "old")
+    path = folder / "report.json"
+    data = json.loads(path.read_text())
+    for screen in data["state"]["screens"].values():  # as written before slice 2
+        screen.pop("decided_by", None)
+        screen.pop("criteria", None)
+    first = next(iter(data["state"]["screens"]))
+    data["state"]["screens"][first]["decision"] = "exclude"
+    path.write_text(json.dumps(data))
+    with factory() as db:
+        run_id = import_research_run(db, folder).run_id
+        rows = db.execute(
+            sa.select(Paper.source_id, Screening.decided_by, Screening.sources)
+            .join(Paper, Paper.id == Screening.paper_id)
+            .where(Screening.run_id == run_id)
+        ).all()
+    decided = {pid: by for pid, by, _ in rows}
+    assert decided.pop(first) == "topic_match" and set(decided.values()) == {None}
+    assert {tuple(s) for _, _, s in rows} == {("demo",)}

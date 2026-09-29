@@ -163,6 +163,9 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
             llm_decision=llm,
             reason=f"Jev {shown} ({why}); LLM screen: {llm}",
             call_key=key,
+            decided_by="topic_match"
+            if decision == "exclude" and list(probabilities) == ["topic_match"]
+            else None,
         )
         db.add(row)
         db.flush()
