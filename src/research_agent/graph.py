@@ -13,7 +13,7 @@ NO_ABSTRACT = "No abstract available; retained in audit, unranked."
 
 def plan_payload(contract):
     """Legacy runs send exactly today's payload; a field adds its criteria and year range."""
-    payload = {k: v for k, v in contract.items() if k != "domain"}
+    payload = {k: v for k, v in contract.items() if k not in ("domain", "review")}
     if contract.get("domain"):
         payload["criteria"] = contract["domain"]["criteria"]
         payload["years"] = contract["domain"]["years"]

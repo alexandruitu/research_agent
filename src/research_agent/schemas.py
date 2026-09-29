@@ -37,10 +37,13 @@ class Criteria(Model):
         return self
 
 
+EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
 class SourceSpec(Model):
     name: Literal["europepmc", "openalex", "arxiv"]
     max_results: int = Field(default=100, ge=1, le=200)
-    contact: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    contact: str | None = Field(default=None, max_length=200, pattern=EMAIL)
 
 
 class Years(Model):
@@ -100,22 +103,108 @@ class DomainError(ValueError):
     """domain.json cannot be read or is invalid; the message lists every problem."""
 
 
-def read_domain(path):
+def _read_spec(path, model, name, error):
     path = Path(path)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise DomainError(f"cannot read {path}: {exc.strerror}") from None
+        raise error(f"cannot read {path}: {exc.strerror}") from None
     except ValueError as exc:
-        raise DomainError(f"{path.name} is not valid JSON ({exc})") from None
+        raise error(f"{path.name} is not valid JSON ({exc})") from None
     try:
-        return DomainSpec.model_validate(data)
+        return model.model_validate(data)
     except ValidationError as exc:
         problems = "; ".join(
-            f"{'.'.join(str(part) for part in error['loc']) or '(root)'}: {error['msg']}"
-            for error in exc.errors()
+            f"{'.'.join(str(part) for part in e['loc']) or '(root)'}: {e['msg']}" for e in exc.errors()
         )
-        raise DomainError(f"domain.json is invalid: {problems}") from None
+        raise error(f"{name} is invalid: {problems}") from None
+
+
+def read_domain(path):
+    return _read_spec(path, DomainSpec, "domain.json", DomainError)
+
+
+ModelName = Field(default=None, min_length=1, max_length=200)
+
+
+class ChecklistItem(Model):
+    key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,19}$")
+    text: str = Field(min_length=3, max_length=500)
+    weight: int = Field(default=1, ge=1, le=3)
+    source: str | None = Field(default=None, max_length=60)  # e.g. "CLAIM 2020 #21", "TRIPOD+AI 10"
+    pass_if: Literal["yes", "no"] = "yes"  # "no" for items phrased negatively
+    red_flag_if: Literal["yes", "no"] | None = None
+
+
+class ReviewerSpec(Model):
+    key: str = Field(pattern=r"^[a-z][a-z0-9_]{1,29}$")
+    name: str = Field(min_length=1, max_length=100)
+    version: int = Field(default=1, ge=1)
+    perspective: str = Field(min_length=10, max_length=2000)
+    model: str | None = ModelName
+    items: list[ChecklistItem] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def _unique_items(self):
+        keys = [i.key for i in self.items]
+        if len(set(keys)) != len(keys):
+            raise ValueError("item keys must be unique within a reviewer")
+        return self
+
+
+class EditorSpec(Model):
+    model: str | None = ModelName
+    instructions: str = Field(default="", max_length=2000)
+
+
+class RoleModels(Model):
+    plan: str | None = ModelName
+    screen: str | None = ModelName
+    screen_criteria: str | None = ModelName
+    extract: str | None = ModelName
+
+
+class FulltextSpec(Model):
+    sources: list[Literal["pmc_oa", "unpaywall", "upload"]] = Field(
+        default_factory=lambda: ["pmc_oa", "upload"], max_length=3
+    )
+    contact: str | None = Field(default=None, max_length=200, pattern=EMAIL)
+    max_chars: int = Field(default=60000, ge=2000, le=200000)
+
+    @model_validator(mode="after")
+    def _sources(self):
+        if len(set(self.sources)) != len(self.sources):
+            raise ValueError("each full-text source may be listed once")
+        if "unpaywall" in self.sources and not self.contact:
+            raise ValueError("fulltext.contact is required when unpaywall is a source")
+        return self
+
+
+class ReviewSpec(Model):
+    """review.json: the frozen review panel and settings of one run (written by the web worker)."""
+
+    model_config = ALIASED
+    schema_version: Literal[1] = Field(alias="schema")
+    panel: list[ReviewerSpec] = Field(min_length=1, max_length=5)
+    editor: EditorSpec = Field(default_factory=EditorSpec)
+    models: RoleModels = Field(default_factory=RoleModels)
+    screening: Thresholds | None = None  # replaces domain.thresholds for this run's field screen
+    fulltext: FulltextSpec = Field(default_factory=FulltextSpec)
+
+    @model_validator(mode="after")
+    def _unique_reviewers(self):
+        keys = [r.key for r in self.panel]
+        if len(set(keys)) != len(keys):
+            raise ValueError("reviewer keys must be unique")
+        return self
+
+
+class ReviewError(ValueError):
+    """review.json cannot be read or is invalid; the message lists every problem."""
+
+
+def read_review(path):
+    return _read_spec(path, ReviewSpec, "review.json", ReviewError)
 
 
 class Contract(Model):
@@ -129,6 +218,8 @@ class Contract(Model):
     jev_exclude_min_confidence: float = Field(default=0.9, ge=0, le=1)
     # A field run (domain.json); None is a legacy topic run with one topic_match question.
     domain: DomainSpec | None = None
+    # A panel run (review.json); None: today's review_a/review_b/adjudicate.
+    review: ReviewSpec | None = None
 
     @model_validator(mode="after")
     def _jev_needs_live(self):
@@ -207,3 +298,30 @@ class Review(Model):
 class Decision(Model):
     review: Review
     reason: str
+
+
+class ItemAnswer(Model):
+    key: str
+    answer: Literal["yes", "no", "unclear", "not_reported"]
+    quote: str  # exact span of the text reviewed; required for yes/no, else ""
+    section: str  # section of the quote ("" when unknown or no quote)
+
+
+class PanelReview(Model):
+    answers: list[ItemAnswer] = Field(min_length=1, max_length=20)
+    verdict: Literal["include", "exclude", "uncertain"]
+    strengths: list[str] = Field(min_length=1, max_length=5)
+    weaknesses: list[str] = Field(min_length=1, max_length=5)
+    summary: str
+
+
+class Disagreement(Model):
+    item: str
+    reviewers: list[str] = Field(min_length=1, max_length=5)
+    note: str
+
+
+class EditorDecision(Model):
+    verdict: Literal["include", "exclude", "uncertain"]
+    reason: str
+    disagreements: list[Disagreement] = Field(default_factory=list, max_length=20)
