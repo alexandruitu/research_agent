@@ -2541,3 +2541,16 @@ and the old admin "users" audit is replaced by the `settings users` one.
 - **Spec coverage.** Screens 1 (Task 5), 2 (Tasks 6–7), 3 (Task 8), 4 (Tasks 2–4), 5 (Task 10), 6 (Task 11); errors: 409 stale (Task 7), criteria-test failures (Task 8), rejected key display (Task 4), no_enabled_source/archived on start (Task 9); Testing → Frontend: editor add/reorder/remove/validation/409 (Task 7), test table (Task 8), Settings and read-only (Tasks 3–4), Criteria cell and drawer table (Tasks 10–11), Playwright flow and axe (Task 12). Success criteria: 3 incl + 2 excl, test, save v2, run and see decider (Task 12 exercises the same path with 2 + 1); "arXiv enabled → Found by lists arXiv" is covered by Settings enable (Task 3) and Found by (Task 10) but not end to end (no network in e2e).
 - **Placeholders.** One deliberate reference: the drawer test's render lines reuse the existing helper in `drawer.test.tsx` (shown there); all component code is complete.
 - **Type consistency.** `useFields({enabled, archived})`, `FieldBody`, `CriteriaTestResult`, `JobProgressData`, `SourceCheckResult`, `CriterionOption`, `screenKeys`, `criteriaText`, `FoundByCell({foundBy, sources})`, `PaperParams.decided_by/source`, URL keys `by`/`src` are used with the same names in every task.
+
+## Execution notes (2026-09-29)
+
+- **Accessible names with visually hidden text.** `dom-accessibility-api` (Testing Library) drops the leading space inside
+  `<span className="sr-only"> …</span>`, so names like "TestOpenAlex" came out glued. The implemented code puts the space
+  outside: `Test{" "}<span className="sr-only">{label}</span>` (SourcesTab buttons and checkbox, FieldsPage "Start run").
+- **Test adjustments.** The "creates a new field" test mocks `GET /fields/:id` with the created field (the page refetches
+  on mount) and checks "Save the field first" before creating; the history test waits for the measurement with `findByText`;
+  two RunsPage tests target the form error by text because the page also shows the fixture's failed-run alert.
+- **Task 7/8 split.** `CriteriaTestPanel.tsx` was created in Task 7 (the editor imports it), so its Task 8 tests passed on
+  the first run instead of failing first.
+- **e2e.** Settings tab audits check the tab's `h2` instead of a table: the e2e worker does not run the start-up key check,
+  so AI models shows "No worker has reported yet". No dataset change in `scripts/e2e_server.py` was needed.
