@@ -4,7 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { evalSummary, fieldDetail, FIELD_ID, legacyField, legacyVersion, RUN_ID, runOut, session, sourceRows, versionOut } from "../test/fixtures";
+import { evalSummary, fieldDetail, FIELD_ID, jobOut, testResult, legacyField, legacyVersion, RUN_ID, runOut, session, sourceRows, versionOut } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { FieldEditorPage } from "./FieldEditorPage";
@@ -159,5 +159,29 @@ describe("FieldEditorPage", () => {
     });
     const panel = await screen.findByRole("complementary", { name: "Field history" });
     await waitFor(() => expect(panel).toHaveTextContent("measured against mlffrct-2024"));
+  });
+
+  it("tests the unsaved edits in demo mode and shows the results", async () => {
+    const { calls } = setup("member", {
+      "POST /api/v1/fields/:id/test": { status: 202, body: jobOut({ kind: "criteria_test", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "criteria_test", run_id: null, status: "done", progress: { status: "done", result: testResult() } }) },
+    });
+    await form();
+    await userEvent.clear(screen.getByLabelText("excl 1"));
+    await userEvent.type(screen.getByLabelText("excl 1"), "The paper is a review.");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Test criteria" }));
+    expect(await screen.findByRole("region", { name: "Criteria test" })).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    const post = calls.find((c) => c.method === "POST")!;
+    expect(post.body).toMatchObject({ mode: "demo", draft: { exclude: [{ text: "The paper is a review." }] } });
+    expect((post.body as { draft: Record<string, unknown> }).draft).not.toHaveProperty("note");
+  });
+
+  it("shows why the server refused a test", async () => {
+    setup("member", { "POST /api/v1/fields/:id/test": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } });
+    await form();
+    await userEvent.click(screen.getByRole("button", { name: "Test criteria" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("None of this field's sources is enabled");
   });
 });
