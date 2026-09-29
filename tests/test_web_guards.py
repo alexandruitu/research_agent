@@ -73,6 +73,11 @@ def matrix(imported, paper_id, field_id):
         ("POST", f"/runs/{run}/resume", "member"),
         ("GET", f"/jobs/{'00000000-0000-0000-0000-000000000000'}", "member"),
         ("POST", "/imports", "admin"),
+        ("GET", "/sources", "viewer"),
+        ("PATCH", "/sources/europepmc", "admin"),
+        ("GET", "/settings", "viewer"),
+        ("PATCH", "/settings", "admin"),
+        ("GET", "/workers/status", "viewer"),
     ]
 
 
@@ -92,7 +97,7 @@ def test_role_matrix(app, users, imported, db, role):
     anonymous = TestClient(app)
     for method, path, minimum in matrix(imported, paper_id, field_id):
         url = f"{API_PREFIX}{path}"
-        kwargs = {"json": {}} if method == "POST" else {}
+        kwargs = {"json": {}} if method in ("POST", "PATCH") else {}
         assert anonymous.request(method, url, **kwargs).status_code == 401, (method, path)
         allowed = RANK[role] >= RANK[minimum]
         status = signed.request(method, url, headers=csrf, **kwargs).status_code
@@ -100,7 +105,7 @@ def test_role_matrix(app, users, imported, db, role):
             assert status not in (401, 403), (role, method, path, status)
         else:
             assert status == 403, (role, method, path, status)
-        if allowed and method == "POST":
+        if allowed and method in ("POST", "PATCH"):
             assert signed.request(method, url, **kwargs).status_code == 403, (
                 "state change without CSRF must fail"
             )
