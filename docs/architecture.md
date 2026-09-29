@@ -60,6 +60,31 @@ flowchart LR
 - Every model call is cached in `research.sqlite` (`calls`), keyed by a digest of model, prompt version
   and input. This is the raw audit trail.
 
+### Review panel (`review.json`, slice 3)
+
+With `--review review.json` (`ReviewSpec`, frozen in `Contract.review` and copied to the run folder) the
+graph becomes:
+
+```mermaid
+flowchart LR
+  screen --> fulltext --> extract
+  extract --> R1[review_methodologist] & R2[review_clinician] & R3[review_statistician]
+  R1 & R2 & R3 --> editor --> score --> rank
+```
+
+- **Full text** (`fulltext.py`, code): PMC OA (Europe PMC `fullTextXML`), Unpaywall (legal OA PDF, needs a
+  contact email), uploaded PDFs (`<run>/uploads/<safe-id>.pdf`, `safe-id` = paper id with characters outside
+  `[A-Za-z0-9._-]` replaced by `_`; extra read-only dirs via `--uploads`). pypdf extracts PDF text; sections
+  are kept Methods/Results first within `max_chars`. Never fatal: failures fall back to the abstract and
+  `text_source`/`text_reason` record why. Extractions are cached in `research.sqlite` (`fulltext`).
+- **Reviewers** (LLM, role `review:<key>`, 1–5 in parallel) answer each checklist item
+  `yes|no|unclear|not_reported` with an exact quote (required for yes/no) and its section; the **editor**
+  (role `editor`) lists disagreements and gives the verdict. Quotes are verified; 3 attempts, then fail closed.
+- **Score** (`scoring.py`, code): weighted pass rate over answered items per reviewer, mean over reviewers;
+  coverage = answered / items; red flags = answers matching an item's `red_flag_if`. Rank by score, then
+  editor verdict. `report.json` → `state.review[paper id]`.
+- Without `review.json` the pipeline is unchanged (review_a/review_b/adjudicate).
+
 ## 3. Screening cascade (`jev.py`)
 
 ```mermaid

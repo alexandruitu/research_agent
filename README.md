@@ -58,6 +58,21 @@ screen are `criteria` (per criteriu: `jev_p`, răspunsul LLM `yes|no|unclear`, c
 `decided_by` (criteriul care a eliminat lucrarea sau `null`); fiecare lucrare are `sources`.
 Run-urile cu topic pozițional rămân neschimbate (o singură întrebare `topic_match`).
 
+## Panel de review (review.json)
+
+Cu `--review review.json` (combinabil cu `--domain` sau cu un topic), lucrările păstrate la screening sunt
+citite în full text unde e disponibil legal (PMC OA, Unpaywall, PDF încărcat) și evaluate de un panel
+(implicit Methodologist, Clinician, Statistician; checklist din CLAIM/TRIPOD+AI) plus un editor. Scorul,
+acoperirea și red flags sunt calculate în cod. PDF-urile încărcate se pun în `<run>/uploads/<id>.pdf`
+(`MED:123` → `MED_123.pdf`) sau într-un director dat cu `--uploads DIR`.
+
+```bash
+python -c "import json; from research_agent.panel import default_review; print(json.dumps(default_review()))" > review.json
+research-agent "topic" --review review.json --mode demo --run-dir runs/panel-demo
+```
+
+`report.json` → `state.review[<paper id>]`: `text_source`, `reviews`, `editor`, `score`, `coverage`, `red_flags`.
+
 ## Reluare după întrerupere
 
 ```sh

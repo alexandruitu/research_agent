@@ -1932,6 +1932,16 @@ In the ranking loop: `if review is not None: lines += panel_lines(i, p, row, rev
 
 ---
 
+## Execution notes
+
+- Task 5: the recorded "no PDF" Unpaywall record also lists a PMC repository PDF (404 in the mock), so that
+  test expects `unpaywall: PDF download failed`; a second test drops the PDF locations to cover
+  `unpaywall: no open-access PDF`.
+- Task 8: the test helper passes `panel=contract.review.model_dump()["panel"]` to `build_graph`; the title
+  block of the tiny PDF is an untitled section, so `text_sections == ["", "Methods", "Results"]`.
+- The legacy Streamlit UI (`ui.py`) reads `row["decision"]["review"]` and is not panel-aware; panel runs are
+  meant for the web app (not changed here).
+
 ## Self-review
 
 - Spec coverage: ReviewSpec + `--review` (T2, T9); default panel (T3); full text PMC/Unpaywall/upload, pypdf, sections, max_chars, cache, fallback with `text_source` (T4, T5); reviewers parallel `review:<key>`, editor (T6, T8); quote verification + retries (T6); scoring/coverage/red flags/rank (T7, T8); report.json keys (T8, T9); models per role (T6, T9); PROMPT_VERSION bump with pinning (T6); legacy unchanged (T1–T9 keep `tests/test_legacy_screens.py` green, T9 legacy manifest test).
