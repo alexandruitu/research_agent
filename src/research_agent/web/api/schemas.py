@@ -234,7 +234,7 @@ class RunCounts(Model):
 
 
 class RunOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["field_version"])
+    ADDED: ClassVar[frozenset] = frozenset(["field_version", "settings_version"])
     id: uuid.UUID
     field_id: uuid.UUID
     field_name: str
@@ -247,10 +247,11 @@ class RunOut(Model):
     error: str | None
     models: dict[str, str]
     field_version: int | None = None  # null: imported before field versions existed and not linked
+    settings_version: int | None = None  # review settings of a panel run; null: a legacy run
 
 
 class RunDetailOut(RunOut):
-    ADDED: ClassVar[frozenset] = frozenset(["field_version"])
+    ADDED: ClassVar[frozenset] = frozenset(["field_version", "settings_version"])
     manifest: dict[str, Any]
     counts: RunCounts
 

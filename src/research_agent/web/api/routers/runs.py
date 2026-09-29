@@ -5,7 +5,19 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy import func, select, update
 
 from ... import fields as svc
-from ...db.models import Field, FieldVersion, GoldLabel, GoldSet, Job, Run, Screening, SourceRow
+from ... import review as review_svc
+from ...db.models import (
+    Field,
+    FieldVersion,
+    GoldLabel,
+    GoldSet,
+    Job,
+    Run,
+    RunReviewer,
+    Screening,
+    SettingsVersion,
+    SourceRow,
+)
 from ...jobs import enqueue
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
@@ -22,6 +34,7 @@ def _run_out(db, run, cls=RunOut, **extra):
     paper_count = db.scalar(select(func.count()).select_from(Screening).where(Screening.run_id == run.id))
     models = {k: v for k, v in (run.manifest.get("models") or {}).items() if isinstance(v, str)}
     version = db.get(FieldVersion, run.field_version_id) if run.field_version_id else None
+    review = db.get(SettingsVersion, run.settings_version_id) if run.settings_version_id else None
     return cls(
         id=run.id,
         field_id=run.field_id,
@@ -35,6 +48,7 @@ def _run_out(db, run, cls=RunOut, **extra):
         error=run.error,
         models=models,
         field_version=version.version if version else None,
+        settings_version=review.version if review else None,
         **extra,
     )
 
@@ -164,13 +178,19 @@ def start_run(
             domain = svc.domain_for_version(db, field, version)
         except svc.FieldConflict as exc:
             raise ApiError(exc.status, exc.code, exc.message) from None
+    try:  # every new run is a panel run: the current review settings and default panel, frozen
+        review, review_settings, reviewers = review_svc.review_for_run(db)
+    except review_svc.ReviewConflict as exc:
+        raise ApiError(exc.status, exc.code, exc.message) from None
     check_active_cap(db, user, settings)
     contract = {"topic": field.topic if domain is None else domain["topic"]}
     contract |= {"max_papers": body.max_papers, "mode": body.mode}
     manifest = {"contract": contract} | ({"domain_request": domain} if domain else {})
+    manifest["review_request"] = review
     run = Run(
         field_id=field.id,
         field_version_id=version.id if version else None,
+        settings_version_id=review_settings.id,
         kind="research",
         status="queued",
         manifest=manifest,
@@ -178,10 +198,13 @@ def start_run(
     )
     db.add(run)
     db.flush()
+    for position, reviewer in enumerate(reviewers):
+        db.add(RunReviewer(run_id=run.id, position=position, reviewer_version_id=reviewer.id))
     run.folder = str(settings.runs_dir / run.id.hex)
     payload = {"run_id": str(run.id), "field_id": str(field.id), **contract, "resume": False}
     if domain:
         payload["domain"] = domain
+    payload["review"] = review
     job, created = enqueue(db, "research", payload, user.id, idempotency_key)
     if not created:  # lost a race with an identical request: drop the run we just made
         db.delete(run)
@@ -236,6 +259,8 @@ def resume_run(
     }
     if run.manifest.get("domain_request"):  # started again from scratch when it has no manifest yet
         payload["domain"] = run.manifest["domain_request"]
+    if run.manifest.get("review_request"):
+        payload["review"] = run.manifest["review_request"]
     job, _ = enqueue(db, "research", payload, user.id)
     db.commit()
     return StartRunOut(job=job_out(job), run_id=run.id)

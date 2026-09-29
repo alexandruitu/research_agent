@@ -32,10 +32,12 @@ from .runner import (
     sanitize_error,
 )
 from .runner import spawn as spawn_process
+from .uploads import materialize
 
 log = logging.getLogger(__name__)
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 DOMAIN_REQUEST = "domain.request.json"  # the pipeline copies it byte for byte to domain.json
+REVIEW_REQUEST = "review.request.json"  # likewise to review.json
 STOP_GRACE_SECONDS = 10
 
 
@@ -221,11 +223,18 @@ class Worker:
         domain = payload.get("domain") or (run.manifest or {}).get("domain_request")
         if not resume and not (contract["topic"] or domain):
             raise ValueError("the run has no saved topic to start from")
-        domain_file = None
+        review = payload.get("review") or (run.manifest or {}).get("review_request")
+        domain_file = review_file = None
         if domain and not resume:  # a resume reads the saved contract, domain included
             run_dir.mkdir(parents=True, exist_ok=True)
             domain_file = run_dir / DOMAIN_REQUEST
             domain_file.write_text(json.dumps(domain, ensure_ascii=False, indent=2))
+        if review and not resume:  # likewise the review panel
+            run_dir.mkdir(parents=True, exist_ok=True)
+            review_file = run_dir / REVIEW_REQUEST
+            review_file.write_text(json.dumps(review, ensure_ascii=False, indent=2))
+        if review:  # uploaded PDFs, on every start and resume (papers are found during the run)
+            materialize(db, self.settings.uploads_dir, run_dir)
         run.status, run.error = "running", None
         db.commit()
         mode = contract["mode"] or "live"
@@ -237,6 +246,7 @@ class Worker:
             resume=resume,
             run_dir=run_dir,
             domain_file=domain_file,
+            review_file=review_file,
         )
         process = self.spawn(spec, child_environment(), run_dir / "worker.log")
         deadline = self.monotonic() + self.settings.job_timeout_seconds
