@@ -4,7 +4,7 @@ import { ApiError } from "../api/client";
 import { useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
-import { screenKeys } from "../features/papers/cells";
+import { isPanelRun, screenKeys } from "../features/papers/cells";
 import { FilterBar, type CriterionOption } from "../features/papers/FilterBar";
 import { PaperTable } from "../features/papers/PaperTable";
 import { parseView, patchView } from "../features/papers/papersState";
@@ -65,7 +65,7 @@ export function PapersPage() {
           </p>
         )}
       </div>
-      <FilterBar view={view} showSr={hasGoldSet} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
+      <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(papers.data?.items ?? [])} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
           {papers.isError || (!selected && run.isError) ? (

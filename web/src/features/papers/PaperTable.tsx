@@ -1,5 +1,5 @@
 import type { PaperRow, StageOut } from "../../api/types";
-import { DecisionCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell, CriteriaCell } from "./cells";
+import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, isPanelRun, PanelScoreCell, RedFlagsCell, ReviewsCellView, ScoreCell, TextSourceCell } from "./cells";
 import { PipelineStrip } from "./PipelineStrip";
 
 type Props = {
@@ -20,6 +20,7 @@ function SortHeader({ label, sortKey, sort, direction, onSort }: { label: string
 
 export function PaperTable({ rows, stages, sort, direction, onSort, selectedPaperId, onOpen, selectedStageId, onSelectStage, legacy }: Props) {
   const sortProps = { sort, direction, onSort };
+  const panel = isPanelRun(rows);
   return (
     <div className="table-scroll">
       <table className="papers">
@@ -31,8 +32,18 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
             {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" {...sortProps} /> : <th scope="col">Criteria</th>}
             <th scope="col">Decision</th>
             <th scope="col">Claims</th>
-            <th scope="col">Reviewers A / B</th>
-            <SortHeader label="Score" sortKey="score" {...sortProps} />
+            {panel ? (
+              <>
+                <SortHeader label="Peer review score" sortKey="score" {...sortProps} />
+                <th scope="col">Red flags</th>
+                <th scope="col">Text reviewed</th>
+              </>
+            ) : (
+              <>
+                <th scope="col">Reviewers A / B</th>
+                <SortHeader label="Score" sortKey="score" {...sortProps} />
+              </>
+            )}
             <th scope="col">In SR</th>
           </tr>
         </thead>
@@ -51,8 +62,18 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                 <td><CriteriaCell screen={row.screen} /></td>
                 <td><DecisionCell screen={row.screen} /></td>
                 <td><ExtractCellView cell={row.extract} /></td>
-                <td><ReviewsCellView cell={row.reviews} /></td>
-                <td><ScoreCell rank={row.rank} /></td>
+                {panel ? (
+                  <>
+                    <td><PanelScoreCell score={row.score} coverage={row.coverage} /></td>
+                    <td><RedFlagsCell count={row.red_flag_count} /></td>
+                    <td><TextSourceCell source={row.text_source} /></td>
+                  </>
+                ) : (
+                  <>
+                    <td><ReviewsCellView cell={row.reviews} /></td>
+                    <td><ScoreCell rank={row.rank} /></td>
+                  </>
+                )}
                 <td><InSrCell value={row.in_sr} /></td>
               </tr>
             );

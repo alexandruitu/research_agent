@@ -164,3 +164,44 @@ describe("PapersPage", () => {
     expect(screen.queryByLabelText(/Topic match from/)).not.toBeInTheDocument();
   });
 });
+
+describe("PapersPage · peer-review columns", () => {
+  const panelRow = () => paperRow({ score: 72.4, coverage: 0.8, red_flag_count: 2, text_source: "pmc_oa" });
+  const abstractRow = () => ({ ...lostRow(), score: null, coverage: 0.3, red_flag_count: 0, text_source: "abstract" });
+
+  it("shows the panel score with coverage in words, red flags and the text reviewed", async () => {
+    setup({ "GET /api/v1/runs/:id/papers": { body: page([panelRow(), abstractRow()], 2) } });
+    const rows = await screen.findAllByRole("row");
+    const first = rows.find((r) => r.textContent?.includes("Diagnostic accuracy"))!;
+    expect(first).toHaveTextContent("72 · 8/10 answered");
+    expect(within(first).getByRole("meter", { name: "coverage 80%" })).toBeInTheDocument();
+    expect(first).toHaveTextContent("⚑ 2 red flags");
+    expect(first).toHaveTextContent("full text · PMC");
+    const second = rows.find((r) => r.textContent?.includes("Change in CT-Derived"))!;
+    expect(second).toHaveTextContent("no score · 3/10 answered");
+    expect(second).toHaveTextContent("abstract only");
+    expect(second).toHaveTextContent("none");
+    expect(screen.getByRole("columnheader", { name: /Peer review score/ })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Reviewers A / B" })).not.toBeInTheDocument();
+  });
+
+  it("filters to papers with red flags, and the filter lives in the URL", async () => {
+    const { calls } = setup({ "GET /api/v1/runs/:id/papers": { body: page([panelRow()], 1) } });
+    await userEvent.click(await screen.findByRole("button", { name: "Has red flags" }));
+    expect(screen.getByLabelText("location")).toHaveTextContent("flags=true");
+    expect(calls.some((c) => c.path.endsWith("/papers") && c.search.includes("has_red_flags=true"))).toBe(true);
+    expect(screen.getByRole("button", { name: "Has red flags" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("sorts by the panel score", async () => {
+    const { calls } = setup({ "GET /api/v1/runs/:id/papers": { body: page([panelRow()], 1) } });
+    await userEvent.click(await screen.findByRole("button", { name: /Peer review score/ }));
+    expect(calls.some((c) => c.search.includes("sort=score"))).toBe(true);
+  });
+
+  it("legacy runs keep reviewers A / B and do not offer the red-flag filter", async () => {
+    setup();
+    expect(await screen.findByRole("columnheader", { name: "Reviewers A / B" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Has red flags" })).not.toBeInTheDocument();
+  });
+});

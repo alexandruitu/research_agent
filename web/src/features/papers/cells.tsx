@@ -88,3 +88,38 @@ export function FoundByCell({ foundBy, sources = [] }: { foundBy: string; source
   if (sources.length === 0) return <span>{foundBy}</span>;
   return <span>{sources.map(sourceLabel).join(", ")}{foundBy === "lookup" && <span className="sub">lookup</span>}</span>;
 }
+
+const TEXT_SOURCE: Record<string, string> = { pmc_oa: "PMC", unpaywall: "Unpaywall", upload: "uploaded PDF" };
+export const textSourceLabel = (source: string) => (source === "abstract" ? "abstract only" : `full text · ${TEXT_SOURCE[source] ?? source}`);
+
+/** Coverage is the share of checklist items the reviewers could answer, in tenths ("8/10 answered"). */
+export const coverageWords = (coverage: number) => `${Math.round(coverage * 10)}/10 answered`;
+
+export function PanelScoreCell({ score, coverage }: { score: number | null | undefined; coverage: number | null | undefined }) {
+  if (score == null && coverage == null) return <NotApplicable />;
+  return (
+    <span className="panel-score">
+      <strong>{score == null ? "no score" : Math.round(score)}</strong>
+      {coverage != null && (
+        <>
+          <span className="sub"> · {coverageWords(coverage)}</span>
+          <meter min={0} max={1} low={0.5} optimum={1} value={coverage} aria-label={`coverage ${Math.round(coverage * 100)}%`} />
+        </>
+      )}
+    </span>
+  );
+}
+
+export function RedFlagsCell({ count }: { count: number | null | undefined }) {
+  if (count == null) return <NotApplicable />;
+  if (count === 0) return <span className="sub">none</span>;
+  return <span className="chip chip--bad">⚑ {count} red flag{count === 1 ? "" : "s"}</span>;
+}
+
+export function TextSourceCell({ source }: { source: string | null | undefined }) {
+  if (!source) return <NotApplicable />;
+  return <span className={source === "abstract" ? "chip chip--warn" : "chip chip--ok"}>{textSourceLabel(source)}</span>;
+}
+
+/** A run reviewed by the panel carries a score, coverage or text source on at least one row. */
+export const isPanelRun = (rows: PaperRow[]) => rows.some((row) => row.text_source != null || row.score != null || row.coverage != null);
