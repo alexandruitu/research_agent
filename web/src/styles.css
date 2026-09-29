@@ -163,3 +163,7 @@ table.papers td.decider { outline: 2px solid var(--accent); outline-offset: -2px
 .criteria-legend div { display: flex; gap: 8px; }
 .criteria-legend dt { font-weight: 600; min-width: 48px; }
 .criteria-legend dd { margin: 0; }
+table.criteria-table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 4px 0; }
+table.criteria-table caption { text-align: left; font-weight: 600; }
+table.criteria-table th, table.criteria-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.criteria-table tr.decider { outline: 2px solid var(--accent); outline-offset: -2px; }

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ApiError } from "../../api/client";
 import { usePaper } from "../../api/hooks";
-import { hasRole, type DrawerOut, type ReviewOut } from "../../api/types";
+import { hasRole, type CriterionRowOut, type DrawerOut, type ReviewOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
+import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
 import { RawCalls } from "./RawCalls";
 
 const ROLE_LABEL: Record<string, string> = { a: "Reviewer A", b: "Reviewer B", adjudicator: "Adjudicator" };
@@ -24,21 +25,65 @@ function Step({ title, tone, children }: { title: string; tone: "ok" | "warn" | 
   );
 }
 
+const DECISION_WORD: Record<string, string> = { include: "keep", exclude: "drop", uncertain: "unsure" };
+
+function decisionSentence(screening: DrawerOut["screening"], decider: CriterionRowOut | undefined): string {
+  const word = DECISION_WORD[screening.decision] ?? screening.decision;
+  if (decider) {
+    const by = screening.tier === "llm" ? `the LLM${screening.jev_decision === "escalate" ? "; Jev was unsure" : ""}` : "Jev";
+    return `Decision: ${word}, because ${criterionLabel(decider.key)} ${decider.kind === "exclude" ? "is met" : "is not met"} (decided by ${by}).`;
+  }
+  if (screening.decision === "include") return `Decision: ${word}, all criteria met.`;
+  return `Decision: ${word}; no single criterion decided.`;
+}
+
+/** The Screen step of a field run: one row per criterion, the deciding row marked in words. */
+function CriteriaScreen({ screening }: { screening: DrawerOut["screening"] }) {
+  const rows = screening.criteria_table ?? [];
+  const decider = rows.find((row) => row.decided);
+  return (
+    <>
+      <table className="criteria-table">
+        <caption>Screening per criterion</caption>
+        <thead><tr><th scope="col">Criterion</th><th scope="col">Jev p</th><th scope="col">LLM</th><th scope="col">Evidence</th></tr></thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key} className={row.decided ? "decider" : undefined}>
+              <th scope="row">{criterionLabel(row.key)}: {row.text}{row.decided && <strong> (decided)</strong>}</th>
+              <td>{row.jev_p === null ? "–" : row.jev_p.toFixed(2)}</td>
+              <td>{row.llm ?? "–"}</td>
+              <td>{row.quote ? `“${row.quote}”` : "–"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>{decisionSentence(screening, decider)}</p>
+      <p className="sub">Quotes are checked against the abstract by code.</p>
+    </>
+  );
+}
+
 function Timeline({ drawer }: { drawer: DrawerOut }) {
   const { screening } = drawer;
+  const sources = drawer.sources ?? [];
+  const perCriterion = (screening.criteria_table ?? []).some((row) => isFieldCriterion(row.key));
   return (
     <div className="timeline">
       <Step title="Search" tone="ok">
-        <p>{drawer.found_by === "lookup" ? "Found by direct lookup of the systematic review's reference, not by the search query." : "Found by the search query."}</p>
+        <p>{drawer.found_by === "lookup" ? "Found by direct lookup of the systematic review's reference, not by the search query." : `Found by the search query${sources.length ? ` in ${sources.map(sourceLabel).join(", ")}` : ""}.`}</p>
       </Step>
       <Step title="Screen" tone={screening.jev_decision === "escalate" ? "warn" : "ok"}>
-        {screening.criteria.map((c) => (
-          <p key={c.key}>{c.key}: <strong>{c.probability.toFixed(2)}</strong> <span className="sub">{c.jev_version}</span></p>
-        ))}
-        {screening.jev_decision && <p>{JEV_MEANING[screening.jev_decision]}</p>}
-        {screening.jev_decision && <p className="sub">Auto-drop needs p ≤ 0.05 at the shipped default thresholds.</p>}
-        {screening.llm_decision && <p>LLM screen: <strong>{screening.llm_decision}</strong></p>}
-        <p className="sub">{screening.reason}</p>
+        {perCriterion ? <CriteriaScreen screening={screening} /> : (
+          <>
+            {screening.criteria.map((c) => (
+              <p key={c.key}>{c.key}: <strong>{c.probability.toFixed(2)}</strong> <span className="sub">{c.jev_version}</span></p>
+            ))}
+            {screening.jev_decision && <p>{JEV_MEANING[screening.jev_decision]}</p>}
+            {screening.jev_decision && <p className="sub">Auto-drop needs p ≤ 0.05 at the shipped default thresholds.</p>}
+            {screening.llm_decision && <p>LLM screen: <strong>{screening.llm_decision}</strong></p>}
+            <p className="sub">{screening.reason}</p>
+          </>
+        )}
       </Step>
       <Step title="Extract" tone="ok">
         {drawer.claims.length === 0 ? <p>No extraction for this paper in this run.</p> : drawer.claims.map((claim, index) => (

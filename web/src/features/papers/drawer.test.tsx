@@ -127,6 +127,26 @@ describe("paper drawer", () => {
     expect(within(drawer).queryByText(/systematic review/)).not.toBeInTheDocument();
     expect(within(drawer).getByText(/Found by the search query/)).toBeInTheDocument();
   });
+  it("shows the screen per criterion, marks the criterion that decided and names the sources", async () => {
+    const drawer = drawerOut({
+      sources: ["europepmc", "openalex"], found_by: "query",
+      screening: {
+        ...drawerOut().screening, tier: "llm", decision: "exclude", jev_decision: "escalate", llm_decision: "exclude", decided_by: "i1",
+        criteria_table: [
+          { key: "i1", kind: "include", text: "The study uses machine learning.", jev_p: 0.2, llm: "no", quote: "change in CT-FFR across the lesion was calculated", decided: true },
+          { key: "e1", kind: "exclude", text: "The paper is a review.", jev_p: 0.02, llm: "no", quote: null, decided: false },
+        ],
+      },
+    });
+    setup("member", { "GET /api/v1/runs/:id/papers/:id": { body: drawer } });
+    const panel = await openDrawer();
+    const table = within(panel).getByRole("table", { name: "Screening per criterion" });
+    expect(within(table).getByRole("row", { name: /incl 1/ })).toHaveTextContent("(decided)");
+    expect(within(table).getByRole("row", { name: /incl 1/ })).toHaveTextContent("“change in CT-FFR across the lesion was calculated”");
+    expect(within(table).getByRole("row", { name: /excl 1/ })).not.toHaveTextContent("decided");
+    expect(within(panel).getByText(/because incl 1 is not met \(decided by the LLM; Jev was unsure\)/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Found by the search query in Europe PMC, OpenAlex/)).toBeInTheDocument();
+  });
 });
 
 describe("stage panel", () => {
