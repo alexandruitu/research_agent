@@ -231,3 +231,13 @@ Commit: `Regenerate API types; document the review panel backend`.
   PDF-only, ≤30 MB, magic, by hash, members-only download, uploader/admin delete (T3); snapshot at start, worker,
   resume (T4); importer + links + roles (T5); paper fields + filter + drawer (T6); guards/types (T7).
 - Compatibility: every response change is an added optional field; `POST /runs` keeps its shape.
+
+## Execution notes
+
+- The upload endpoint is `async` and reads the form itself, so the declared `Content-Length` is checked
+  (411 `length_required`, 413 `too_large`) before any body is spooled; the OpenAPI body is declared by hand.
+- `deploy/`: the API mounts a new `uploads` volume read-write, the worker read-only (hard links across volumes
+  fail, so the worker copies); nginx allows 31 MB on `/api/v1/papers/{id}/files` only.
+- Real data re-imported into a scratch database after Task 5: mlffrct-2024 151/112/39/82/16, aiffr-slr-2023
+  141/129/12/82/19, live-01 5/5/0/2 — unchanged.
+- Tests: 654 → 681 (+1 skipped); `npm run typecheck` and `npm test` (154) pass with the regenerated types.
