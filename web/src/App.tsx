@@ -4,6 +4,7 @@ import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
 import { ModelsTab } from "./features/settings/ModelsTab";
+import { ScreeningTab } from "./features/settings/ScreeningTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
 import { FieldEditorPage } from "./pages/FieldEditorPage";
@@ -36,6 +37,7 @@ export function App() {
               <Route index element={<Navigate to="sources" replace />} />
               <Route path="sources" element={<SourcesTab />} />
               <Route path="models" element={<ModelsTab />} />
+              <Route path="screening" element={<ScreeningTab />} />
               <Route element={<RequireRole role="admin" />}>
                 <Route path="users" element={<UsersPage />} />
               </Route>

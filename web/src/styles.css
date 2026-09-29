@@ -181,3 +181,40 @@ table.criteria-table tr.decider { outline: 2px solid var(--accent); outline-offs
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 button.primary:disabled { background: var(--neutral-bg); color: var(--neutral-fg); border-color: var(--line); }
 .hint { color: var(--muted); font-size: 12px; margin: 2px 0 0; }
+/* screening bands: widths are classes because the CSP forbids inline styles */
+.screening-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 280px; align-items: start; }
+@media (max-width: 900px) { .screening-layout { grid-template-columns: 1fr; } }
+.bands { display: grid; gap: 12px; }
+.threshold { display: grid; grid-template-columns: 150px minmax(120px, 1fr) 88px; gap: 4px 12px; align-items: center; margin: 6px 0; }
+.threshold-label { font-weight: 600; }
+.threshold .hint { grid-column: 1 / -1; }
+.threshold input[type="range"] { accent-color: var(--accent); width: 100%; }
+.band { display: flex; height: 26px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 8px; font-size: 11px; font-weight: 600; }
+.band-zone { display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; transition: flex-basis 160ms ease; }
+.band-zone--drop { background: var(--bad-bg); color: var(--bad-fg); }
+.band-zone--ask { background: var(--warn-bg); color: var(--warn-fg); }
+.band-zone--keep { background: var(--ok-bg); color: var(--ok-fg); }
+.band-words { margin: 4px 0 0; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .band-zone { transition: none; } }
+.evals-hint p { margin: 0 0 6px; }
+.w-0 { flex: 0 0 0%; }
+.w-5 { flex: 0 0 5%; }
+.w-10 { flex: 0 0 10%; }
+.w-15 { flex: 0 0 15%; }
+.w-20 { flex: 0 0 20%; }
+.w-25 { flex: 0 0 25%; }
+.w-30 { flex: 0 0 30%; }
+.w-35 { flex: 0 0 35%; }
+.w-40 { flex: 0 0 40%; }
+.w-45 { flex: 0 0 45%; }
+.w-50 { flex: 0 0 50%; }
+.w-55 { flex: 0 0 55%; }
+.w-60 { flex: 0 0 60%; }
+.w-65 { flex: 0 0 65%; }
+.w-70 { flex: 0 0 70%; }
+.w-75 { flex: 0 0 75%; }
+.w-80 { flex: 0 0 80%; }
+.w-85 { flex: 0 0 85%; }
+.w-90 { flex: 0 0 90%; }
+.w-95 { flex: 0 0 95%; }
+.w-100 { flex: 0 0 100%; }
