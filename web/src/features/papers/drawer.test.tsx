@@ -4,7 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../../api/client";
-import { drawerOut, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
+import { drawerOut, panelOut, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
 import { mockApi } from "../../test/mockApi";
 import { renderWithProviders } from "../../test/render";
 import { PapersPage } from "../../pages/PapersPage";
@@ -167,5 +167,43 @@ describe("stage panel", () => {
     expect(screen.getByLabelText("location")).toHaveTextContent("stage=screen");
     await userEvent.click(screen.getByRole("button", { name: /^Screen/ }));
     await waitFor(() => expect(screen.queryByRole("complementary", { name: "About Screen" })).not.toBeInTheDocument());
+  });
+});
+
+describe("drawer · peer review", () => {
+  it("puts the editor's decision first, then disagreements in words, red flags and one report per reviewer", async () => {
+    setup("viewer", { "GET /api/v1/runs/:id/papers/:id": { body: drawerOut({ panel: panelOut(), files: [] }) } });
+    const drawer = await openDrawer();
+    const step = within(drawer).getByRole("heading", { name: "Peer review" }).closest("section")!;
+    expect(within(drawer).queryByRole("heading", { name: "Reviewers" })).not.toBeInTheDocument();
+    const text = step.textContent ?? "";
+    expect(text.indexOf("Editor's decision")).toBeLessThan(text.indexOf("Methodologist v2"));
+    expect(step).toHaveTextContent("Reviewed on the full text from PMC (Methods, Results; 41 000 characters, cut to the length limit).");
+    expect(step).toHaveTextContent("Editor's decision include score 65 · 8/10 answered");
+    expect(step).toHaveTextContent("Methodologist and Statistician disagree on m1");
+    expect(step).toHaveTextContent("⚑ 1 red flag");
+    expect(step).toHaveTextContent("raised by Statistician");
+
+    const reports = step.querySelectorAll("details");
+    expect(reports).toHaveLength(2);
+    await userEvent.click(within(step).getByText("Statistician", { selector: "summary strong" }));
+    const table = within(step).getByRole("table", { name: "Statistician's checklist" });
+    const m1 = within(table).getByRole("row", { name: /m1/ });
+    expect(m1).toHaveTextContent("✗ no ⚑ red flag");
+    expect(m1).toHaveTextContent("“images were split 80/20”Methods");
+    expect(within(table).getByRole("row", { name: /s2/ })).toHaveTextContent("– not reportedno quote");
+  });
+
+  it("says when only the abstract was reviewed", async () => {
+    setup("viewer", { "GET /api/v1/runs/:id/papers/:id": { body: drawerOut({ panel: panelOut({ text_source: "abstract", text_reason: "no full-text source had it", red_flags: [], red_flag_count: 0 }), files: [] }) } });
+    const drawer = await openDrawer();
+    expect(drawer).toHaveTextContent("Reviewed on the abstract only (no full-text source had it).");
+  });
+
+  it("legacy runs keep the Reviewers step", async () => {
+    setup("viewer");
+    const drawer = await openDrawer();
+    expect(within(drawer).getByRole("heading", { name: "Reviewers" })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("heading", { name: "Peer review" })).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import { usePaper } from "../../api/hooks";
 import { hasRole, type CriterionRowOut, type DrawerOut, type ReviewOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
+import { PeerReview } from "./PeerReview";
 import { RawCalls } from "./RawCalls";
 
 const ROLE_LABEL: Record<string, string> = { a: "Reviewer A", b: "Reviewer B", adjudicator: "Adjudicator" };
@@ -90,6 +91,11 @@ function Timeline({ drawer }: { drawer: DrawerOut }) {
           <blockquote key={index}>“{claim.quote}”<footer>{claim.statement}</footer></blockquote>
         ))}
       </Step>
+      {drawer.panel ? (
+        <Step title="Peer review" tone={drawer.panel.red_flag_count > 0 || drawer.panel.text_source === "abstract" ? "warn" : "ok"}>
+          <PeerReview panel={drawer.panel} />
+        </Step>
+      ) : (
       <Step title="Reviewers" tone="warn">
         {drawer.reviews.length === 0 ? <p>No reviews for this paper in this run.</p> : drawer.reviews.map((review) => (
           <div key={review.role} className="review">
@@ -104,6 +110,7 @@ function Timeline({ drawer }: { drawer: DrawerOut }) {
           </div>
         ))}
       </Step>
+      )}
       <Step title="Rank" tone="neutral"><p>{drawer.rank ? `Rank ${drawer.rank.position} · score ${drawer.rank.score.toFixed(0)}` : "Not ranked."}</p></Step>
       {drawer.in_sr !== null && (
         <Step title="SR label" tone="ok">

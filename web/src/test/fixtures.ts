@@ -1,4 +1,4 @@
-import type { ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
+import type { PanelOut, PaperFileOut, ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -230,4 +230,37 @@ export const modelsAvailable = (): ModelsAvailableOut => ({
     { id: "openai:gpt-6", provider: "openai", available: false, roles: ["adjudicate"], in_settings: true },
   ],
   providers: [{ provider: "anthropic", key_present: true, key_accepted: true }, { provider: "openai", key_present: true, key_accepted: false }],
+});
+
+export const panelOut = (over: Partial<PanelOut> = {}): PanelOut => ({
+  text_source: "pmc_oa", text_reason: null, text_origin: "PMC8812345", text_sections: ["methods", "results"], text_truncated: true, text_chars: 41000,
+  editor: {
+    verdict: "include", reason: "Sound design with external validation; the split is the main doubt.", call_key: "f".repeat(64),
+    disagreements: [{ item: "m1", reviewers: ["methodologist", "statistician"], note: "the methods section is ambiguous about the split." }],
+  },
+  reviews: [
+    {
+      key: "methodologist", name: "Methodologist", version: 2, verdict: "include", score: 80, coverage: 1, strengths: ["External test set"], weaknesses: ["Single vendor"],
+      summary: "Well designed retrospective study.", call_key: "1".repeat(64),
+      answers: [
+        { key: "m1", text: "Data were split at patient level, not image level.", source: "CLAIM 21", weight: 2, answer: "yes", quote: "patients were randomly assigned to training and test sets", section: "Methods", red_flag: false },
+        { key: "m2", text: "The model was validated on an external dataset.", source: "TRIPOD+AI 12", weight: 3, answer: "yes", quote: "an external cohort from a second hospital", section: "Results", red_flag: false },
+      ],
+    },
+    {
+      key: "statistician", name: "Statistician", version: 1, verdict: "uncertain", score: 50, coverage: 0.5, strengths: [], weaknesses: ["No confidence intervals"],
+      summary: "Metrics lack uncertainty.", call_key: "2".repeat(64),
+      answers: [
+        { key: "m1", text: "Data were split at patient level, not image level.", source: "CLAIM 21", weight: 2, answer: "no", quote: "images were split 80/20", section: "Methods", red_flag: true },
+        { key: "s2", text: "Metrics are reported with confidence intervals.", source: "CLAIM 29", weight: 1, answer: "not_reported", quote: "", section: "", red_flag: false },
+      ],
+    },
+  ],
+  red_flags: [{ text: "Data were split at patient level, not image level.", source: "CLAIM 21", raised_by: [{ reviewer: "statistician", item: "m1", answer: "no", quote: "images were split 80/20", section: "Methods" }] }],
+  score: 65, coverage: 0.75, red_flag_count: 1,
+  ...over,
+});
+
+export const paperFile = (over: Partial<PaperFileOut> = {}): PaperFileOut => ({
+  id: "12121212-1212-4212-8212-121212121212", filename: "paper.pdf", size: 245_760, sha256: "a".repeat(64), uploaded_by_name: "Mia Member", created_at: "2026-09-29T11:00:00Z", can_delete: true, ...over,
 });

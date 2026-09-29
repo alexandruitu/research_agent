@@ -286,3 +286,29 @@ fieldset.segmented label:has(input:focus-visible) { outline: 3px solid var(--foc
 .panel-score { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; white-space: nowrap; }
 .panel-score strong { font-size: 15px; font-variant-numeric: tabular-nums; }
 .panel-score meter { display: block; width: 88px; height: 8px; flex-basis: 100%; }
+/* drawer: peer review */
+.peer-review { display: grid; gap: 8px; }
+.peer-review p { margin: 0; }
+.editor-verdict { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); display: grid; gap: 6px; }
+.editor-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.verdict-badge { font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 12px; padding: 1px 8px; border-radius: 4px; border: 1px solid var(--line); }
+.verdict-badge--include { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-line); }
+.verdict-badge--exclude { background: var(--bad-bg); color: var(--bad-fg); border-color: var(--bad-line); }
+.verdict-badge--uncertain { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); }
+.panel-total { font-variant-numeric: tabular-nums; color: var(--muted); }
+.disagreements ul, .red-flags ul { margin: 4px 0 0; padding-left: 18px; }
+.disagreements { border-left: 3px solid var(--warn-line); padding-left: 8px; }
+.red-flags { border: 1px solid var(--bad-line); background: var(--bad-bg); color: var(--bad-fg); border-radius: 8px; padding: 6px 10px; }
+.red-flags .sub, .red-flags blockquote footer { color: inherit; }
+.reviewer-report { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; background: var(--bg); }
+.reviewer-report[open] { padding-bottom: 8px; }
+.reviewer-report summary { cursor: pointer; padding: 4px 0; }
+.reviewer-report > p, .plus-minus { margin: 4px 0; }
+.plus-minus { padding-left: 4px; list-style: none; }
+.checklist-table .item-key { font-family: var(--mono); color: var(--muted); }
+.checklist-table tr.is-red-flag th, .checklist-table tr.is-red-flag td { background: var(--bad-bg); color: var(--bad-fg); }
+.checklist-table tr.is-red-flag .sub { color: inherit; }
+.answer { white-space: nowrap; font-weight: 600; }
+.red-flag-word { display: block; font-size: 11px; }
+blockquote.quote { font-style: italic; margin: 0; }
+.reviewers-label { margin-top: 4px; }
