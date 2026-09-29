@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Any, ClassVar, Literal
@@ -475,3 +476,195 @@ class StartRunOut(Model):
 class ImportRequest(Model):
     kind: Literal["research", "eval"]
     name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$", max_length=200)
+
+
+TEXT = r"^[^\x00-\x08\x0b\x0c\x0e-\x1f\x7f]*$"  # like PLAIN, but line breaks and tabs are allowed
+ModelId = Field(default=None, min_length=1, max_length=200, pattern=PLAIN)
+
+
+def _stripped(value):
+    return value.strip() if isinstance(value, str) else value
+
+
+class ChecklistItemIn(Model):
+    """A checklist item as the reviewer editor sends it; a missing key is generated on save."""
+
+    key: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,19}$")
+    text: str = Field(min_length=3, max_length=500, pattern=PLAIN)
+    weight: int = Field(default=1, ge=1, le=3)
+    source: str | None = Field(default=None, max_length=60, pattern=PLAIN)  # e.g. "CLAIM 2020 #21"
+    pass_if: Literal["yes", "no"] = "yes"  # "no" for items phrased negatively
+    red_flag_if: Literal["yes", "no"] | None = None
+
+    @field_validator("text", "source", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return _stripped(value)
+
+
+class ChecklistItemOut(Model):
+    key: str
+    text: str
+    weight: int
+    source: str | None
+    pass_if: str
+    red_flag_if: str | None
+
+
+class ReviewerContent(Model):
+    name: str
+    perspective: str
+    model: str | None
+    items: list[ChecklistItemOut]
+
+
+class ReviewerDraft(Model):
+    name: str = Field(min_length=1, max_length=100, pattern=PLAIN)
+    perspective: str = Field(min_length=10, max_length=2000, pattern=TEXT)
+    model: str | None = ModelId  # null: the worker's default reviewer model
+    items: list[ChecklistItemIn] = Field(min_length=1, max_length=20)
+    note: str = Field(default="", max_length=500, pattern=PLAIN)
+
+    @field_validator("name", "perspective", "model", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return _stripped(value)
+
+    @model_validator(mode="after")
+    def _unique_keys(self):
+        keys = [i.key for i in self.items if i.key]
+        if len(set(keys)) != len(keys):
+            raise ValueError("item keys must be unique within a reviewer")
+        return self
+
+
+class ReviewerCreate(ReviewerDraft):
+    key: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,29}$")  # null: made from the name
+
+
+class ReviewerSave(ReviewerDraft):
+    base_version: int = Field(ge=1)
+
+
+class ReviewerVersionOut(Model):
+    version: int
+    name: str
+    perspective: str
+    model: str | None
+    items: list[ChecklistItemOut]
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+
+
+class ReviewerVersionSummary(Model):
+    version: int
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+    item_count: int
+
+
+class ReviewerOut(Model):
+    key: str
+    current_version: int
+    archived_at: datetime | None
+    in_default_panel: bool  # in the current review settings' default panel
+    current: ReviewerVersionOut
+    default: ReviewerContent | None  # the seeded content ("Reset to default"); null for a new reviewer
+    versions: list[ReviewerVersionSummary] = Field(default_factory=list)  # newest first; detail only
+
+
+class RoleModelsIO(Model):
+    plan: str | None = ModelId
+    screen: str | None = ModelId
+    screen_criteria: str | None = ModelId
+    extract: str | None = ModelId
+
+
+class ScreeningIO(Model):
+    keep_min: float = Field(ge=0, le=1)
+    include_fail_max: float = Field(ge=0, le=1)
+    exclude_hit_min: float = Field(ge=0, le=1)
+    exclude_clear_max: float = Field(ge=0, le=1)
+
+
+class FulltextIO(Model):
+    sources: list[Literal["pmc_oa", "unpaywall", "upload"]] = Field(max_length=3)
+    contact: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    max_chars: int = Field(ge=2000, le=200000)
+    upload_max_mb: int = Field(default=30, ge=1, le=30)
+
+
+class EditorIO(Model):
+    model: str | None = ModelId
+    instructions: str = Field(default="", max_length=2000, pattern=TEXT)
+
+
+class ReviewSettingsContent(Model):
+    models: RoleModelsIO
+    screening: ScreeningIO
+    fulltext: FulltextIO
+    default_panel: list[str] = Field(min_length=1, max_length=5)
+    editor: EditorIO
+
+
+class ReviewSettingsSave(ReviewSettingsContent):
+    note: str = Field(default="", max_length=500, pattern=PLAIN)
+    base_version: int = Field(ge=1)
+
+    @field_validator("default_panel")
+    @classmethod
+    def _keys(cls, value):
+        if any(not re.fullmatch(r"[a-z][a-z0-9_]{1,29}", k) for k in value):
+            raise ValueError("default_panel lists reviewer keys")
+        if len(set(value)) != len(value):
+            raise ValueError("each reviewer may be listed once")
+        return value
+
+
+class ReviewSettingsVersionOut(ReviewSettingsContent):
+    version: int
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+
+
+class ReviewSettingsSummary(Model):
+    version: int
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+
+
+class ReviewSettingsOut(Model):
+    current: ReviewSettingsVersionOut  # what the next run uses
+    versions: list[ReviewSettingsSummary]  # newest first
+    defaults: ReviewSettingsContent  # "Reset to default"
+
+
+class ProviderOut(Model):
+    provider: str  # anthropic | openai | typesafe
+    key_present: bool
+    key_accepted: bool | None  # null: not checked
+
+
+class AvailableModelOut(Model):
+    id: str  # e.g. "anthropic:claude-sonnet-5"
+    provider: str | None
+    available: bool  # the provider key was accepted by the worker's last check
+    roles: list[str]  # worker roles configured with it (from the worker's environment)
+    in_settings: bool  # used by the current review settings or a current reviewer version
+
+
+class ModelsAvailableOut(Model):
+    models: list[AvailableModelOut]
+    providers: list[ProviderOut]

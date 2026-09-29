@@ -80,6 +80,16 @@ def matrix(imported, paper_id, field_id):
         ("GET", "/settings", "viewer"),
         ("PATCH", "/settings", "admin"),
         ("GET", "/workers/status", "viewer"),
+        ("GET", "/reviewers", "viewer"),
+        ("GET", "/reviewers/methodologist", "viewer"),
+        ("GET", "/reviewers/methodologist/versions/1", "viewer"),
+        ("POST", "/reviewers", "admin"),
+        ("POST", "/reviewers/methodologist/versions", "admin"),
+        ("POST", "/reviewers/methodologist/archive", "admin"),
+        ("POST", "/reviewers/methodologist/restore", "admin"),
+        ("GET", "/settings/review", "viewer"),
+        ("POST", "/settings/review", "admin"),
+        ("GET", "/models/available", "viewer"),
     ]
 
 
