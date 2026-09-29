@@ -132,6 +132,9 @@ class Run(Base):
     folder: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
     source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     gold_set_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("gold_sets.id"), nullable=True)
+    settings_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("settings_versions.id"), nullable=True, index=True
+    )  # the review settings a panel run used (null: a legacy run)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -283,3 +286,143 @@ class WorkerStatus(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     worker_id: Mapped[str] = mapped_column(String(100), default="")
+
+
+class ReviewerProfile(Base):
+    """A reviewer of the panel; its content lives in versions (never changed once saved)."""
+
+    __tablename__ = "reviewer_profiles"
+    id: Mapped[uuid.UUID] = pk()
+    key: Mapped[str] = mapped_column(String(30), unique=True)
+    current_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class ReviewerVersion(Base):
+    """`items` = [{key, text, weight, source, pass_if, red_flag_if}] (research_agent.schemas.ChecklistItem)."""
+
+    __tablename__ = "reviewer_versions"
+    __table_args__ = (UniqueConstraint("profile_id", "version"),)
+    id: Mapped[uuid.UUID] = pk()
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("reviewer_profiles.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(100))
+    perspective: Mapped[str] = mapped_column(Text)
+    items: Mapped[list] = mapped_column(JSONB, default=list)
+    model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class SettingsVersion(Base):
+    """Review settings, one row per save; the current one is the highest version not created by the importer.
+    models {plan, screen, screen_criteria, extract}; screening (Jev thresholds); fulltext {sources, contact,
+    max_chars, upload_max_mb}; default_panel [reviewer keys]; editor {model, instructions}."""
+
+    __tablename__ = "settings_versions"
+    id: Mapped[uuid.UUID] = pk()
+    version: Mapped[int] = mapped_column(Integer, unique=True)
+    models: Mapped[dict] = mapped_column(JSONB, default=dict)
+    screening: Mapped[dict] = mapped_column(JSONB, default=dict)
+    fulltext: Mapped[dict] = mapped_column(JSONB, default=dict)
+    default_panel: Mapped[list] = mapped_column(JSONB, default=list)
+    editor: Mapped[dict] = mapped_column(JSONB, default=dict)
+    note: Mapped[str] = mapped_column(Text, default="")
+    imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class RunReviewer(Base):
+    """The reviewer versions of a panel run, in panel order."""
+
+    __tablename__ = "run_reviewers"
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reviewer_version_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("reviewer_versions.id"), index=True
+    )
+
+
+class PaperFile(Base):
+    """A PDF a user uploaded for a paper; the bytes live under RESEARCH_UPLOADS_DIR, named by sha256."""
+
+    __tablename__ = "paper_files"
+    __table_args__ = (UniqueConstraint("paper_id", "sha256"),)
+    id: Mapped[uuid.UUID] = pk()
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id", ondelete="CASCADE"), index=True)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    filename: Mapped[str] = mapped_column(String(200))
+    size: Mapped[int] = mapped_column(Integer)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class PaperReview(Base):
+    """One paper's panel review in one run (report.json state.review[pid])."""
+
+    __tablename__ = "paper_reviews"
+    __table_args__ = (UniqueConstraint("run_id", "paper_id"),)
+    id: Mapped[uuid.UUID] = pk()
+    run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), index=True)
+    text_source: Mapped[str] = mapped_column(String(16))  # pmc_oa | unpaywall | upload | abstract
+    text_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_origin: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_sections: Mapped[list] = mapped_column(JSONB, default=list)
+    text_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    text_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    editor_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    editor_reason: Mapped[str] = mapped_column(Text, default="")
+    disagreements: Mapped[list] = mapped_column(JSONB, default=list)
+    editor_call_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coverage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    red_flag_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class PanelReport(Base):
+    """One reviewer's report on one paper; answers = [{key, answer, quote, section}]."""
+
+    __tablename__ = "panel_reports"
+    __table_args__ = (UniqueConstraint("paper_review_id", "reviewer_key"),)
+    id: Mapped[uuid.UUID] = pk()
+    paper_review_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("paper_reviews.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    reviewer_key: Mapped[str] = mapped_column(String(30))
+    reviewer_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("reviewer_versions.id"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    verdict: Mapped[str] = mapped_column(String(16))
+    strengths: Mapped[list] = mapped_column(JSONB, default=list)
+    weaknesses: Mapped[list] = mapped_column(JSONB, default=list)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coverage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    answers: Mapped[list] = mapped_column(JSONB, default=list)
+    call_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class RedFlag(Base):
+    """A red flag of one paper review: grouped item, with every reviewer answer that raised it."""
+
+    __tablename__ = "red_flags"
+    id: Mapped[uuid.UUID] = pk()
+    paper_review_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("paper_reviews.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    raised_by: Mapped[list] = mapped_column(JSONB, default=list)

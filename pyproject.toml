@@ -20,6 +20,8 @@ web = [
   "alembic>=1.13,<2",
   "psycopg[binary]>=3.2,<4",
   "argon2-cffi>=23,<26",
+  "python-multipart>=0.0.18,<1",
+  "pypdf>=5,<7",
 ]
 web-dev = ["pgserver>=0.1.4,<1"]
 

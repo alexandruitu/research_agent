@@ -26,6 +26,14 @@ TABLES = {
     "sources",
     "app_settings",
     "worker_status",
+    "reviewer_profiles",
+    "reviewer_versions",
+    "settings_versions",
+    "run_reviewers",
+    "paper_files",
+    "paper_reviews",
+    "panel_reports",
+    "red_flags",
 }
 
 

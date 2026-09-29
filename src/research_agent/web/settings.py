@@ -20,6 +20,7 @@ class Settings:
     evals_dir: Path
     gold_dir: Path
     stages_path: Path
+    uploads_dir: Path = PROJECT / "uploads"  # uploaded PDFs, by sha256; outside any web root
     cookie_secure: bool = True
     session_idle_hours: int = 8
     session_absolute_days: int = 7
@@ -66,6 +67,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         evals_dir=folder("RESEARCH_EVALS_DIR", "evals"),
         gold_dir=folder("RESEARCH_GOLD_DIR", "gold"),
         stages_path=Path(__file__).with_name("stages.yaml"),
+        uploads_dir=folder("RESEARCH_UPLOADS_DIR", "uploads"),
         cookie_secure=env.get("RESEARCH_WEB_COOKIE_SECURE", "true").strip().lower() != "false",
         allow_demo=env.get("RESEARCH_WEB_ALLOW_DEMO", "false").strip().lower() == "true",
         max_papers_cap=_number(env, "RESEARCH_WEB_MAX_PAPERS", 12, low=1, high=30),
