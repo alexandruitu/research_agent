@@ -16,14 +16,14 @@ afterEach(() => {
 
 const FAILED = runOut({ id: "88888888-8888-4888-8888-888888888888", kind: "research", status: "failed", gold_set_name: null, paper_count: 0, error: "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat." });
 
-function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}) {
+function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = "/runs") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/runs": { body: [FAILED, runOut()] },
     "GET /api/v1/fields": { body: [fieldOut()] },
     ...extra,
   });
-  renderWithProviders(<RunsPage />);
+  renderWithProviders(<RunsPage />, { route });
   return api;
 }
 
@@ -132,6 +132,25 @@ describe("starting and following a run", () => {
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
     const progress = await screen.findByRole("status", { name: "Run progress" });
     await waitFor(() => expect(progress).toHaveTextContent("failed at stage 'search'"));
+  });
+
+  it("preselects the field from the URL and names fields with their version", async () => {
+    setup("member", { "GET /api/v1/fields": { body: [{ ...fieldOut(), current_version: 3 }] } }, `/runs?field=${FIELD_ID}`);
+    const select = await screen.findByLabelText("Field");
+    expect(select).toHaveValue(FIELD_ID);
+    expect(within(select).getByRole("option", { name: "ML CT-FFR · v3" })).toBeInTheDocument();
+  });
+
+  it("explains a field whose sources are all disabled", async () => {
+    setup("member", { "POST /api/v1/runs": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } }, `/runs?field=${FIELD_ID}`);
+    await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
+    expect(await screen.findByText(/Settings → Sources/)).toHaveClass("form-error");
+  });
+
+  it("shows the refusal for an archived field", async () => {
+    setup("member", { "POST /api/v1/runs": { status: 409, body: { code: "archived", message: "This field is archived; restore it first", request_id: "r" } } }, `/runs?field=${FIELD_ID}`);
+    await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
+    expect(await screen.findByText("This field is archived; restore it first")).toHaveAttribute("role", "alert");
   });
 });
 

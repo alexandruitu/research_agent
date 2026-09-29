@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useFields, useResumeRun, useRuns } from "../api/hooks";
@@ -12,6 +13,7 @@ export function RunsPage() {
   const { status, user } = useAuth();
   const runs = useRuns();
   const resume = useResumeRun();
+  const [search] = useSearchParams();
   const [jobId, setJobId] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const canRun = hasRole(user, "member");
@@ -35,7 +37,7 @@ export function RunsPage() {
   return (
     <section>
       <h1>Runs</h1>
-      {canRun && <StartRunForm onStarted={setJobId} />}
+      {canRun && <StartRunForm onStarted={setJobId} initialFieldId={search.get("field") ?? ""} />}
       {jobId && <JobProgress jobId={jobId} />}
       {failed.map((run) => (
         <div key={run.id} role="alert" className="banner banner--bad">

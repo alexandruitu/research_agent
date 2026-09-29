@@ -5,10 +5,10 @@ import { useFields, useStartRun } from "../../api/hooks";
 
 export const MAX_PAPERS = 12;
 
-export function StartRunForm({ onStarted }: { onStarted: (jobId: string) => void }) {
+export function StartRunForm({ onStarted, initialFieldId = "" }: { onStarted: (jobId: string) => void; initialFieldId?: string }) {
   const fields = useFields();
   const start = useStartRun();
-  const [fieldId, setFieldId] = useState("");
+  const [fieldId, setFieldId] = useState(initialFieldId);
   const [papers, setPapers] = useState("5");
   const [demo, setDemo] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -23,7 +23,11 @@ export function StartRunForm({ onStarted }: { onStarted: (jobId: string) => void
       const started = await start.mutateAsync({ field_id: fieldId, max_papers: count, mode: demo ? "demo" : "live" });
       onStarted(started.job.id);
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      if (error instanceof ApiError && error.code === "no_enabled_source") {
+        setProblem(`${error.message}. An admin can enable a source in Settings → Sources, or edit the field to use an enabled one.`);
+      } else {
+        setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      }
     }
   };
 
@@ -32,7 +36,7 @@ export function StartRunForm({ onStarted }: { onStarted: (jobId: string) => void
       <label>Field
         <select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
           <option value="">Choose…</option>
-          {fields.data?.map((field) => <option key={field.id} value={field.id}>{field.name}</option>)}
+          {fields.data?.map((field) => <option key={field.id} value={field.id}>{field.name} · v{field.current_version ?? 1}</option>)}
         </select>
       </label>
       <label>Papers to screen

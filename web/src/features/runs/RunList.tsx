@@ -12,7 +12,7 @@ export function RunList({ runs }: { runs: RunOut[] }) {
       <tbody>
         {runs.map((run) => (
           <tr key={run.id}>
-            <td>{run.field_name}</td>
+            <td>{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</td>
             <td>{run.kind}</td>
             <td><span className={`pill pill--run-${run.status}`}>{run.status}</span></td>
             <td>{run.gold_set_name ?? "–"}</td>
