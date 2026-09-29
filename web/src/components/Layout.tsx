@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { StaleBanner } from "./StaleBanner";
@@ -16,9 +15,10 @@ export function Layout() {
         <nav aria-label="Main">
           <NavLink to="/" end>Papers</NavLink>
           <NavLink to="/runs">Runs</NavLink>
+          <NavLink to="/fields">Fields</NavLink>
           <NavLink to="/evals">Evals</NavLink>
           <NavLink to="/system">System map</NavLink>
-          {hasRole(user, "admin") && <NavLink to="/users">Users</NavLink>}
+          <NavLink to="/settings">Settings</NavLink>
         </nav>
         <div className="who">
           <span>{user?.name}</span> <span className="role">{user?.role}</span>

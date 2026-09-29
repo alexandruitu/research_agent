@@ -22,7 +22,7 @@ export function UsersPage() {
   if (users.isError) return <p role="alert">Could not load the users.</p>;
   return (
     <section>
-      <h1>Users</h1>
+      <h2>Users</h2>
       <InviteForm />
       {problem && <p role="alert" className="form-error">{problem}</p>}
       <table className="runs">

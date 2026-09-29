@@ -1,5 +1,5 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -42,22 +42,24 @@ describe("routing and navigation", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     renderApp("/");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    for (const name of ["Papers", "Runs", "Evals", "System map"]) expect(nav).toHaveTextContent(name);
-    expect(nav).not.toHaveTextContent("Users");
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Papers", "Runs", "Fields", "Evals", "System map", "Settings"]);
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     expect(screen.getByText("Member")).toBeInTheDocument();
   });
 
-  it("offers the Users page to admins only", async () => {
-    mockApi({ "GET /api/v1/auth/me": { body: session("admin") } });
-    renderApp("/");
-    expect(await screen.findByRole("link", { name: "Users" })).toBeInTheDocument();
+  it("offers the Users tab under Settings to admins only", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("admin") }, "GET /api/v1/users": { body: [] } });
+    renderApp("/users");
+    const tabs = await screen.findByRole("navigation", { name: "Settings sections" });
+    expect(await within(tabs).findByRole("link", { name: "Users" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("heading", { name: "Users" })).toBeInTheDocument();
   });
 
-  it("blocks the Users route for members", async () => {
+  it("blocks the Users tab for members and does not offer it", async () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     renderApp("/users");
     expect(await screen.findByRole("heading", { name: "Not allowed" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Settings sections" })).queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
   });
 
   it("signs out and returns to the sign-in page", async () => {
