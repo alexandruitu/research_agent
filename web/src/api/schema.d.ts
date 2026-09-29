@@ -86,6 +86,95 @@ export interface paths {
         patch: operations["patch_user_api_v1_users__user_id__patch"];
         trace?: never;
     };
+    "/api/v1/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sources */
+        get: operations["list_sources_api_v1_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Source */
+        patch: operations["patch_source_api_v1_sources__name__patch"];
+        trace?: never;
+    };
+    "/api/v1/sources/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Source
+         * @description Queue a connection check (the worker searches for one result and records the outcome).
+         */
+        post: operations["check_source_api_v1_sources__name__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings Row */
+        get: operations["get_settings_row_api_v1_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Settings */
+        patch: operations["patch_settings_api_v1_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/workers/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Worker Status */
+        get: operations["worker_status_api_v1_workers_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fields": {
         parameters: {
             query?: never;
@@ -96,7 +185,8 @@ export interface paths {
         /** List Fields */
         get: operations["list_fields_api_v1_fields_get"];
         put?: never;
-        post?: never;
+        /** Create Field */
+        post: operations["create_field_api_v1_fields_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -114,6 +204,95 @@ export interface paths {
         get: operations["get_field_api_v1_fields__field_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Field Version */
+        get: operations["get_field_version_api_v1_fields__field_id__versions__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Version */
+        post: operations["save_version_api_v1_fields__field_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Field */
+        post: operations["archive_field_api_v1_fields__field_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unarchive Field */
+        post: operations["unarchive_field_api_v1_fields__field_id__unarchive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Criteria
+         * @description Queue a criteria test (Jev only, at most 20 papers): the saved current version, or the unsaved
+         *     draft in the body. The result arrives in the job's `progress.result`.
+         */
+        post: operations["test_criteria_api_v1_fields__field_id__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -360,6 +539,35 @@ export interface components {
             /** Call Key */
             call_key: string | null;
         };
+        /**
+         * CriteriaTestRequest
+         * @description Test the saved current version (`draft` null) or unsaved edits (`draft`).
+         */
+        CriteriaTestRequest: {
+            draft?: components["schemas"]["FieldDraft"] | null;
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
+        };
+        /** CriterionCell */
+        CriterionCell: {
+            /** Kind */
+            kind: string;
+            /** Jev P */
+            jev_p: number | null;
+            /** Llm */
+            llm: string | null;
+            /** Quote */
+            quote: string | null;
+        };
+        /** CriterionIn */
+        CriterionIn: {
+            /** Text */
+            text: string;
+        };
         /** CriterionOut */
         CriterionOut: {
             /**
@@ -375,6 +583,25 @@ export interface components {
             version: number;
             /** Position */
             position: number;
+            /** Kind */
+            kind?: string;
+        };
+        /** CriterionRowOut */
+        CriterionRowOut: {
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Jev P */
+            jev_p: number | null;
+            /** Llm */
+            llm: string | null;
+            /** Quote */
+            quote: string | null;
+            /** Decided */
+            decided: boolean;
         };
         /** CriterionScoreOut */
         CriterionScoreOut: {
@@ -387,11 +614,20 @@ export interface components {
             /** Jev Version */
             jev_version: string;
         };
+        /** CriterionText */
+        CriterionText: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+        };
         /** DrawerOut */
         DrawerOut: {
             paper: components["schemas"]["PaperDetail"];
             /** Found By */
             found_by: string;
+            /** Sources */
+            sources?: string[];
             /** In Sr */
             in_sr: boolean | null;
             /** Label Source */
@@ -469,6 +705,42 @@ export interface components {
             /** Quotes Verified */
             quotes_verified: boolean;
         };
+        /** FieldCreate */
+        FieldCreate: {
+            /** Name */
+            name: string;
+            /** Topic */
+            topic: string;
+            /** Include */
+            include?: components["schemas"]["CriterionIn"][];
+            /** Exclude */
+            exclude?: components["schemas"]["CriterionIn"][];
+            /** Sources */
+            sources: ("europepmc" | "openalex" | "arxiv")[];
+            years?: components["schemas"]["Years"];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * FieldDraft
+         * @description A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save.
+         */
+        FieldDraft: {
+            /** Name */
+            name: string;
+            /** Topic */
+            topic: string;
+            /** Include */
+            include?: components["schemas"]["CriterionIn"][];
+            /** Exclude */
+            exclude?: components["schemas"]["CriterionIn"][];
+            /** Sources */
+            sources: ("europepmc" | "openalex" | "arxiv")[];
+            years?: components["schemas"]["Years"];
+        };
         /** FieldOut */
         FieldOut: {
             /**
@@ -482,6 +754,107 @@ export interface components {
             topic: string;
             /** Criteria */
             criteria: components["schemas"]["CriterionOut"][];
+            /** Current Version */
+            current_version?: number;
+            /** Archived At */
+            archived_at?: string | null;
+            current?: components["schemas"]["FieldVersionOut"] | null;
+            last_run?: components["schemas"]["FieldRunRef"] | null;
+            /** Versions */
+            versions?: components["schemas"]["FieldVersionSummary"][];
+        };
+        /** FieldRunRef */
+        FieldRunRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Field Version */
+            field_version: number | null;
+        };
+        /** FieldSave */
+        FieldSave: {
+            /** Name */
+            name: string;
+            /** Topic */
+            topic: string;
+            /** Include */
+            include?: components["schemas"]["CriterionIn"][];
+            /** Exclude */
+            exclude?: components["schemas"]["CriterionIn"][];
+            /** Sources */
+            sources: ("europepmc" | "openalex" | "arxiv")[];
+            years?: components["schemas"]["Years"];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Base Version */
+            base_version: number;
+        };
+        /** FieldVersionOut */
+        FieldVersionOut: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /** Topic */
+            topic: string;
+            /** Include */
+            include: components["schemas"]["CriterionText"][];
+            /** Exclude */
+            exclude: components["schemas"]["CriterionText"][];
+            /** Legacy */
+            legacy: components["schemas"]["CriterionText"][];
+            /** Sources */
+            sources: string[];
+            years: components["schemas"]["Years"];
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+        };
+        /** FieldVersionSummary */
+        FieldVersionSummary: {
+            /** Version */
+            version: number;
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+            /** Include Count */
+            include_count: number;
+            /** Exclude Count */
+            exclude_count: number;
         };
         /** GoldSetOut */
         GoldSetOut: {
@@ -602,6 +975,8 @@ export interface components {
             paper: components["schemas"]["PaperRef"];
             /** Found By */
             found_by: string;
+            /** Sources */
+            sources?: string[];
             /** In Sr */
             in_sr: boolean | null;
             screen: components["schemas"]["ScreenCell"];
@@ -710,6 +1085,8 @@ export interface components {
             models: {
                 [key: string]: string;
             };
+            /** Field Version */
+            field_version?: number | null;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
@@ -751,6 +1128,8 @@ export interface components {
             models: {
                 [key: string]: string;
             };
+            /** Field Version */
+            field_version?: number | null;
         };
         /** RunRequest */
         RunRequest: {
@@ -785,6 +1164,12 @@ export interface components {
             criteria: {
                 [key: string]: number;
             };
+            /** Decided By */
+            decided_by?: string | null;
+            /** Cells */
+            cells?: {
+                [key: string]: components["schemas"]["CriterionCell"];
+            };
         };
         /** ScreeningOut */
         ScreeningOut: {
@@ -802,12 +1187,52 @@ export interface components {
             call_key: string | null;
             /** Criteria */
             criteria: components["schemas"]["CriterionScoreOut"][];
+            /** Decided By */
+            decided_by?: string | null;
+            /** Criteria Table */
+            criteria_table?: components["schemas"]["CriterionRowOut"][];
         };
         /** SessionOut */
         SessionOut: {
             user: components["schemas"]["UserOut"];
             /** Csrf Token */
             csrf_token: string;
+        };
+        /** SettingsOut */
+        SettingsOut: {
+            /** Contact Email */
+            contact_email: string | null;
+        };
+        /** SettingsPatch */
+        SettingsPatch: {
+            /** Contact Email */
+            contact_email?: string | null;
+        };
+        /** SourceOut */
+        SourceOut: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Max Results */
+            max_results: number;
+            /** Last Check At */
+            last_check_at: string | null;
+            /** Last Check Ok */
+            last_check_ok: boolean | null;
+            /** Last Check Ms */
+            last_check_ms: number | null;
+            /** Last Check Error */
+            last_check_error: string | null;
+        };
+        /** SourcePatch */
+        SourcePatch: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Max Results */
+            max_results?: number | null;
         };
         /** StageOut */
         StageOut: {
@@ -893,6 +1318,35 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WorkerStatusOut */
+        WorkerStatusOut: {
+            /** Role */
+            role: string;
+            /** Provider */
+            provider: string | null;
+            /** Model */
+            model: string | null;
+            /** Key Present */
+            key_present: boolean;
+            /** Key Accepted */
+            key_accepted: boolean | null;
+            /** Detail */
+            detail: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Worker Id */
+            worker_id: string;
+        };
+        /** Years */
+        Years: {
+            /** From */
+            from?: number | null;
+            /** To */
+            to?: number | null;
         };
     };
     responses: never;
@@ -1062,7 +1516,7 @@ export interface operations {
             };
         };
     };
-    list_fields_api_v1_fields_get: {
+    list_sources_api_v1_sources_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1077,7 +1531,211 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["SourceOut"][];
+                };
+            };
+        };
+    };
+    patch_source_api_v1_sources__name__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourcePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_source_api_v1_sources__name__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_row_api_v1_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    patch_settings_api_v1_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    worker_status_api_v1_workers_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerStatusOut"][];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_fields_get: {
+        parameters: {
+            query?: {
+                /** @description true: also list archived fields */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["FieldOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_field_api_v1_fields_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1100,6 +1758,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FieldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_field_version_api_v1_fields__field_id__versions__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldVersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_version_api_v1_fields__field_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_field_api_v1_fields__field_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_field_api_v1_fields__field_id__unarchive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_criteria_api_v1_fields__field_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CriteriaTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */
@@ -1256,6 +2078,8 @@ export interface operations {
                 criterion?: string | null;
                 p_min?: number | null;
                 p_max?: number | null;
+                decided_by?: string | null;
+                source?: ("europepmc" | "openalex" | "arxiv" | "demo") | null;
             };
             header?: never;
             path: {

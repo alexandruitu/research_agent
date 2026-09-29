@@ -63,7 +63,8 @@ adjudicator uncertain).
 - Sessions are server-side (cookie `ra_session`, `HttpOnly`, `SameSite=Lax`, `Secure` unless
   `RESEARCH_WEB_COOKIE_SECURE=false` for local development); every state-changing request needs the
   `X-CSRF-Token` header; sign-in is rate limited per process.
-- Roles: viewer (read), member (also raw calls, and in plan 2 start runs), admin (also users, imports).
+- Roles: viewer (read), member (also raw calls, start runs, create and save fields, test criteria), admin
+  (also users, imports, archive fields, sources, settings).
   A test fails if any route lacks a role guard.
 - LLM provider keys never enter the API process; the API docs endpoints are off.
 
@@ -115,6 +116,41 @@ behind a TLS reverse proxy; see `docs/deployment.md`.
 Checked on 2026-09-26: a demo run with 3 papers went queued → running → done with every stage `completed`,
 a repeated start with the same key returned 200 and the same job, the run shows 3 screened / 3 kept with
 3 rows in the table, and a start without the CSRF header was refused with 403.
+
+## Fields, sources and worker checks (slice 2)
+
+- **Fields are versioned.** `POST /fields` creates version 1; `POST /fields/{id}/versions` saves the next one
+  and must send `base_version` (the version the editor opened); if someone saved in between the answer is
+  409 `stale_version` "This field changed since you opened it (now vN)". Old versions and their criteria are
+  never changed; runs record the version they used (`RunOut.field_version`). Admins archive and restore a
+  field; an archived field cannot be saved, tested or run (409 `archived`). Migration 0002 turned every
+  existing field into version 1 with its `topic_match` question as a `legacy` criterion.
+- **Starting a run.** A field with inclusion or exclusion criteria starts a `--domain` run: the API builds
+  `domain.json` from the current version, its sources that are enabled (each with the source's
+  `max_results`; OpenAlex gets the contact email from Settings) and the default thresholds, and stores it in
+  the run (`manifest.domain_request`); the worker writes it as `domain.request.json` next to the run and the
+  pipeline copies it to `domain.json`. None of the field's sources enabled → 422 `no_enabled_source`. A legacy
+  field starts today's positional-topic run (Europe PMC must be enabled). Resume passes only `--resume` once
+  the pipeline has saved its manifest (the saved contract holds the domain); before that the run starts again
+  from the stored request.
+- **Sources and settings** (`/sources`, `/settings`): everyone reads, admins change them. A connection check
+  (`POST /sources/{name}/check`) is a worker job that searches for one result and records `last_check_*`.
+- **Criteria test** (`POST /fields/{id}/test`, members): a worker job that searches the field's enabled
+  sources (at most 20 papers after deduplication) and asks Jev every criterion; the result (per paper:
+  probabilities, decision, deciding criterion; a summary) arrives in the job's `progress.result`. Nothing is
+  written to the paper tables. The body may carry an unsaved draft. Live tests need `TYPESAFE_API_KEY` in the
+  worker; demo mode (when the server allows it) uses demo papers and an offline stand-in for Jev.
+- **Key check.** `research-web worker` (not `--once`) and `dev --with-worker` check the provider keys once at
+  start and write one `worker_status` row per model role: key present, key accepted (a free model-listing
+  call for Anthropic and OpenAI; TypeSafe has none, so "not checked"). Never a key value. A failed check does
+  not stop the queue; `GET /workers/status` shows it.
+- **Papers.** Rows gain `sources` (which sources found the paper) and `screen.cells` / `screen.decided_by`
+  (per criterion: Jev p, LLM answer, quote); filters `decided_by=<key>` and `source=<name>`. The drawer gains
+  `screening.criteria_table` with every criterion of the run's version and the one that decided. Fields added
+  to existing responses are optional in the generated TypeScript types, so older clients keep compiling.
+
+Checked on the real data after migration 0002 (2026-09-29): the three imports give the same numbers as above
+(mlffrct-2024 151 / 112 / 82 / 16, aiffr-slr-2023 141 / 129 / 82 / 19, live-01 5 / 5 / 2).
 
 ## Frontend
 

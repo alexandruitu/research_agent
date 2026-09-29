@@ -1,12 +1,25 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+def _added_fields_are_optional(schema, cls):
+    """Fields added to an existing response model (`ADDED`) are always sent, but the schema does not list
+    them as required, so the generated TypeScript types (and the frontend code and fixtures written against
+    the old shape) stay valid: adding a field never breaks a client."""
+    added = getattr(cls, "ADDED", frozenset())
+    if added and "required" in schema:
+        schema["required"] = [name for name in schema["required"] if name not in added]
+    for name in added:  # openapi-typescript turns a field with a default into a required one
+        schema.get("properties", {}).get(name, {}).pop("default", None)
+
+
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", from_attributes=True)
+    model_config = ConfigDict(
+        extra="forbid", from_attributes=True, json_schema_extra=_added_fields_are_optional
+    )
 
 
 class LoginIn(Model):
@@ -42,6 +55,7 @@ class UserPatch(Model):
 
 
 class CriterionOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["kind"])
     id: uuid.UUID
     key: str
     question: str
@@ -154,6 +168,9 @@ class FieldRunRef(Model):
 
 
 class FieldOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["current_version", "archived_at", "current", "last_run", "versions"]
+    )
     id: uuid.UUID
     name: str
     topic: str
@@ -216,6 +233,7 @@ class RunCounts(Model):
 
 
 class RunOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["field_version"])
     id: uuid.UUID
     field_id: uuid.UUID
     field_name: str
@@ -231,6 +249,7 @@ class RunOut(Model):
 
 
 class RunDetailOut(RunOut):
+    ADDED: ClassVar[frozenset] = frozenset(["field_version"])
     manifest: dict[str, Any]
     counts: RunCounts
 
@@ -304,6 +323,7 @@ class CriterionCell(Model):
 
 
 class ScreenCell(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["decided_by", "cells"])
     tier: str
     decision: str
     jev_decision: str | None
@@ -335,6 +355,7 @@ class RankCell(Model):
 
 
 class PaperRow(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["sources"])
     paper: PaperRef
     found_by: str
     sources: list[str] = Field(default_factory=list)  # europepmc | openalex | arxiv | demo
@@ -379,6 +400,7 @@ class CriterionRowOut(Model):
 
 
 class ScreeningOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["decided_by", "criteria_table"])
     tier: str
     decision: str
     jev_decision: str | None
@@ -407,6 +429,7 @@ class ReviewOut(Model):
 
 
 class DrawerOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["sources"])
     paper: PaperDetail
     found_by: str
     sources: list[str] = Field(default_factory=list)
