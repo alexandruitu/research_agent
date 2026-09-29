@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
 import { ModelsTab } from "../features/settings/ModelsTab";
+import { FulltextTab } from "../features/settings/FulltextTab";
 import { ScreeningTab } from "../features/settings/ScreeningTab";
 import { SourcesTab } from "../features/settings/SourcesTab";
 import { evalSummary, JOB_ID, jobOut, modelsAvailable, reviewerRows, reviewSettings, session, settingsContent, sourceRows, workerRows } from "../test/fixtures";
@@ -35,6 +36,7 @@ function setup(role: "viewer" | "member" | "admin", route: string, extra: Parame
         <Route path="sources" element={<SourcesTab />} />
         <Route path="models" element={<ModelsTab />} />
         <Route path="screening" element={<ScreeningTab />} />
+        <Route path="fulltext" element={<FulltextTab />} />
       </Route>
     </Routes>,
     { route },
@@ -207,5 +209,42 @@ describe("Settings → Screening", () => {
     expect(await screen.findByLabelText("Keep from")).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Apply to inclusion criteria" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Settings → Full text", () => {
+  it("turns a source off and saves the full-text settings", async () => {
+    const { calls } = setup("admin", "/settings/fulltext", { "POST /api/v1/settings/review": savedEcho });
+    const upload = await screen.findByRole("switch", { name: /PDFs uploaded by your team/ });
+    expect(upload).toHaveAccessibleDescription(/Members can upload a PDF/);
+    await userEvent.click(upload);
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    await waitFor(() => expect(posted(calls)?.fulltext).toEqual({ sources: ["pmc_oa", "unpaywall"], contact: "lab@example.org", max_chars: 60000, upload_max_mb: 30 }));
+  });
+
+  it("needs a contact email while Unpaywall is on, and limits the upload size", async () => {
+    const { calls } = setup("admin", "/settings/fulltext");
+    await userEvent.clear(await screen.findByLabelText(/Contact email for Unpaywall/));
+    const limit = screen.getByLabelText(/Upload limit/);
+    await userEvent.clear(limit);
+    await userEvent.type(limit, "40");
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Unpaywall needs a contact email.");
+    expect(alert).toHaveTextContent("1 to 30 MB");
+    expect(posted(calls)).toBeUndefined();
+  });
+
+  it("shows the server's message when the pipeline refuses the settings", async () => {
+    setup("admin", "/settings/fulltext", { "POST /api/v1/settings/review": { status: 422, body: { code: "invalid_settings", message: "fulltext: contact is required for unpaywall", request_id: "r" } } });
+    await userEvent.click(await screen.findByRole("switch", { name: /PubMed Central/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("contact is required for unpaywall");
+  });
+
+  it("is read-only for members", async () => {
+    setup("member", "/settings/fulltext");
+    expect(await screen.findByRole("switch", { name: /Unpaywall/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
   });
 });
