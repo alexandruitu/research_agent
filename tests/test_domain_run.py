@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from research_agent import cli, runner
+from research_agent.agents import PROMPT_VERSION
 from research_agent.connectors import SourceUnavailable
 from research_agent.runner import run_research
 from research_agent.schemas import Contract, read_domain
@@ -40,7 +41,7 @@ def test_demo_field_run_copies_domain_json_and_records_it(tmp_path):
         "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "field": {"id": "f1", "name": "ML CT-FFR", "version": 3},
     }
-    assert manifest["prompt_version"] == "m1.2"
+    assert manifest["prompt_version"] == PROMPT_VERSION
     report = json.loads((run / "report.json").read_text())
     assert report["manifest"]["contract"]["domain"]["years"] == {"from": 2018, "to": None}
     papers = report["state"]["papers"]

@@ -34,7 +34,7 @@ def screen(*answers, reason="r"):
 
 
 def test_prompt_version_is_bumped():
-    assert PROMPT_VERSION == "m1.2"
+    assert PROMPT_VERSION == "m1.3"
 
 
 def test_quotes_snap_to_the_abstract_and_answers_follow_the_field_order():
@@ -76,7 +76,7 @@ def test_demo_screen_answers_every_criterion_and_is_cached_under_the_new_role(tm
     assert [(a.key, a.answer, a.quote) for a in result.answers] == [("i1", "yes", ""), ("e1", "no", "")]
     with store.connect() as db:
         role, version, raw = db.execute("SELECT role, prompt_version, input FROM calls").fetchone()
-    assert (role, version) == ("screen_criteria", "m1.2") and "sources" not in raw
+    assert (role, version) == ("screen_criteria", PROMPT_VERSION) and "sources" not in raw
 
 
 def test_paper_sources_never_reach_a_model_or_a_cache_key(tmp_path):
