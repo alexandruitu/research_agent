@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { ModelsTab } from "./features/settings/ModelsTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
+import { FieldsPage } from "./pages/FieldsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
 import { RunsPage } from "./pages/RunsPage";
@@ -22,6 +23,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<PapersPage />} />
             <Route path="/runs" element={<RunsPage />} />
+            <Route path="/fields" element={<FieldsPage />} />
             <Route path="/evals" element={<EvalsPage />} />
             <Route path="/evals/:evalId" element={<EvalsPage />} />
             <Route path="/system" element={<SystemMapPage />} />
