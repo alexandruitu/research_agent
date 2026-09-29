@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
+import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
@@ -24,6 +25,8 @@ export function App() {
             <Route path="/evals/:evalId" element={<EvalsPage />} />
             <Route path="/system" element={<SystemMapPage />} />
             <Route path="/settings" element={<SettingsPage />}>
+              <Route index element={<Navigate to="sources" replace />} />
+              <Route path="sources" element={<SourcesTab />} />
               <Route element={<RequireRole role="admin" />}>
                 <Route path="users" element={<UsersPage />} />
               </Route>
