@@ -28,6 +28,8 @@ def list_papers(
     criterion: str | None = Query(None, pattern=r"^[a-z0-9_]+$"),
     p_min: float | None = Query(None, ge=0, le=1),
     p_max: float | None = Query(None, ge=0, le=1),
+    decided_by: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
+    source: Literal["europepmc", "openalex", "arxiv", "demo"] | None = None,
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
     settings=Depends(get_settings),
@@ -44,7 +46,19 @@ def list_papers(
     if in_sr is not None and run.gold_set_id is None:
         raise ApiError(422, "validation_error", "in_sr needs a run with a gold set (an eval run)")
     query = PaperQuery(
-        page, page_size, sort, direction, decision, tier, escalated, in_sr, criterion, p_min, p_max
+        page,
+        page_size,
+        sort,
+        direction,
+        decision,
+        tier,
+        escalated,
+        in_sr,
+        criterion,
+        p_min,
+        p_max,
+        decided_by,
+        source,
     )
     items, total = paper_table(db, run, query)
     return PaperPage(items=items, total=total, page=page, page_size=page_size)

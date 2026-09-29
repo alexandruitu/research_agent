@@ -31,7 +31,10 @@ def test_eval_run_rows_carry_every_stage_cell(sign_in, imported):
         "jev_decision": "exclude",
         "llm_decision": "include",
         "criteria": {"topic_match": 0.03},
+        "decided_by": "topic_match",
+        "cells": {"topic_match": {"kind": "legacy", "jev_p": 0.03, "llm": None, "quote": None}},
     }
+    assert lost["sources"] == []  # eval candidates come from the gold set, not from a source search
     # Every SR positive is in the agreement sample, whatever the screen decided: its downstream data is shown.
     assert lost["extract"] == {"claims": 1, "quotes_verified": True} and lost["reviews"]["a"] == "include"
     assert lost["rank"] is None  # eval runs are never ranked

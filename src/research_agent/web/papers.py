@@ -35,6 +35,8 @@ class PaperQuery:
     criterion: str | None = None
     p_min: float | None = None
     p_max: float | None = None
+    decided_by: str | None = None
+    source: str | None = None
 
 
 def _criterion_probability(key):
@@ -76,7 +78,7 @@ def reviews_cell(verdicts, adjudication_expected, expected):
     return {"a": a, "b": b, "adjudicated": adjudicated, "adjudicator": adjudicator}
 
 
-def build_row(run, screening, paper, scores, quotes, verdicts, adjudication_expected, rank, label):
+def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label):
     expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
     if quotes:
         extract = {"claims": len(quotes), "quotes_verified": quotes_verified(quotes, paper.abstract)}
@@ -92,13 +94,16 @@ def build_row(run, screening, paper, scores, quotes, verdicts, adjudication_expe
             "doi": paper.doi,
         },
         "found_by": screening.found_by,
+        "sources": list(screening.sources or []),
         "in_sr": None if run.gold_set_id is None else label == "include",
         "screen": {
             "tier": screening.tier,
             "decision": screening.decision,
             "jev_decision": screening.jev_decision,
             "llm_decision": screening.llm_decision,
-            "criteria": scores,
+            "criteria": {k: c["jev_p"] for k, c in cells.items() if c["jev_p"] is not None},
+            "decided_by": screening.decided_by,
+            "cells": cells,
         },
         "extract": extract,
         "reviews": reviews,
@@ -162,6 +167,10 @@ def paper_table(db, run, q):
         stmt = stmt.where(gl.label == "include")
     elif q.in_sr is False:
         stmt = stmt.where(or_(gl.label.is_(None), gl.label != "include"))
+    if q.decided_by:
+        stmt = stmt.where(Screening.decided_by == q.decided_by)
+    if q.source:
+        stmt = stmt.where(Screening.sources.contains([q.source]))
     if q.criterion:
         conditions = [CriterionScore.screening_id == Screening.id, Criterion.key == q.criterion]
         if q.p_min is not None:
@@ -183,7 +192,7 @@ def paper_table(db, run, q):
         stmt.order_by(ordering, Paper.source_id).limit(q.page_size).offset((q.page - 1) * q.page_size)
     ).all()
 
-    scores, quotes = defaultdict(dict), defaultdict(list)
+    cells, quotes = defaultdict(dict), defaultdict(list)
     ids = [r[0].id for r in rows]
     if ids:
         for paper_id, quote in db.execute(
@@ -192,18 +201,26 @@ def paper_table(db, run, q):
             )
         ):
             quotes[paper_id].append(quote)
-        for screening_id, name, probability in db.execute(
-            select(CriterionScore.screening_id, Criterion.key, CriterionScore.probability)
+        for screening_id, name, kind, probability, llm, quote in db.execute(
+            select(
+                CriterionScore.screening_id,
+                Criterion.key,
+                Criterion.kind,
+                CriterionScore.probability,
+                CriterionScore.llm_answer,
+                CriterionScore.quote,
+            )
             .join(Criterion, Criterion.id == CriterionScore.criterion_id)
             .where(CriterionScore.screening_id.in_(ids))
+            .order_by(Criterion.position, Criterion.key)
         ):
-            scores[screening_id][name] = probability
+            cells[screening_id][name] = {"kind": kind, "jev_p": probability, "llm": llm, "quote": quote}
     items = [
         build_row(
             run,
             s,
             p,
-            scores[s.id],
+            cells[s.id],
             quotes[p.id],
             (va, vb, vj),
             any((d or {}).get("adjudicated") is True for d in (da, db_)),
@@ -218,6 +235,34 @@ def paper_table(db, run, q):
 ROLE_ORDER = {"a": 0, "b": 1, "adjudicator": 2}
 
 
+def criteria_table(db, run, screening):
+    """Every criterion of the run's field version (scored or not, e.g. a paper without an abstract), plus
+    any scored criterion outside it, with Jev p, the LLM answer and quote, and which one decided."""
+    score = aliased(CriterionScore)
+    scored = (
+        select(Criterion, score)
+        .join(score, score.criterion_id == Criterion.id)
+        .where(score.screening_id == screening.id)
+    )
+    rows = {c.id: (c, s) for c, s in db.execute(scored)}
+    if run.field_version_id:
+        for c in db.scalars(select(Criterion).where(Criterion.field_version_id == run.field_version_id)):
+            rows.setdefault(c.id, (c, None))
+    ordered = sorted(rows.values(), key=lambda cs: (cs[0].position, cs[0].key))
+    return [
+        {
+            "key": c.key,
+            "kind": c.kind,
+            "text": c.question,
+            "jev_p": s.probability if s else None,
+            "llm": s.llm_answer if s else None,
+            "quote": s.quote if s else None,
+            "decided": c.key == screening.decided_by,
+        }
+        for c, s in ordered
+    ]
+
+
 def paper_drawer(db, run, paper):
     screening = db.scalar(select(Screening).where(Screening.run_id == run.id, Screening.paper_id == paper.id))
     if screening is None:
@@ -225,9 +270,10 @@ def paper_drawer(db, run, paper):
     scores = db.execute(
         select(Criterion.key, Criterion.question, CriterionScore.probability, CriterionScore.jev_version)
         .join(CriterionScore, CriterionScore.criterion_id == Criterion.id)
-        .where(CriterionScore.screening_id == screening.id)
+        .where(CriterionScore.screening_id == screening.id, CriterionScore.probability.is_not(None))
         .order_by(Criterion.position, Criterion.key)
     ).all()
+    table = criteria_table(db, run, screening)
     label = (
         db.scalar(
             select(GoldLabel).where(GoldLabel.gold_set_id == run.gold_set_id, GoldLabel.paper_id == paper.id)
@@ -255,6 +301,7 @@ def paper_drawer(db, run, paper):
             "doi": paper.doi,
         },
         "found_by": screening.found_by,
+        "sources": list(screening.sources or []),
         "in_sr": None if run.gold_set_id is None else (label is not None and label.label == "include"),
         "label_source": label.label_source if label else None,
         "screening": {
@@ -267,6 +314,8 @@ def paper_drawer(db, run, paper):
             "criteria": [
                 {"key": k, "question": q, "probability": p, "jev_version": v} for k, q, p, v in scores
             ],
+            "decided_by": screening.decided_by,
+            "criteria_table": table,
         },
         "claims": [{"statement": c.statement, "quote": c.quote, "call_key": c.call_key} for c in claims],
         "reviews": [

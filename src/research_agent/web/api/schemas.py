@@ -296,12 +296,21 @@ class PaperRef(Model):
     doi: str
 
 
+class CriterionCell(Model):
+    kind: str  # include | exclude | legacy
+    jev_p: float | None  # null: Jev did not score it
+    llm: str | None  # yes | no | unclear; null: the LLM did not screen it
+    quote: str | None  # verified quote from the abstract, when the LLM gave one
+
+
 class ScreenCell(Model):
     tier: str
     decision: str
     jev_decision: str | None
     llm_decision: str | None
-    criteria: dict[str, float]
+    criteria: dict[str, float]  # Jev probabilities only (unchanged); see `cells` for everything
+    decided_by: str | None = None  # the criterion that dropped the paper
+    cells: dict[str, CriterionCell] = Field(default_factory=dict)
 
 
 class ExtractCell(Model):
@@ -328,6 +337,7 @@ class RankCell(Model):
 class PaperRow(Model):
     paper: PaperRef
     found_by: str
+    sources: list[str] = Field(default_factory=list)  # europepmc | openalex | arxiv | demo
     in_sr: bool | None
     screen: ScreenCell
     extract: ExtractCell | MissingCell | None
@@ -358,6 +368,16 @@ class CriterionScoreOut(Model):
     jev_version: str
 
 
+class CriterionRowOut(Model):
+    key: str
+    kind: str  # include | exclude | legacy
+    text: str
+    jev_p: float | None
+    llm: str | None
+    quote: str | None
+    decided: bool  # this criterion dropped the paper
+
+
 class ScreeningOut(Model):
     tier: str
     decision: str
@@ -365,7 +385,9 @@ class ScreeningOut(Model):
     llm_decision: str | None
     reason: str
     call_key: str | None
-    criteria: list[CriterionScoreOut]
+    criteria: list[CriterionScoreOut]  # Jev probabilities only (unchanged)
+    decided_by: str | None = None
+    criteria_table: list[CriterionRowOut] = Field(default_factory=list)  # every criterion of the version
 
 
 class ClaimOut(Model):
@@ -387,6 +409,7 @@ class ReviewOut(Model):
 class DrawerOut(Model):
     paper: PaperDetail
     found_by: str
+    sources: list[str] = Field(default_factory=list)
     in_sr: bool | None
     label_source: str | None
     screening: ScreeningOut

@@ -340,3 +340,143 @@ def test_old_legacy_reports_get_topic_match_as_the_decider_of_a_drop(world, tmp_
     decided = {pid: by for pid, by, _ in rows}
     assert decided.pop(first) == "topic_match" and set(decided.values()) == {None}
     assert {tuple(s) for _, _, s in rows} == {("demo",)}
+
+
+@pytest.fixture
+def screened(world):
+    """An imported demo field run whose report was edited: demo:1 dropped by Jev on e1, demo:2 dropped by
+    the LLM on i1 with a quote, demo:3 also found on arXiv."""
+    from research_agent.schemas import DomainSpec
+    from research_agent.web.importer.research import import_research_run
+
+    settings, factory, sign_in = world
+    domain = DomainSpec.model_validate(
+        {
+            "schema": 1,
+            "topic": "retrieval augmented generation",
+            "criteria": {
+                "include": [{"key": "i1", "text": "Uses retrieval."}],
+                "exclude": [{"key": "e1", "text": "Is a review."}],
+            },
+            "sources": [{"name": "europepmc"}, {"name": "arxiv"}],
+        }
+    )
+    folder = settings.runs_dir / "field"
+    run_research(folder, contract=Contract(topic=domain.topic, domain=domain, mode="demo", max_papers=4))
+    path = folder / "report.json"
+    data = json.loads(path.read_text())
+    state = data["state"]
+    papers = {p["id"]: p for p in state["papers"]}
+    for pid, paper in papers.items():
+        paper["sources"] = ["arxiv", "europepmc"] if pid == "demo:3" else ["europepmc"]
+    for pid in ("demo:1", "demo:2"):
+        state["evidence"].pop(pid, None)
+    quote = papers["demo:2"]["abstract"][:30]
+    state["screens"]["demo:1"] = {
+        "decision": "exclude",
+        "reason": "Jev: e1",
+        "tier": "jev",
+        "decided_by": "e1",
+        "criteria": {
+            "i1": {"jev_p": 0.9, "llm": None, "quote": None},
+            "e1": {"jev_p": 0.97, "llm": None, "quote": None},
+        },
+        "jev": {
+            "decision": "exclude",
+            "decided_by": "e1",
+            "probabilities": {"i1": 0.9, "e1": 0.97},
+            "model_version": "jev-1.13.0",
+            "thresholds": {},
+            "cached": False,
+        },
+    }
+    state["screens"]["demo:2"] = {
+        "decision": "exclude",
+        "reason": "LLM: i1 no",
+        "tier": "llm",
+        "decided_by": "i1",
+        "criteria": {
+            "i1": {"jev_p": 0.5, "llm": "no", "quote": quote},
+            "e1": {"jev_p": 0.1, "llm": "no", "quote": None},
+        },
+        "jev": {
+            "decision": "escalate",
+            "decided_by": None,
+            "probabilities": {"i1": 0.5, "e1": 0.1},
+            "model_version": "jev-1.13.0",
+            "thresholds": {},
+            "cached": False,
+        },
+    }
+    path.write_text(json.dumps(data))
+    with factory() as db:
+        run_id = import_research_run(db, folder).run_id
+        db.commit()
+    member, _ = sign_in("member")
+    return member, run_id, quote
+
+
+def paper_rows(viewer, run_id, **params):
+    r = viewer.get(f"{API}/runs/{run_id}/papers", params=params)
+    assert r.status_code == 200, r.text
+    return {row["paper"]["source_id"]: row for row in r.json()["items"]}
+
+
+def test_rows_carry_sources_and_per_criterion_cells(screened):
+    viewer, run_id, quote = screened
+    rows = paper_rows(viewer, run_id)
+    assert rows["demo:3"]["sources"] == ["arxiv", "europepmc"] and rows["demo:4"]["sources"] == ["europepmc"]
+    assert rows["demo:1"]["screen"]["decided_by"] == "e1"
+    assert rows["demo:1"]["screen"]["criteria"] == {"i1": 0.9, "e1": 0.97}
+    assert rows["demo:2"]["screen"]["cells"] == {
+        "i1": {"kind": "include", "jev_p": 0.5, "llm": "no", "quote": quote},
+        "e1": {"kind": "exclude", "jev_p": 0.1, "llm": "no", "quote": None},
+    }
+    assert (
+        rows["demo:4"]["screen"]["criteria"] == {} and rows["demo:4"]["screen"]["cells"]["i1"]["llm"] == "yes"
+    )
+
+
+def test_decided_by_and_source_filters(screened):
+    viewer, run_id, _ = screened
+    assert set(paper_rows(viewer, run_id, decided_by="e1")) == {"demo:1"}
+    assert set(paper_rows(viewer, run_id, decided_by="i1")) == {"demo:2"}
+    assert paper_rows(viewer, run_id, decided_by="e2") == {}
+    assert set(paper_rows(viewer, run_id, source="arxiv")) == {"demo:3"}
+    assert len(paper_rows(viewer, run_id, source="europepmc")) == 4
+    assert viewer.get(f"{API}/runs/{run_id}/papers", params={"source": "pubmed"}).status_code == 422
+    assert viewer.get(f"{API}/runs/{run_id}/papers", params={"decided_by": "E1;--"}).status_code == 422
+    assert set(paper_rows(viewer, run_id, sort="criterion:i1", direction="desc")) == {
+        f"demo:{i}" for i in range(1, 5)
+    }
+
+
+def test_the_drawer_has_a_per_criterion_table(screened):
+    viewer, run_id, quote = screened
+    rows = paper_rows(viewer, run_id)
+    drawer = viewer.get(f"{API}/runs/{run_id}/papers/{rows['demo:2']['paper']['id']}").json()
+    screening = drawer["screening"]
+    assert screening["decided_by"] == "i1" and drawer["sources"] == ["europepmc"]
+    assert screening["criteria_table"] == [
+        {
+            "key": "i1",
+            "kind": "include",
+            "text": "Uses retrieval.",
+            "jev_p": 0.5,
+            "llm": "no",
+            "quote": quote,
+            "decided": True,
+        },
+        {
+            "key": "e1",
+            "kind": "exclude",
+            "text": "Is a review.",
+            "jev_p": 0.1,
+            "llm": "no",
+            "quote": None,
+            "decided": False,
+        },
+    ]
+    assert [c["key"] for c in screening["criteria"]] == ["i1", "e1"]  # Jev probabilities, as before
+    kept = viewer.get(f"{API}/runs/{run_id}/papers/{rows['demo:4']['paper']['id']}").json()["screening"]
+    assert kept["criteria"] == [] and [c["llm"] for c in kept["criteria_table"]] == ["yes", "no"]
