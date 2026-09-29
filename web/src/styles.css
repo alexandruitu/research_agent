@@ -136,3 +136,24 @@ form.inline input[type="number"] { width: 80px; }
 table.runs th[scope="row"] { font-weight: 600; }
 .page-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .button-link { padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-weight: 600; }
+.editor-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+@media (max-width: 900px) { .editor-layout { grid-template-columns: 1fr; } }
+.field-form { display: grid; gap: 12px; max-width: 820px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 0; }
+fieldset.plain { border: 0; padding: 0; display: grid; gap: 12px; }
+legend { font-weight: 600; padding: 0 4px; }
+label.block { display: grid; gap: 4px; font-weight: 600; }
+label.block input { font-weight: 400; }
+.criteria ol { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.criteria li { display: flex; gap: 6px; align-items: center; }
+.criteria li label { flex: 1; display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.criteria li input { flex: 1; min-width: 0; }
+.source-choice { margin-right: 16px; }
+.actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.actions label { display: inline-flex; gap: 6px; align-items: center; }
+.versions { padding: 0; list-style: none; display: grid; gap: 8px; }
+.diff h4 { margin: 8px 0 2px; font-size: 12px; }
+.diff-lines { margin: 0; padding-left: 0; list-style: none; }
+.diff-tag { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.diff-tag--added { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-line); }
+.diff-tag--removed { background: var(--bad-bg); color: var(--bad-fg); border-color: var(--bad-line); }

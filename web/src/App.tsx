@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { ModelsTab } from "./features/settings/ModelsTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
+import { FieldEditorPage } from "./pages/FieldEditorPage";
 import { FieldsPage } from "./pages/FieldsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PapersPage } from "./pages/PapersPage";
@@ -24,6 +25,10 @@ export function App() {
             <Route path="/" element={<PapersPage />} />
             <Route path="/runs" element={<RunsPage />} />
             <Route path="/fields" element={<FieldsPage />} />
+            <Route element={<RequireRole role="member" />}>
+              <Route path="/fields/new" element={<FieldEditorPage />} />
+            </Route>
+            <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
             <Route path="/evals" element={<EvalsPage />} />
             <Route path="/evals/:evalId" element={<EvalsPage />} />
             <Route path="/system" element={<SystemMapPage />} />
