@@ -227,6 +227,7 @@ class RunOut(Model):
     paper_count: int
     error: str | None
     models: dict[str, str]
+    field_version: int | None = None  # null: imported before field versions existed and not linked
 
 
 class RunDetailOut(RunOut):

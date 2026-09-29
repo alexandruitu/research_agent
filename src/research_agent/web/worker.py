@@ -1,5 +1,6 @@
 """The worker: claims jobs and runs them. The only process that holds LLM provider keys."""
 
+import json
 import logging
 import os
 import re
@@ -29,6 +30,7 @@ from .runner import spawn as spawn_process
 
 log = logging.getLogger(__name__)
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+DOMAIN_REQUEST = "domain.request.json"  # the pipeline copies it byte for byte to domain.json
 STOP_GRACE_SECONDS = 10
 
 
@@ -181,8 +183,14 @@ class Worker:
         resume = (run_dir / "manifest.json").exists()
         saved = (run.manifest or {}).get("contract") or {}
         contract = {k: payload.get(k, saved.get(k)) for k in ("topic", "max_papers", "mode")}
-        if not resume and not contract["topic"]:
+        domain = payload.get("domain") or (run.manifest or {}).get("domain_request")
+        if not resume and not (contract["topic"] or domain):
             raise ValueError("the run has no saved topic to start from")
+        domain_file = None
+        if domain and not resume:  # a resume reads the saved contract, domain included
+            run_dir.mkdir(parents=True, exist_ok=True)
+            domain_file = run_dir / DOMAIN_REQUEST
+            domain_file.write_text(json.dumps(domain, ensure_ascii=False, indent=2))
         run.status, run.error = "running", None
         db.commit()
         mode = contract["mode"] or "live"
@@ -193,6 +201,7 @@ class Worker:
             jev=mode == "live" and bool(os.environ.get("TYPESAFE_API_KEY")),
             resume=resume,
             run_dir=run_dir,
+            domain_file=domain_file,
         )
         process = self.spawn(spec, child_environment(), run_dir / "worker.log")
         deadline = self.monotonic() + self.settings.job_timeout_seconds

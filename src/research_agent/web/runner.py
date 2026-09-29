@@ -27,6 +27,7 @@ class RunSpec:
     jev: bool
     resume: bool
     run_dir: Path
+    domain_file: Path | None = None  # a field run: the domain.json request (never together with resume)
 
 
 def build_command(spec):
@@ -35,6 +36,8 @@ def build_command(spec):
     if spec.resume:
         return args + ["--resume"]
     args += ["--mode", spec.mode, "--max-papers", str(spec.max_papers)] + (["--jev"] if spec.jev else [])
+    if spec.domain_file is not None:
+        return args + ["--domain", str(spec.domain_file)]  # a path we wrote; the topic is inside the file
     return args + ["--", spec.topic]  # after `--` a topic such as "--run-dir=..." can never be read as a flag
 
 

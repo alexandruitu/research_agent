@@ -4,7 +4,8 @@ from pathlib import PurePosixPath
 from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy import func, select, update
 
-from ...db.models import Field, GoldLabel, GoldSet, Job, Run, Screening
+from ... import fields as svc
+from ...db.models import Field, FieldVersion, GoldLabel, GoldSet, Job, Run, Screening, SourceRow
 from ...jobs import enqueue
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
@@ -20,6 +21,7 @@ def _run_out(db, run, cls=RunOut, **extra):
     gold = db.get(GoldSet, run.gold_set_id) if run.gold_set_id else None
     paper_count = db.scalar(select(func.count()).select_from(Screening).where(Screening.run_id == run.id))
     models = {k: v for k, v in (run.manifest.get("models") or {}).items() if isinstance(v, str)}
+    version = db.get(FieldVersion, run.field_version_id) if run.field_version_id else None
     return cls(
         id=run.id,
         field_id=run.field_id,
@@ -32,6 +34,7 @@ def _run_out(db, run, cls=RunOut, **extra):
         paper_count=paper_count,
         error=run.error,
         models=models,
+        field_version=version.version if version else None,
         **extra,
     )
 
@@ -147,19 +150,38 @@ def start_run(
         if existing is not None:
             response.status_code = 200
             return StartRunOut(job=job_out(existing), run_id=uuid.UUID(existing.payload["run_id"]))
+    if field.archived_at is not None:
+        raise ApiError(409, "archived", "This field is archived; restore it first")
+    version = svc.get_version(db, field)
+    domain = None
+    if version is None or svc.is_legacy(db, version):
+        # A legacy field (one topic question): today's positional-topic run, which searches Europe PMC.
+        europepmc = db.get(SourceRow, "europepmc")
+        if europepmc is None or not europepmc.enabled:
+            raise ApiError(422, "no_enabled_source", "None of this field's sources is enabled")
+    else:
+        try:
+            domain = svc.domain_for_version(db, field, version)
+        except svc.FieldConflict as exc:
+            raise ApiError(exc.status, exc.code, exc.message) from None
     _check_active_cap(db, user, settings)
-    contract = {"topic": field.topic, "max_papers": body.max_papers, "mode": body.mode}
+    contract = {"topic": field.topic if domain is None else domain["topic"]}
+    contract |= {"max_papers": body.max_papers, "mode": body.mode}
+    manifest = {"contract": contract} | ({"domain_request": domain} if domain else {})
     run = Run(
         field_id=field.id,
+        field_version_id=version.id if version else None,
         kind="research",
         status="queued",
-        manifest={"contract": contract},
+        manifest=manifest,
         created_by=user.id,
     )
     db.add(run)
     db.flush()
     run.folder = str(settings.runs_dir / run.id.hex)
     payload = {"run_id": str(run.id), "field_id": str(field.id), **contract, "resume": False}
+    if domain:
+        payload["domain"] = domain
     job, created = enqueue(db, "research", payload, user.id, idempotency_key)
     if not created:  # lost a race with an identical request: drop the run we just made
         db.delete(run)
@@ -212,6 +234,8 @@ def resume_run(
         "mode": contract.get("mode", "live"),
         "resume": True,
     }
+    if run.manifest.get("domain_request"):  # started again from scratch when it has no manifest yet
+        payload["domain"] = run.manifest["domain_request"]
     job, _ = enqueue(db, "research", payload, user.id)
     db.commit()
     return StartRunOut(job=job_out(job), run_id=run.id)
