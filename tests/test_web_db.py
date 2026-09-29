@@ -22,6 +22,10 @@ TABLES = {
     "gold_labels",
     "eval_reports",
     "jobs",
+    "field_versions",
+    "sources",
+    "app_settings",
+    "worker_status",
 }
 
 

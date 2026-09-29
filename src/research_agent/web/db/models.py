@@ -59,7 +59,25 @@ class Field(Base):
     __tablename__ = "fields"
     id: Mapped[uuid.UUID] = pk()
     name: Mapped[str] = mapped_column(String(200))
-    topic: Mapped[str] = mapped_column(Text, unique=True)
+    topic: Mapped[str] = mapped_column(Text)  # mirrors the current version (see field_versions)
+    current_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class FieldVersion(Base):
+    """One saved version of a field; never deleted. `sources` = {"names": [...], "years": {"from", "to"}}."""
+
+    __tablename__ = "field_versions"
+    __table_args__ = (UniqueConstraint("field_id", "version"),)
+    id: Mapped[uuid.UUID] = pk()
+    field_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("fields.id", ondelete="CASCADE"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200))
+    topic: Mapped[str] = mapped_column(Text)
+    sources: Mapped[dict] = mapped_column(JSONB, default=dict)
+    note: Mapped[str] = mapped_column(Text, default="")
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = created()
 
@@ -73,6 +91,10 @@ class Criterion(Base):
     question: Mapped[str] = mapped_column(Text)
     version: Mapped[int] = mapped_column(Integer, default=1)
     position: Mapped[int] = mapped_column(Integer, default=0)
+    kind: Mapped[str] = mapped_column(String(16), default="legacy", server_default="legacy")
+    field_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("field_versions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -101,6 +123,9 @@ class Run(Base):
     __tablename__ = "runs"
     id: Mapped[uuid.UUID] = pk()
     field_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("fields.id"), index=True)
+    field_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("field_versions.id"), nullable=True, index=True
+    )
     kind: Mapped[str] = mapped_column(String(16))  # research | eval
     status: Mapped[str] = mapped_column(String(16))  # queued | running | done | failed
     manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -128,6 +153,8 @@ class Screening(Base):
     llm_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
     reason: Mapped[str] = mapped_column(Text, default="")
     call_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(100), nullable=True)  # criterion key
+    sources: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")  # found by
     created_at: Mapped[datetime] = created()
 
 
@@ -137,8 +164,10 @@ class CriterionScore(Base):
         Uuid, ForeignKey("screenings.id", ondelete="CASCADE"), primary_key=True
     )
     criterion_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("criteria.id"), primary_key=True)
-    probability: Mapped[float] = mapped_column(Float)
+    probability: Mapped[float | None] = mapped_column(Float, nullable=True)  # Jev p; null: Jev did not run
     jev_version: Mapped[str] = mapped_column(String(64), default="")
+    llm_answer: Mapped[str | None] = mapped_column(String(16), nullable=True)  # yes | no | unclear
+    quote: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class EvidenceClaim(Base):
@@ -217,3 +246,40 @@ class Job(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = created()
+
+
+class SourceRow(Base):
+    __tablename__ = "sources"
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)  # europepmc | openalex | arxiv
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    max_results: Mapped[int] = mapped_column(Integer, default=100)
+    last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_check_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_check_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_check_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # always 1
+    contact_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class WorkerStatus(Base):
+    """Provider key status per model role, written by the worker. Never a key value."""
+
+    __tablename__ = "worker_status"
+    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    key_present: Mapped[bool] = mapped_column(Boolean, default=False)
+    key_accepted: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    detail: Mapped[str] = mapped_column(String(200), default="")
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    worker_id: Mapped[str] = mapped_column(String(100), default="")
