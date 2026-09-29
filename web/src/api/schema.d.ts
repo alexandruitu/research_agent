@@ -175,6 +175,147 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reviewers
+         * @description Reviewers in default-panel order first, then by key.
+         */
+        get: operations["list_reviewers_api_v1_reviewers_get"];
+        put?: never;
+        /** Create Reviewer */
+        post: operations["create_reviewer_api_v1_reviewers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviewers/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reviewer */
+        get: operations["get_reviewer_api_v1_reviewers__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviewers/{key}/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reviewer Version */
+        get: operations["get_reviewer_version_api_v1_reviewers__key__versions__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviewers/{key}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Reviewer */
+        post: operations["save_reviewer_api_v1_reviewers__key__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviewers/{key}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Reviewer */
+        post: operations["archive_reviewer_api_v1_reviewers__key__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reviewers/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Reviewer */
+        post: operations["restore_reviewer_api_v1_reviewers__key__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Settings */
+        get: operations["get_review_settings_api_v1_settings_review_get"];
+        put?: never;
+        /** Save Review Settings */
+        post: operations["save_review_settings_api_v1_settings_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/models/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Models Available */
+        get: operations["models_available_api_v1_models_available_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fields": {
         parameters: {
             query?: never;
@@ -402,6 +543,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/papers/{paper_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_api_v1_papers__paper_id__files_get"];
+        put?: never;
+        /**
+         * Upload File
+         * @description Multipart form with one field `file` (a PDF). The size is checked before the body is read.
+         */
+        post: operations["upload_file_api_v1_papers__paper_id__files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/papers/{paper_id}/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download File */
+        get: operations["download_file_api_v1_papers__paper_id__files__file_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete File */
+        delete: operations["delete_file_api_v1_papers__paper_id__files__file_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stages": {
         parameters: {
             query?: never;
@@ -511,6 +691,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AvailableModelOut */
+        AvailableModelOut: {
+            /** Id */
+            id: string;
+            /** Provider */
+            provider: string | null;
+            /** Available */
+            available: boolean;
+            /** Roles */
+            roles: string[];
+            /** In Settings */
+            in_settings: boolean;
+        };
         /** CallOut */
         CallOut: {
             /** Key */
@@ -529,6 +722,46 @@ export interface components {
             output: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * ChecklistItemIn
+         * @description A checklist item as the reviewer editor sends it; a missing key is generated on save.
+         */
+        ChecklistItemIn: {
+            /** Key */
+            key?: string | null;
+            /** Text */
+            text: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+            /** Source */
+            source?: string | null;
+            /**
+             * Pass If
+             * @default yes
+             * @enum {string}
+             */
+            pass_if: "yes" | "no";
+            /** Red Flag If */
+            red_flag_if?: ("yes" | "no") | null;
+        };
+        /** ChecklistItemOut */
+        ChecklistItemOut: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /** Weight */
+            weight: number;
+            /** Source */
+            source: string | null;
+            /** Pass If */
+            pass_if: string;
+            /** Red Flag If */
+            red_flag_if: string | null;
         };
         /** ClaimOut */
         ClaimOut: {
@@ -621,6 +854,15 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** DisagreementOut */
+        DisagreementOut: {
+            /** Item */
+            item: string;
+            /** Reviewers */
+            reviewers: string[];
+            /** Note */
+            note: string;
+        };
         /** DrawerOut */
         DrawerOut: {
             paper: components["schemas"]["PaperDetail"];
@@ -638,6 +880,30 @@ export interface components {
             /** Reviews */
             reviews: components["schemas"]["ReviewOut"][];
             rank: components["schemas"]["RankCell"] | null;
+            panel?: components["schemas"]["PanelOut"] | null;
+            /** Files */
+            files?: components["schemas"]["PaperFileOut"][];
+        };
+        /** EditorIO */
+        EditorIO: {
+            /** Model */
+            model?: string | null;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+        };
+        /** EditorOut */
+        EditorOut: {
+            /** Verdict */
+            verdict: string | null;
+            /** Reason */
+            reason: string;
+            /** Disagreements */
+            disagreements: components["schemas"]["DisagreementOut"][];
+            /** Call Key */
+            call_key: string | null;
         };
         /** EvalDetailOut */
         EvalDetailOut: {
@@ -856,6 +1122,20 @@ export interface components {
             /** Exclude Count */
             exclude_count: number;
         };
+        /** FulltextIO */
+        FulltextIO: {
+            /** Sources */
+            sources: ("pmc_oa" | "unpaywall" | "upload")[];
+            /** Contact */
+            contact?: string | null;
+            /** Max Chars */
+            max_chars: number;
+            /**
+             * Upload Max Mb
+             * @default 30
+             */
+            upload_max_mb: number;
+        };
         /** GoldSetOut */
         GoldSetOut: {
             /**
@@ -925,6 +1205,83 @@ export interface components {
              */
             missing: true;
         };
+        /** ModelsAvailableOut */
+        ModelsAvailableOut: {
+            /** Models */
+            models: components["schemas"]["AvailableModelOut"][];
+            /** Providers */
+            providers: components["schemas"]["ProviderOut"][];
+        };
+        /** PanelAnswerOut */
+        PanelAnswerOut: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string | null;
+            /** Source */
+            source: string | null;
+            /** Weight */
+            weight: number | null;
+            /** Answer */
+            answer: string;
+            /** Quote */
+            quote: string;
+            /** Section */
+            section: string;
+            /** Red Flag */
+            red_flag: boolean;
+        };
+        /** PanelOut */
+        PanelOut: {
+            /** Text Source */
+            text_source: string;
+            /** Text Reason */
+            text_reason: string | null;
+            /** Text Origin */
+            text_origin: string | null;
+            /** Text Sections */
+            text_sections: string[];
+            /** Text Truncated */
+            text_truncated: boolean;
+            /** Text Chars */
+            text_chars: number | null;
+            editor: components["schemas"]["EditorOut"];
+            /** Reviews */
+            reviews: components["schemas"]["PanelReportOut"][];
+            /** Red Flags */
+            red_flags: components["schemas"]["RedFlagOut"][];
+            /** Score */
+            score: number | null;
+            /** Coverage */
+            coverage: number | null;
+            /** Red Flag Count */
+            red_flag_count: number;
+        };
+        /** PanelReportOut */
+        PanelReportOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /** Verdict */
+            verdict: string;
+            /** Score */
+            score: number | null;
+            /** Coverage */
+            coverage: number | null;
+            /** Strengths */
+            strengths: string[];
+            /** Weaknesses */
+            weaknesses: string[];
+            /** Summary */
+            summary: string;
+            /** Call Key */
+            call_key: string | null;
+            /** Answers */
+            answers: components["schemas"]["PanelAnswerOut"][];
+        };
         /** PaperDetail */
         PaperDetail: {
             /**
@@ -942,6 +1299,29 @@ export interface components {
             year: number | null;
             /** Doi */
             doi: string;
+        };
+        /** PaperFileOut */
+        PaperFileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Filename */
+            filename: string;
+            /** Size */
+            size: number;
+            /** Sha256 */
+            sha256: string;
+            /** Uploaded By Name */
+            uploaded_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Can Delete */
+            can_delete: boolean;
         };
         /** PaperPage */
         PaperPage: {
@@ -985,6 +1365,36 @@ export interface components {
             /** Reviews */
             reviews: components["schemas"]["ReviewsCell"] | components["schemas"]["MissingCell"] | null;
             rank: components["schemas"]["RankCell"] | null;
+            /** Score */
+            score?: number | null;
+            /** Coverage */
+            coverage?: number | null;
+            /** Red Flag Count */
+            red_flag_count?: number | null;
+            /** Text Source */
+            text_source?: string | null;
+        };
+        /** ProviderOut */
+        ProviderOut: {
+            /** Provider */
+            provider: string;
+            /** Key Present */
+            key_present: boolean;
+            /** Key Accepted */
+            key_accepted: boolean | null;
+        };
+        /** RaisedByOut */
+        RaisedByOut: {
+            /** Reviewer */
+            reviewer: string;
+            /** Item */
+            item: string;
+            /** Answer */
+            answer: string;
+            /** Quote */
+            quote: string;
+            /** Section */
+            section: string;
         };
         /** RankCell */
         RankCell: {
@@ -1007,6 +1417,15 @@ export interface components {
             /** Exclude Min Confidence */
             exclude_min_confidence: number;
         };
+        /** RedFlagOut */
+        RedFlagOut: {
+            /** Text */
+            text: string;
+            /** Source */
+            source: string | null;
+            /** Raised By */
+            raised_by: components["schemas"]["RaisedByOut"][];
+        };
         /** ReviewOut */
         ReviewOut: {
             /** Role */
@@ -1026,6 +1445,188 @@ export interface components {
             /** Call Key */
             call_key: string | null;
         };
+        /** ReviewSettingsContent */
+        ReviewSettingsContent: {
+            models: components["schemas"]["RoleModelsIO"];
+            screening: components["schemas"]["ScreeningIO"];
+            fulltext: components["schemas"]["FulltextIO"];
+            /** Default Panel */
+            default_panel: string[];
+            editor: components["schemas"]["EditorIO"];
+        };
+        /** ReviewSettingsOut */
+        ReviewSettingsOut: {
+            current: components["schemas"]["ReviewSettingsVersionOut"];
+            /** Versions */
+            versions: components["schemas"]["ReviewSettingsSummary"][];
+            defaults: components["schemas"]["ReviewSettingsContent"];
+        };
+        /** ReviewSettingsSave */
+        ReviewSettingsSave: {
+            models: components["schemas"]["RoleModelsIO"];
+            screening: components["schemas"]["ScreeningIO"];
+            fulltext: components["schemas"]["FulltextIO"];
+            /** Default Panel */
+            default_panel: string[];
+            editor: components["schemas"]["EditorIO"];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Base Version */
+            base_version: number;
+        };
+        /** ReviewSettingsSummary */
+        ReviewSettingsSummary: {
+            /** Version */
+            version: number;
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+        };
+        /** ReviewSettingsVersionOut */
+        ReviewSettingsVersionOut: {
+            models: components["schemas"]["RoleModelsIO"];
+            screening: components["schemas"]["ScreeningIO"];
+            fulltext: components["schemas"]["FulltextIO"];
+            /** Default Panel */
+            default_panel: string[];
+            editor: components["schemas"]["EditorIO"];
+            /** Version */
+            version: number;
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+        };
+        /** ReviewerContent */
+        ReviewerContent: {
+            /** Name */
+            name: string;
+            /** Perspective */
+            perspective: string;
+            /** Model */
+            model: string | null;
+            /** Items */
+            items: components["schemas"]["ChecklistItemOut"][];
+        };
+        /** ReviewerCreate */
+        ReviewerCreate: {
+            /** Name */
+            name: string;
+            /** Perspective */
+            perspective: string;
+            /** Model */
+            model?: string | null;
+            /** Items */
+            items: components["schemas"]["ChecklistItemIn"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Key */
+            key?: string | null;
+        };
+        /** ReviewerOut */
+        ReviewerOut: {
+            /** Key */
+            key: string;
+            /** Current Version */
+            current_version: number;
+            /** Archived At */
+            archived_at: string | null;
+            /** In Default Panel */
+            in_default_panel: boolean;
+            current: components["schemas"]["ReviewerVersionOut"];
+            default: components["schemas"]["ReviewerContent"] | null;
+            /** Versions */
+            versions?: components["schemas"]["ReviewerVersionSummary"][];
+        };
+        /** ReviewerSave */
+        ReviewerSave: {
+            /** Name */
+            name: string;
+            /** Perspective */
+            perspective: string;
+            /** Model */
+            model?: string | null;
+            /** Items */
+            items: components["schemas"]["ChecklistItemIn"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Base Version */
+            base_version: number;
+        };
+        /** ReviewerVersionOut */
+        ReviewerVersionOut: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /** Perspective */
+            perspective: string;
+            /** Model */
+            model: string | null;
+            /** Items */
+            items: components["schemas"]["ChecklistItemOut"][];
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+        };
+        /** ReviewerVersionSummary */
+        ReviewerVersionSummary: {
+            /** Version */
+            version: number;
+            /** Note */
+            note: string;
+            /** Imported */
+            imported: boolean;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Run Count */
+            run_count: number;
+            /** Item Count */
+            item_count: number;
+        };
         /** ReviewsCell */
         ReviewsCell: {
             /** A */
@@ -1036,6 +1637,17 @@ export interface components {
             adjudicated: boolean;
             /** Adjudicator */
             adjudicator: string | null;
+        };
+        /** RoleModelsIO */
+        RoleModelsIO: {
+            /** Plan */
+            plan?: string | null;
+            /** Screen */
+            screen?: string | null;
+            /** Screen Criteria */
+            screen_criteria?: string | null;
+            /** Extract */
+            extract?: string | null;
         };
         /** RunCounts */
         RunCounts: {
@@ -1087,6 +1699,8 @@ export interface components {
             };
             /** Field Version */
             field_version?: number | null;
+            /** Settings Version */
+            settings_version?: number | null;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
@@ -1130,6 +1744,8 @@ export interface components {
             };
             /** Field Version */
             field_version?: number | null;
+            /** Settings Version */
+            settings_version?: number | null;
         };
         /** RunRequest */
         RunRequest: {
@@ -1170,6 +1786,17 @@ export interface components {
             cells?: {
                 [key: string]: components["schemas"]["CriterionCell"];
             };
+        };
+        /** ScreeningIO */
+        ScreeningIO: {
+            /** Keep Min */
+            keep_min: number;
+            /** Include Fail Max */
+            include_fail_max: number;
+            /** Exclude Hit Min */
+            exclude_hit_min: number;
+            /** Exclude Clear Max */
+            exclude_clear_max: number;
         };
         /** ScreeningOut */
         ScreeningOut: {
@@ -1675,6 +2302,304 @@ export interface operations {
             };
         };
     };
+    list_reviewers_api_v1_reviewers_get: {
+        parameters: {
+            query?: {
+                /** @description true: also list archived reviewers */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_reviewer_api_v1_reviewers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reviewer_api_v1_reviewers__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reviewer_version_api_v1_reviewers__key__versions__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerVersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_reviewer_api_v1_reviewers__key__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewerSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_reviewer_api_v1_reviewers__key__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_reviewer_api_v1_reviewers__key__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_settings_api_v1_settings_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSettingsOut"];
+                };
+            };
+        };
+    };
+    save_review_settings_api_v1_settings_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewSettingsSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    models_available_api_v1_models_available_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelsAvailableOut"];
+                };
+            };
+        };
+    };
     list_fields_api_v1_fields_get: {
         parameters: {
             query?: {
@@ -2080,6 +3005,7 @@ export interface operations {
                 p_max?: number | null;
                 decided_by?: string | null;
                 source?: ("europepmc" | "openalex" | "arxiv" | "demo") | null;
+                has_red_flags?: boolean | null;
             };
             header?: never;
             path: {
@@ -2161,6 +3087,146 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CallOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_papers__paper_id__files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperFileOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_api_v1_papers__paper_id__files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The same PDF was already uploaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperFileOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_file_api_v1_papers__paper_id__files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF, as an attachment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_file_api_v1_papers__paper_id__files__file_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

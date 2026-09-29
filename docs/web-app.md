@@ -63,8 +63,9 @@ adjudicator uncertain).
 - Sessions are server-side (cookie `ra_session`, `HttpOnly`, `SameSite=Lax`, `Secure` unless
   `RESEARCH_WEB_COOKIE_SECURE=false` for local development); every state-changing request needs the
   `X-CSRF-Token` header; sign-in is rate limited per process.
-- Roles: viewer (read), member (also raw calls, start runs, create and save fields, test criteria), admin
-  (also users, imports, archive fields, sources, settings).
+- Roles: viewer (read), member (also raw calls, start runs, create and save fields, test criteria, upload and
+  download full-text PDFs), admin (also users, imports, archive fields, sources, settings, reviewers, review
+  settings).
   A test fails if any route lacks a role guard.
 - LLM provider keys never enter the API process; the API docs endpoints are off.
 
@@ -151,6 +152,31 @@ a repeated start with the same key returned 200 and the same job, the run shows 
 
 Checked on the real data after migration 0002 (2026-09-29): the three imports give the same numbers as above
 (mlffrct-2024 151 / 112 / 82 / 16, aiffr-slr-2023 141 / 129 / 82 / 19, live-01 5 / 5 / 2).
+
+## Review panel, review settings and uploads (slice 3)
+
+- **Every new run is a panel run.** `POST /runs` builds `review.json` from the current review settings version and
+  the current version of each reviewer in the default panel, validated by the pipeline's `ReviewSpec`, and keeps
+  it in `run.manifest["review_request"]` (the run also links `settings_version_id` and `run_reviewers`). The
+  worker writes `<run>/review.request.json`, passes `--review`, and on every start and resume hard-links (or
+  copies) the latest uploaded PDF of each paper to `<run>/uploads/<safe-id>.pdf`, where the pipeline reads it.
+  Resume uses the saved manifest (`--resume` only). Old runs import exactly as before.
+- **Reviewers** (`/reviewers`): versioned profiles (name, perspective, checklist items, optional model). Saving
+  needs `base_version` (409 `stale_version` otherwise); archived reviewers cannot be saved (409 `archived`); a
+  reviewer in the default panel cannot be archived (409 `in_default_panel`). Seeded: Methodologist, Clinician,
+  Statistician (version 1, from `research_agent.panel`).
+- **Review settings** (`/settings/review`): versioned models per role, screening thresholds, full text (sources,
+  contact, max length, upload limit) and the default panel with the editor. A save is refused (422
+  `invalid_settings`) unless the result is a runnable `review.json`. `GET /models/available` lists the models the
+  worker, the settings and the reviewers name, marked available when the worker's key check accepted the key.
+- **Uploads** (`/papers/{id}/files`): members upload PDFs (checked by the `%PDF-` magic bytes, at most 30 MB or
+  the settings' lower limit, only while `upload` is a full-text source), stored once by sha256 under
+  `RESEARCH_UPLOADS_DIR` (default `uploads/`, outside any web root). Members download them as attachments; the
+  uploader or an admin deletes them. nginx allows 31 MB on this path only.
+- **Imports** read `state.review` into `paper_reviews`, `panel_reports` and `red_flags`; the paper table gains
+  `score`, `coverage`, `red_flag_count`, `text_source` and the `has_red_flags` filter (sort by score uses the
+  panel score), the drawer gains `panel` and `files`. Raw calls of roles `review:<key>` and `editor` open from
+  the drawer like the others.
 
 ## Frontend
 
