@@ -148,3 +148,106 @@ def test_contract_accepts_the_web_review(world):
     with factory() as db:
         review = db.get(Run, uuid.UUID(started["run_id"])).manifest["review_request"]
     Contract(topic=TOPIC, review=ReviewSpec.model_validate(review))
+
+
+def pipeline_spawn(spec, env, log):
+    """The real pipeline in demo mode, in-process (as the child would run it), with the review request."""
+    from research_agent.runner import run_research
+
+    review = read_review(spec.review_file)
+    contract = Contract(topic=spec.topic, review=review, mode=spec.mode, max_papers=spec.max_papers)
+    run_research(spec.run_dir, contract=contract, review_file=spec.review_file)
+    return Done()
+
+
+def make_panel_run(directory, review=None, red_flag=False):
+    """A demo panel run folder (optionally with a red flag written into its report, as demo answers have none)."""
+    from research_agent.panel import default_review
+    from research_agent.runner import run_research
+
+    spec = ReviewSpec.model_validate(review or default_review())
+    run_research(directory, contract=Contract(topic=TOPIC, mode="demo", max_papers=3, review=spec))
+    if red_flag:
+        path = directory / "report.json"
+        data = json.loads(path.read_text())
+        entry = data["state"]["review"]["demo:2"]
+        answer = entry["reviews"]["methodologist"]["answers"][0]
+        entry["red_flags"] = [
+            {
+                "text": "Data were partitioned at patient level.",
+                "source": "CLAIM 2020 #21",
+                "raised_by": [{"reviewer": "methodologist", "item": answer["key"], **answer}],
+            }
+        ]
+        path.write_text(json.dumps(data))
+    return directory
+
+
+def counts(db, run_id):
+    from research_agent.web.db.models import PanelReport, PaperReview, RedFlag
+
+    reviews = db.scalars(sa.select(PaperReview).where(PaperReview.run_id == run_id)).all()
+    ids = [r.id for r in reviews]
+    reports = db.scalars(sa.select(PanelReport).where(PanelReport.paper_review_id.in_(ids))).all()
+    flags = db.scalars(sa.select(RedFlag).where(RedFlag.paper_review_id.in_(ids))).all()
+    return reviews, reports, flags
+
+
+def test_a_panel_run_through_the_worker_imports_its_reviews(world):
+    settings, factory, sign_in = world
+    started = start(sign_in, legacy_field(factory))
+    Worker(settings, factory, spawn=pipeline_spawn, sleep=lambda s: None).tick()
+    run_id = uuid.UUID(started["run_id"])
+    with factory() as db:
+        run = db.get(Run, run_id)
+        assert run.status == "done", run.error
+        reviews, reports, flags = counts(db, run_id)
+        assert len(reviews) == 3 and len(reports) == 9 and flags == []
+        first = max(reviews, key=lambda r: r.score or 0)
+        assert first.text_source == "abstract" and first.editor_verdict and first.editor_call_key
+        assert all(r.call_key and r.reviewer_version_id for r in reports)
+        assert {r.reviewer_key for r in reports} == {"methodologist", "clinician", "statistician"}
+        from research_agent.web.db.models import ReviewerVersion, SettingsVersion
+
+        # linked at start: no imported versions were made
+        assert db.scalar(sa.select(sa.func.count()).select_from(SettingsVersion)) == 1
+        assert db.scalar(sa.select(sa.func.count()).select_from(ReviewerVersion)) == 3
+
+
+def test_import_links_by_content_and_reimport_is_unchanged(db, tmp_path):
+    from research_agent.panel import default_review
+    from research_agent.web.db.models import ReviewerVersion, SettingsVersion
+    from research_agent.web.importer.research import import_research_run
+
+    folder = make_panel_run(tmp_path / "runs" / "p1", red_flag=True)
+    result = import_research_run(db, folder)
+    assert result.status == "created"
+    run = db.get(Run, result.run_id)
+    settings_row = db.get(SettingsVersion, run.settings_version_id)
+    assert settings_row.version == 1 and not settings_row.imported  # same content as the seed
+    reviews, reports, flags = counts(db, run.id)
+    assert (len(reviews), len(reports), len(flags)) == (3, 9, 1)
+    flagged = [r for r in reviews if r.red_flag_count]
+    assert len(flagged) == 1 and flags[0].source == "CLAIM 2020 #21"
+    assert flags[0].raised_by[0]["reviewer"] == "methodologist"
+    assert import_research_run(db, folder).status == "unchanged"
+
+    review = default_review(contact="team@example.org")
+    review["panel"][0]["items"][0]["text"] = "A changed item text."
+    review["panel"] = review["panel"][:1] + [dict(review["panel"][1], key="newcomer", name="Newcomer")]
+    other = import_research_run(db, make_panel_run(tmp_path / "runs" / "p2", review=review))
+    run = db.get(Run, other.run_id)
+    settings_row = db.get(SettingsVersion, run.settings_version_id)
+    assert settings_row.imported and settings_row.version == 2 and settings_row.note == "imported"
+    assert settings_row.default_panel == ["methodologist", "newcomer"]
+    notes = dict(
+        db.execute(
+            sa.select(ReviewerVersion.name, ReviewerVersion.note).where(ReviewerVersion.version > 1)
+        ).all()
+    )
+    assert notes == {"Methodologist": "imported"}
+    from research_agent.web.review import current_settings, get_profile
+
+    assert current_settings(db).version == 1  # an imported version never becomes current
+    assert get_profile(db, "newcomer").current_version == 1
+    assert get_profile(db, "methodologist").current_version == 1

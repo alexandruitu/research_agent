@@ -7,8 +7,22 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ..callstore import CallIndex, CallStoreError
-from ..db.models import CriterionScore, EvidenceClaim, Ranking, Review, Run, Screening
+from ..db.models import (
+    CriterionScore,
+    EvidenceClaim,
+    PanelReport,
+    PaperReview,
+    Ranking,
+    RedFlag,
+    Review,
+    ReviewerProfile,
+    ReviewerVersion,
+    Run,
+    RunReviewer,
+    Screening,
+)
 from ..fields import legacy_version, version_for_domain
+from ..review import link_review
 from .common import (
     ImportFailed,
     ImportResult,
@@ -181,9 +195,103 @@ def _import(db, folder, digest, run, state, manifest, created_by):
                     reason=decision["reason"],
                 )
             )
+    if state["contract"].get("review"):
+        _import_panel(db, run, state, papers, calls, warnings, created_by)
     for position, row in enumerate(state["ranking"], start=1):
         db.add(
             Ranking(run_id=run.id, paper_id=papers[row["paper_id"]].id, score=row["score"], position=position)
         )
     db.flush()
     return ImportResult(run.id, status, warnings)
+
+
+def _panel_versions(db, run, review, created_by):
+    """{reviewer key: ReviewerVersion} of a panel run. A run started by the web app is linked at start;
+    an imported one is linked by content (see `review.link_review`)."""
+    linked = db.scalars(
+        select(RunReviewer).where(RunReviewer.run_id == run.id).order_by(RunReviewer.position)
+    ).all()
+    if run.settings_version_id is None or not linked:
+        settings_row, versions = link_review(db, review, created_by)
+        run.settings_version_id = settings_row.id
+        for link in linked:
+            db.delete(link)
+        db.flush()
+        for position, version in enumerate(versions):
+            db.add(RunReviewer(run_id=run.id, position=position, reviewer_version_id=version.id))
+        db.flush()
+    rows = db.execute(
+        select(ReviewerProfile.key, ReviewerVersion)
+        .join(ReviewerVersion, ReviewerVersion.profile_id == ReviewerProfile.id)
+        .join(RunReviewer, RunReviewer.reviewer_version_id == ReviewerVersion.id)
+        .where(RunReviewer.run_id == run.id)
+    )
+    return {key: version for key, version in rows}
+
+
+def _import_panel(db, run, state, papers, calls, warnings, created_by):
+    review = state["contract"]["review"]
+    versions = _panel_versions(db, run, review, created_by)
+    order = [entry["key"] for entry in review["panel"]]
+    for pid, result in (state.get("review") or {}).items():
+        if pid not in papers:
+            raise ImportFailed(f"panel review for unknown paper {pid}")
+        editor = result.get("editor") or {}
+        flags = result.get("red_flags") or []
+        row = PaperReview(
+            run_id=run.id,
+            paper_id=papers[pid].id,
+            text_source=result["text_source"],
+            text_reason=result.get("text_reason"),
+            text_origin=result.get("text_origin"),
+            text_sections=list(result.get("text_sections") or []),
+            text_truncated=bool(result.get("text_truncated")),
+            text_chars=result.get("text_chars"),
+            editor_verdict=editor.get("verdict"),
+            editor_reason=editor.get("reason", ""),
+            disagreements=list(editor.get("disagreements") or []),
+            editor_call_key=calls.key("editor", pid),
+            score=result.get("score"),
+            coverage=result.get("coverage"),
+            red_flag_count=len(flags),
+        )
+        db.add(row)
+        db.flush()
+        if editor and row.editor_call_key is None and not calls.empty:
+            warnings.append(f"{pid}: raw call for the editor not found")
+        reports = result.get("reviews") or {}
+        for key in sorted(reports, key=lambda k: (order.index(k) if k in order else len(order), k)):
+            report = reports[key]
+            call_key = calls.key(f"review:{key}", pid)
+            if call_key is None and not calls.empty:
+                warnings.append(f"{pid}: raw call for reviewer {key} not found")
+            version = versions.get(key)
+            db.add(
+                PanelReport(
+                    paper_review_id=row.id,
+                    position=order.index(key) if key in order else len(order),
+                    reviewer_key=key,
+                    reviewer_version_id=version.id if version else None,
+                    name=report.get("name") or key,
+                    version=report.get("version") or 1,
+                    verdict=report["verdict"],
+                    strengths=list(report.get("strengths") or []),
+                    weaknesses=list(report.get("weaknesses") or []),
+                    summary=report.get("summary", ""),
+                    score=report.get("score"),
+                    coverage=report.get("coverage"),
+                    answers=list(report.get("answers") or []),
+                    call_key=call_key,
+                )
+            )
+        for position, flag in enumerate(flags):
+            db.add(
+                RedFlag(
+                    paper_review_id=row.id,
+                    position=position,
+                    text=flag["text"],
+                    source=flag.get("source"),
+                    raised_by=list(flag.get("raised_by") or []),
+                )
+            )
+    db.flush()

@@ -14,6 +14,7 @@ from ..db.models import (
     EvalReport,
     EvidenceClaim,
     Paper,
+    PaperReview,
     Ranking,
     Review,
     Screening,
@@ -91,6 +92,7 @@ def clear_run(db, run_id):
     """Remove a run's derived rows so it can be re-imported under the same id."""
     screening_ids = select(Screening.id).where(Screening.run_id == run_id)
     db.execute(delete(CriterionScore).where(CriterionScore.screening_id.in_(screening_ids)))
-    for model in (Screening, EvidenceClaim, Review, Ranking, EvalReport):
+    # panel_reports and red_flags go with their paper_reviews (ON DELETE CASCADE)
+    for model in (Screening, EvidenceClaim, Review, Ranking, EvalReport, PaperReview):
         db.execute(delete(model).where(model.run_id == run_id))
     db.flush()
