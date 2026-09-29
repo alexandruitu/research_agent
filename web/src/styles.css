@@ -233,3 +233,7 @@ button.primary:disabled { background: var(--neutral-bg); color: var(--neutral-fg
 label.block { margin-top: 12px; }
 label.block .hint { font-weight: 400; }
 textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+.role-models select { min-width: 260px; max-width: 100%; }
+.muted-cell { color: var(--muted); font-size: 12px; }
+.group-row th { background: var(--panel); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.family-warning { display: inline-block; margin: 10px 0 0; padding: 4px 10px; font-size: 13px; border-radius: 6px; }

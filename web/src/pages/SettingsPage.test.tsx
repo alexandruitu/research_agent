@@ -121,7 +121,7 @@ describe("Settings → Sources", () => {
 describe("Settings → AI models", () => {
   it("shows each role's model and whether its key was accepted, in words", async () => {
     setup("viewer", "/settings/models");
-    const table = await screen.findByRole("table");
+    const table = within(await screen.findByRole("region", { name: "Keys reported by the worker" })).getByRole("table");
     expect(within(table).getByRole("row", { name: /Screen/ })).toHaveTextContent("✓ accepted");
     expect(within(table).getByRole("row", { name: /Adjudicator/ })).toHaveTextContent("✗ rejected: rejected (401)");
     expect(within(table).getByRole("row", { name: /Jev/ })).toHaveTextContent("✗ missing");
@@ -246,5 +246,42 @@ describe("Settings → Full text", () => {
     setup("member", "/settings/fulltext");
     expect(await screen.findByRole("switch", { name: /Unpaywall/ })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("Settings → AI models (choices)", () => {
+  it("has one row per role, each panel reviewer and the editor, limited to available models", async () => {
+    setup("admin", "/settings/models");
+    const table = await screen.findByRole("table", { name: "Model per role" });
+    for (const role of ["Plan", "Screen", "Extract", "Methodologist", "Clinician", "Statistician", "Editor"]) {
+      expect(within(table).getByRole("combobox", { name: `Model for ${role}` })).toBeInTheDocument();
+    }
+    const stat = within(table).getByRole("combobox", { name: "Model for Statistician" });
+    expect(stat).toHaveValue("openai:gpt-6");
+    expect(within(stat).getByRole("option", { name: "openai:gpt-6 (key not accepted)" })).toBeInTheDocument();
+    expect(screen.queryByText(/All reviewers use one model family/)).not.toBeInTheDocument();
+  });
+
+  it("warns in words when every reviewer uses one family, and saving creates a reviewer version", async () => {
+    const { calls } = setup("admin", "/settings/models", { "POST /api/v1/reviewers/statistician/versions": { status: 201, body: reviewerRows()[2] } });
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Model for Statistician" }), "anthropic:claude-sonnet-5");
+    expect(screen.getByRole("note")).toHaveTextContent("All reviewers use one model family (anthropic)");
+    expect(screen.getByText(/also creates a new version of Statistician/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    await waitFor(() => expect(calls.find((c) => c.path === "/api/v1/reviewers/statistician/versions")?.body).toMatchObject({ model: "anthropic:claude-sonnet-5", base_version: 2, name: "Statistician" }));
+    expect(posted(calls)).toBeUndefined();
+  });
+
+  it("saves pipeline and editor models as a settings version", async () => {
+    const { calls } = setup("admin", "/settings/models", { "POST /api/v1/settings/review": savedEcho });
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Model for Extract" }), "anthropic:claude-opus-5-5");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Model for Editor" }), "");
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    await waitFor(() => expect(posted(calls)).toMatchObject({ models: { extract: "anthropic:claude-opus-5-5" }, editor: { model: null, instructions: settingsContent().editor.instructions } }));
+  });
+
+  it("is read-only for viewers", async () => {
+    setup("viewer", "/settings/models");
+    expect(await screen.findByRole("combobox", { name: "Model for Plan" })).toBeDisabled();
   });
 });
