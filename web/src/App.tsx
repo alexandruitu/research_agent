@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
+import { ModelsTab } from "./features/settings/ModelsTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -27,6 +28,7 @@ export function App() {
             <Route path="/settings" element={<SettingsPage />}>
               <Route index element={<Navigate to="sources" replace />} />
               <Route path="sources" element={<SourcesTab />} />
+              <Route path="models" element={<ModelsTab />} />
               <Route element={<RequireRole role="admin" />}>
                 <Route path="users" element={<UsersPage />} />
               </Route>

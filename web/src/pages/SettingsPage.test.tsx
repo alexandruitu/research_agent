@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
+import { ModelsTab } from "../features/settings/ModelsTab";
 import { SourcesTab } from "../features/settings/SourcesTab";
 import { JOB_ID, jobOut, session, sourceRows, workerRows } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
@@ -27,6 +28,7 @@ function setup(role: "viewer" | "member" | "admin", route: string, extra: Parame
     <Routes>
       <Route path="/settings" element={<SettingsPage />}>
         <Route path="sources" element={<SourcesTab />} />
+        <Route path="models" element={<ModelsTab />} />
       </Route>
     </Routes>,
     { route },
@@ -91,5 +93,21 @@ describe("Settings → Sources", () => {
     expect(screen.queryByRole("button", { name: /Test/ })).not.toBeInTheDocument();
     expect(screen.getByText(/lab@example.org/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Settings → AI models", () => {
+  it("shows each role's model and whether its key was accepted, in words", async () => {
+    setup("viewer", "/settings/models");
+    const table = await screen.findByRole("table");
+    expect(within(table).getByRole("row", { name: /Screen/ })).toHaveTextContent("✓ accepted");
+    expect(within(table).getByRole("row", { name: /Adjudicator/ })).toHaveTextContent("✗ rejected: rejected (401)");
+    expect(within(table).getByRole("row", { name: /Jev/ })).toHaveTextContent("✗ missing");
+    expect(screen.getByText(/Key values never leave the worker/)).toBeInTheDocument();
+  });
+
+  it("says so when no worker has reported", async () => {
+    setup("admin", "/settings/models", { "GET /api/v1/workers/status": { body: [] } });
+    expect(await screen.findByText(/No worker has reported yet/)).toBeInTheDocument();
   });
 });
