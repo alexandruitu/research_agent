@@ -452,3 +452,26 @@ def test_the_cli_exits_with_tempfail_when_another_process_holds_the_run_folder(t
     assert "already running" in capsys.readouterr().err
     assert not (tmp_path / "progress.json").exists() and not (tmp_path / "manifest.json").exists()
     assert issubclass(RunLocked, ValueError)
+
+
+def test_a_refused_resume_is_recorded_in_progress_for_the_web(tmp_path, monkeypatch):
+    import json
+
+    from research_agent import cli
+
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"prompt_version": "m0.0", "contract": {}, "models": {}})
+    )
+    (tmp_path / "progress.json").write_text(
+        json.dumps(
+            {"status": "failed", "stages": {"plan": "failed"}, "error_type": "OldError", "message": "old"}
+        )
+    )
+    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)
+    with pytest.raises(SystemExit) as exit_:
+        monkeypatch.setattr("sys.argv", ["research-agent", "--resume", "--run-dir", str(tmp_path)])
+        cli.main()
+    assert exit_.value.code == 1
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert progress["error_type"] == "RunRefused" and progress["stages"] == {"start": "failed"}
+    assert "prompt version changed" in progress["message"]

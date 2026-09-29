@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .runner import RunLocked, run_research
+from .runner import RunLocked, RunRefused, record_refusal, run_research
 from .schemas import Contract, DomainError, read_domain
 
 EXIT_LOCKED = 75  # os.EX_TEMPFAIL: another process is running this folder; try again later
@@ -66,6 +66,9 @@ def main():
             on_event=lambda event: print("Completed:", ", ".join(event), flush=True),
             domain_file=args.domain,
         )
+    except RunRefused as exc:
+        record_refusal(args.run_dir, str(exc))
+        parser.exit(1, f"{exc}\n")
     except RunLocked:
         parser.exit(
             EXIT_LOCKED, "This research is already running in this folder; try again when it finishes.\n"

@@ -91,6 +91,28 @@ def atomic_json(path, data):
     temporary.replace(path)
 
 
+class RunRefused(ValueError):
+    """The run cannot start or resume in this folder; the message is safe to show."""
+
+
+def record_refusal(path, message):
+    """Write the refusal to progress.json so the web shows it instead of an older failure."""
+    target = Path(path) / "progress.json"
+    try:
+        data = json.loads(target.read_text()) if target.exists() else {}
+    except (OSError, ValueError):
+        data = {}
+    data.update(
+        status="failed",
+        stages={"start": "failed"},
+        error_type="RunRefused",
+        message=message,
+        updated_at=datetime.now(UTC).isoformat(),
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(data, indent=2))
+
+
 class RunLocked(ValueError):
     """Another process holds the run folder's lock."""
 
@@ -156,16 +178,16 @@ def run_research(
         if resume:
             manifest = read_json(manifest_path)
             if not manifest:
-                raise ValueError("There is no saved research in this folder.")
+                raise RunRefused("There is no saved research in this folder.")
             if manifest["prompt_version"] != PROMPT_VERSION:
-                raise ValueError("The prompt version changed; start a new research run.")
+                raise RunRefused("The prompt version changed; start a new research run.")
             saved = Contract.model_validate(manifest["contract"])
             if contract and contract.topic != saved.topic:
-                raise ValueError("The topic cannot be changed when resuming.")
+                raise RunRefused("The topic cannot be changed when resuming.")
             contract, models = saved, manifest["models"]
         else:
             if manifest_path.exists():
-                raise ValueError("This research already exists; resume it or choose a new folder.")
+                raise RunRefused("This research already exists; resume it or choose a new folder.")
             contract = Contract.model_validate(contract)
             models = models or (live_models() if contract.mode == "live" else {})
             manifest = {
