@@ -94,8 +94,11 @@ def test_the_worker_forwards_stop_signals_to_python(compose):
 
 def test_the_api_mounts_run_folders_read_only_and_the_worker_can_write_runs(compose):
     api_volumes = compose["services"]["api"]["volumes"]
-    assert api_volumes and all(v.endswith(":ro") for v in api_volumes)
+    # the API writes only uploaded PDFs, into their own volume; runs, evals and gold stay read-only
+    assert api_volumes and all(v.endswith(":ro") for v in api_volumes if not v.startswith("uploads:"))
+    assert "uploads:/data/uploads" in api_volumes
     worker_volumes = compose["services"]["worker"]["volumes"]
+    assert "uploads:/data/uploads:ro" in worker_volumes
     assert any(v.startswith("runs:/data/runs") and not v.endswith(":ro") for v in worker_volumes)
     assert all(v.endswith(":ro") for v in worker_volumes if "/data/evals" in v or "/data/gold" in v)
 
@@ -180,7 +183,9 @@ def test_nginx_serves_the_app_and_proxies_only_the_api():
     assert "listen 8080;" in text and "server_tokens off;" in text
     assert "proxy_pass http://api:8000;" in text
     assert "try_files $uri /index.html;" in text  # client-side routes
-    assert text.count("proxy_pass") == 1
+    assert text.count("proxy_pass") == text.count("proxy_pass http://api:8000;") == 2  # the API, uploads
+    uploads = text.split("location ~ ^/api/v1/papers/[^/]+/files$ {")[1].split("}")[0]
+    assert "client_max_body_size 31m;" in uploads and "client_max_body_size 1m;" in text
 
 
 def test_nginx_csp_is_strict():

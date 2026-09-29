@@ -5,7 +5,21 @@ from ..db.session import make_engine, make_session_factory
 from ..security import RateLimiter
 from ..settings import load_settings
 from .errors import install_error_handlers
-from .routers import admin, auth, evals, fields, health, imports, jobs, papers, review, runs, stages, users
+from .routers import (
+    admin,
+    auth,
+    evals,
+    fields,
+    files,
+    health,
+    imports,
+    jobs,
+    papers,
+    review,
+    runs,
+    stages,
+    users,
+)
 
 API_PREFIX = "/api/v1"
 
@@ -23,6 +37,6 @@ def create_app(settings=None, session_factory=None):
     install_error_handlers(app)
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(users.router, prefix=API_PREFIX)
-    for module in (admin, review, fields, runs, papers, stages, evals, jobs, imports, health):
+    for module in (admin, review, fields, runs, papers, files, stages, evals, jobs, imports, health):
         app.include_router(module.router, prefix=API_PREFIX)
     return app

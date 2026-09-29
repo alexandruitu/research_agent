@@ -15,6 +15,7 @@ from research_agent.web.api.deps import get_db
 PUBLIC = {("POST", f"{API_PREFIX}/auth/login"), ("GET", f"{API_PREFIX}/health")}
 ROLES = ["viewer", "member", "admin"]
 RANK = {"viewer": 0, "member": 1, "admin": 2}
+NIL = "00000000-0000-0000-0000-000000000000"
 
 
 def guards(dependant):
@@ -90,6 +91,10 @@ def matrix(imported, paper_id, field_id):
         ("GET", "/settings/review", "viewer"),
         ("POST", "/settings/review", "admin"),
         ("GET", "/models/available", "viewer"),
+        ("GET", f"/papers/{paper_id}/files", "viewer"),
+        ("POST", f"/papers/{paper_id}/files", "member"),
+        ("GET", f"/papers/{paper_id}/files/{NIL}", "member"),
+        ("DELETE", f"/papers/{paper_id}/files/{NIL}", "member"),
     ]
 
 
@@ -117,7 +122,7 @@ def test_role_matrix(app, users, imported, db, role):
             assert status not in (401, 403), (role, method, path, status)
         else:
             assert status == 403, (role, method, path, status)
-        if allowed and method in ("POST", "PATCH"):
+        if allowed and method in ("POST", "PATCH", "DELETE"):
             assert signed.request(method, url, **kwargs).status_code == 403, (
                 "state change without CSRF must fail"
             )

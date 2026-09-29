@@ -668,3 +668,13 @@ class AvailableModelOut(Model):
 class ModelsAvailableOut(Model):
     models: list[AvailableModelOut]
     providers: list[ProviderOut]
+
+
+class PaperFileOut(Model):
+    id: uuid.UUID
+    filename: str
+    size: int  # bytes
+    sha256: str
+    uploaded_by_name: str | None
+    created_at: datetime
+    can_delete: bool  # the signed-in user uploaded it, or is an admin

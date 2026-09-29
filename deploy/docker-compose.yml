@@ -5,6 +5,7 @@ x-app-env: &app-env
   RESEARCH_RUNS_DIR: /data/runs
   RESEARCH_EVALS_DIR: /data/evals
   RESEARCH_GOLD_DIR: /data/gold
+  RESEARCH_UPLOADS_DIR: /data/uploads
 
 services:
   db:
@@ -44,6 +45,7 @@ services:
       RESEARCH_WEB_ALLOW_DEMO: "false"
     volumes:
       - runs:/data/runs:ro
+      - uploads:/data/uploads  # uploaded PDFs (the API writes them)
       - ${EVALS_DIR:-../evals}:/data/evals:ro
       - ${GOLD_DIR:-../gold}:/data/gold:ro
     depends_on:
@@ -70,6 +72,7 @@ services:
       - worker.env
     volumes:
       - runs:/data/runs
+      - uploads:/data/uploads:ro  # copied into each run folder
       - ${EVALS_DIR:-../evals}:/data/evals:ro
       - ${GOLD_DIR:-../gold}:/data/gold:ro
     depends_on:
@@ -94,3 +97,4 @@ services:
 volumes:
   dbdata: {}
   runs: {}
+  uploads: {}
