@@ -1,0 +1,30 @@
+{
+ "doi": "10.3348/kjr.2025.1963",
+ "is_oa": true,
+ "best_oa_location": {
+  "host_type": "publisher",
+  "is_best": true,
+  "license": "cc-by-nc",
+  "url": "http://kjronline.org/Synapse/Data/PDFData/0068KJR/kjr-27-e68.pdf",
+  "url_for_pdf": "http://kjronline.org/Synapse/Data/PDFData/0068KJR/kjr-27-e68.pdf",
+  "version": "publishedVersion"
+ },
+ "oa_locations": [
+  {
+   "host_type": "publisher",
+   "is_best": true,
+   "license": "cc-by-nc",
+   "url": "http://kjronline.org/Synapse/Data/PDFData/0068KJR/kjr-27-e68.pdf",
+   "url_for_pdf": "http://kjronline.org/Synapse/Data/PDFData/0068KJR/kjr-27-e68.pdf",
+   "version": "publishedVersion"
+  },
+  {
+   "host_type": "repository",
+   "is_best": false,
+   "license": "cc-by-nc",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13537864/pdf/kjr-27-840.pdf",
+   "url_for_pdf": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13537864/pdf/kjr-27-840.pdf",
+   "version": "submittedVersion"
+  }
+ ]
+}

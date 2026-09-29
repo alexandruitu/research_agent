@@ -24,6 +24,8 @@ class Store:
                     prompt_version TEXT, input TEXT, output TEXT);
                 CREATE TABLE IF NOT EXISTS papers (run_id TEXT, paper_id TEXT, payload TEXT,
                     PRIMARY KEY(run_id, paper_id));
+                CREATE TABLE IF NOT EXISTS fulltext (key TEXT PRIMARY KEY, source TEXT, locator TEXT,
+                    payload TEXT);
             """)
 
     @contextmanager
@@ -40,6 +42,23 @@ class Store:
         with self.connect() as db:
             db.execute("INSERT OR IGNORE INTO raw VALUES (?, ?)", (key, canonical_json(payload)))
         return key
+
+    def raw_payload(self, key):
+        with self.connect() as db:
+            row = db.execute("SELECT payload FROM raw WHERE hash=?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def cached_fulltext(self, key):
+        with self.connect() as db:
+            row = db.execute("SELECT payload FROM fulltext WHERE key=?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def record_fulltext(self, key, source, locator, payload):
+        with self.connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO fulltext VALUES (?, ?, ?, ?)",
+                (key, source, locator, canonical_json(payload)),
+            )
 
     def cached(self, key):
         with self.connect() as db:

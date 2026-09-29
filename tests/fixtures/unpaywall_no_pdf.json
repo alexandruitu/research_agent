@@ -1,0 +1,38 @@
+{
+ "doi": "10.1136/openhrt-2026-003979",
+ "is_oa": true,
+ "best_oa_location": {
+  "host_type": "publisher",
+  "is_best": true,
+  "license": "cc-by-nc",
+  "url": "https://doi.org/10.1136/openhrt-2026-003979",
+  "url_for_pdf": null,
+  "version": "publishedVersion"
+ },
+ "oa_locations": [
+  {
+   "host_type": "publisher",
+   "is_best": true,
+   "license": "cc-by-nc",
+   "url": "https://doi.org/10.1136/openhrt-2026-003979",
+   "url_for_pdf": null,
+   "version": "publishedVersion"
+  },
+  {
+   "host_type": "repository",
+   "is_best": false,
+   "license": "cc-by-nc",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13202077/pdf/openhrt-13-1.pdf",
+   "url_for_pdf": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13202077/pdf/openhrt-13-1.pdf",
+   "version": "submittedVersion"
+  },
+  {
+   "host_type": "repository",
+   "is_best": false,
+   "license": "cc-by-sa",
+   "url": "https://doaj.org/article/bd3edba8157648d7a76cc373f7d719a6",
+   "url_for_pdf": null,
+   "version": "submittedVersion"
+  }
+ ]
+}
