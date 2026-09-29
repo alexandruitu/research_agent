@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { openReviewedPaper, startDemoRunAndOpenPapers } from "./panel";
 import { auth } from "./users";
 
 async function audit(page: Page) {
@@ -89,7 +90,7 @@ test.describe("fields and settings", () => {
   });
   test.describe("viewer", () => {
     test.use({ storageState: auth("viewer") });
-    for (const tab of ["sources", "models"]) {
+    for (const tab of ["sources", "models", "reviewers", "screening", "fulltext"]) {
       test(`settings ${tab} (read-only)`, async ({ page }) => {
         await page.goto(`/settings/${tab}`);
         await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
@@ -100,13 +101,25 @@ test.describe("fields and settings", () => {
   });
   test.describe("admin", () => {
     test.use({ storageState: auth("admin") });
-    for (const tab of ["sources", "models", "users"]) {
+    for (const tab of ["sources", "models", "users", "reviewers", "screening", "fulltext", "reviewers/methodologist", "reviewers/new"]) {
       test(`settings ${tab}`, async ({ page }) => {
         await page.goto(`/settings/${tab}`);
         await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
-        await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+        await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
         await audit(page);
       });
     }
+  });
+});
+
+test.describe("review panel", () => {
+  test.use({ storageState: auth("admin") });
+  test("paper drawer with the peer review open", async ({ page }) => {
+    test.setTimeout(200_000);
+    await startDemoRunAndOpenPapers(page);
+    await audit(page);
+    const drawer = await openReviewedPaper(page);
+    for (const summary of await drawer.locator("details.reviewer-report summary").all()) await summary.click();
+    await audit(page);
   });
 });

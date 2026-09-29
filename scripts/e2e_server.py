@@ -36,6 +36,7 @@ def environment(database_url, base):
         "RESEARCH_RUNS_DIR": str(Path(base) / "runs"),
         "RESEARCH_EVALS_DIR": str(Path(base) / "evals"),
         "RESEARCH_GOLD_DIR": str(Path(base) / "gold"),
+        "RESEARCH_UPLOADS_DIR": str(Path(base) / "uploads"),
         "RESEARCH_WEB_COOKIE_SECURE": "false",
         "RESEARCH_WEB_ALLOW_DEMO": "true",
         "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.2",

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { openReviewedPaper, startDemoRunAndOpenPapers } from "./panel";
 import { auth, EMAIL, PASSWORD } from "./users";
 
 test.describe("signed out", () => {
@@ -91,7 +92,7 @@ test.describe("member", () => {
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
     const row = page.locator("table.runs tbody tr").filter({ hasText: "research" }).filter({ has: page.locator("td", { hasText: /^3$/ }) });
-    await row.getByRole("link", { name: /See papers/ }).click();
+    await row.first().getByRole("link", { name: /See papers/ }).click(); // newest first; other tests start 3-paper runs too
     await expect(page.locator("table.papers tbody tr")).toHaveCount(3);
   });
   test("creates a field, tests its criteria in demo mode, starts a demo run and sees what decided", async ({ page }) => {
@@ -151,5 +152,36 @@ test.describe("admin", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Users" })).toHaveCount(0);
+  });
+});
+
+test.describe("review panel", () => {
+  test.use({ storageState: auth("admin") });
+
+  test("an admin edits a reviewer, a demo run uses it, the drawer shows the panel and takes a PDF", async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.goto("/settings/reviewers");
+    await page.getByRole("link", { name: "Methodologist" }).click();
+    await expect(page.getByRole("form", { name: "Reviewer editor" })).toBeVisible();
+    await page.getByRole("button", { name: "Add item" }).click();
+    const count = await page.locator(".item-card").count();
+    await page.getByLabel(`Question for item ${count} text`).fill("The reference standard is described for every patient.");
+    await page.getByRole("group", { name: `Weight of item ${count}` }).getByText("3 · high").click();
+    await page.getByLabel(`Red flag rule for item ${count}`).selectOption("no");
+    await expect(page.getByRole("complementary", { name: "What the model reads" })).toContainText("The reference standard is described for every patient.");
+    await page.getByLabel("Change note").fill("e2e: reference standard");
+    await page.getByRole("button", { name: /^Save as v/ }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Saved as v\d+/ })).toBeVisible();
+
+    await startDemoRunAndOpenPapers(page);
+    await expect(page.getByRole("columnheader", { name: /Peer review score/ })).toBeVisible();
+    const drawer = await openReviewedPaper(page);
+    await expect(drawer).toContainText("Editor's decision");
+    await drawer.locator("details.reviewer-report summary").filter({ hasText: "Methodologist" }).click();
+    await expect(drawer.getByRole("table", { name: "Methodologist's checklist" })).toContainText("The reference standard is described for every patient.");
+
+    await drawer.locator("input[type=file]").setInputFiles({ name: "tiny.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n") });
+    await expect(drawer.getByText(/Uploaded tiny.pdf/)).toBeVisible();
+    await expect(drawer.locator(".file-name", { hasText: "tiny.pdf" })).toBeVisible();
   });
 });

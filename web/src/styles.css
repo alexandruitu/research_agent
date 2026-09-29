@@ -275,7 +275,7 @@ fieldset.segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; 
 fieldset.segmented label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 1px; z-index: 2; }
 .model-preview { position: sticky; top: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel); }
 .model-preview h2 { font-size: 15px; margin: 0; }
-.preview-body { font: 13px/1.5 var(--mono); background: var(--bg); border: 1px dashed var(--line); border-radius: 6px; padding: 8px 10px; margin: 8px 0; max-height: 60vh; overflow: auto; }
+.preview-body { font: 13px/1.5 var(--mono); background: var(--bg); border: 1px dashed var(--line); border-radius: 6px; padding: 8px 10px; margin: 8px 0; overflow-wrap: anywhere; }
 .preview-body p { margin: 0 0 6px; }
 .preview-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 .preview-items { margin: 0; padding-left: 20px; }

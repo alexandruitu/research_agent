@@ -205,6 +205,15 @@ Screens and who sees them:
   legacy field (only `topic_match`) still show the probability, sortable, with the topic-match range filter.
   The drawer's Screen step is a per-criterion table (Jev p, LLM answer, quote) naming the decider; "Found by"
   lists the sources.
+  Panel runs (slice 3) replace "Reviewers A / B" with **Peer review score** ("72 · 8/10 answered", with a
+  coverage meter; sortable), **Red flags** ("⚑ 2 red flags") and **Text reviewed** ("full text · PMC",
+  "abstract only"), plus a "Has red flags" filter (`flags=true` in the URL). The drawer's **Peer review** step
+  shows the editor's decision and reason first, the disagreements in words, the red flags with the quotes that
+  raised them, then one collapsible report per reviewer (verdict, score, coverage, strengths/weaknesses and the
+  checklist: answer icon + word, quote + section, "red flag" in words). Below the timeline, **Full-text PDFs**
+  lists uploads (download for members, delete for the uploader or an admin) and lets members upload one
+  (drag and drop or "Choose a PDF…", with progress; checked in the browser and again by the server); when only
+  the abstract was reviewed the section is titled "Upload full text (PDF)".
   The drawer's Raw calls tab (exact prompt and response) is for members and admins only.
 - **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
   run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
@@ -221,10 +230,30 @@ Screens and who sees them:
   notes and runs, compares two versions (each line says added / removed / unchanged), and says "screening
   for this field (vN): not measured" unless an eval ran on that version. A legacy field is edited by adding
   criteria, which creates v2. Start run links to `/runs?field=<id>` with the field preselected.
-- **Settings** (every role reads; admins write): **Sources** (enable, max results per run, Test = one real
-  one-result search, the contact address sent to OpenAlex), **AI models** (per role: model, whether the
-  worker has a key and whether a test call accepted it; never a key), **Users** (admins only: invite, change
-  role, deactivate). `/users` redirects to `/settings/users`.
+- **Settings** (every role reads; admins write), tabs Sources · Reviewers · AI models · Screening · Full text ·
+  Users. **Sources** (enable, max results per run, Test = one real one-result search, the contact address sent
+  to OpenAlex). The four review tabs share one frame: a plain-language intro, a "Used by next run · vN" badge,
+  Reset to default, a change note and one **Save as vN+1** that creates a new settings version (409 → "reload
+  the latest version"; 422 shows the pipeline's message); leaving a tab with unsaved edits asks first (tab
+  links and reload/close; the main navigation is not guarded).
+  **Reviewers**: a card per reviewer (role, item count, how many items can raise a red flag, model, "In the
+  default panel" switch; 1 to 5, the switch explains why when it is locked), the editor's instructions,
+  archived reviewers with Restore, "New reviewer". A reviewer's page (`/settings/reviewers/<key>`) edits the
+  name, perspective, model and checklist (add, reorder, remove; weight 1·low/2·normal/3·high, what a good
+  answer is, "red flag if", CLAIM / TRIPOD+AI source) with a live **What the model reads** preview (perspective
+  and item key + text only: weights and red-flag rules are applied by code and never shown to the model),
+  Save as vN+1, Reset to default, Archive/Restore and the version history.
+  **AI models**: a model per role (Plan, Screen, Screen per criterion, Extract, each panel reviewer, Editor),
+  limited to models whose provider key the worker accepted, a warning when all reviewers share one provider,
+  and the worker's key report below (never a key). A reviewer's model is stored in the reviewer, so changing it
+  here saves a new reviewer version (the tab says so).
+  **Screening**: the four Jev thresholds (slider + number) with a band diagram and a sentence per criterion
+  kind, and the latest Evals recommendation translated exactly for inclusion criteria (keep from
+  (1 + min_confidence)/2, drop at or below (1 − exclude_min_confidence)/2) with "Apply to inclusion criteria";
+  exclusion bands have no measured counterpart and are left alone.
+  **Full text**: switches for PMC OA, Unpaywall and uploads (tried in that order), the Unpaywall contact
+  (required while it is on), maximum length and upload limit.
+  **Users** (admins only: invite, change role, deactivate). `/users` redirects to `/settings/users`.
 
 Three rules the UI keeps:
 
