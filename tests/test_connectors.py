@@ -3,7 +3,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from eval_helpers import row
+from eval_helpers import europepmc, row
 
 from research_agent import connectors
 from research_agent.connectors import (
@@ -294,3 +294,12 @@ def test_domain_connector_in_demo_mode_uses_synthetic_records_per_source(tmp_pat
     multi = domain_connector(spec([{"name": "europepmc"}, {"name": "arxiv"}]), Store(tmp_path), "demo")
     merged = deduplicate(multi.search("q", 3))
     assert len(merged) == 12 and all(p.sources == ["arxiv", "europepmc"] for p in merged)
+
+
+def test_europepmc_records_the_pmcid_and_dedup_keeps_it(tmp_path):
+    rows = [{**row(1), "pmcid": "PMC123"}, row(2)]
+    papers = EuropePMC(Store(tmp_path), europepmc({"*": rows})).search("q", 5)
+    assert [p.pmcid for p in papers] == ["PMC123", ""]
+    twin = papers[0].model_copy(update={"id": "openalex:W1", "pmcid": "", "sources": ["openalex"]})
+    (merged,) = deduplicate([twin, papers[0]])
+    assert merged.pmcid == "PMC123"

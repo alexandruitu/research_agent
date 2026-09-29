@@ -251,3 +251,10 @@ def test_plan_payload_is_unchanged_for_legacy_runs_and_gets_the_criteria_for_fie
         "to": None,
     }
     assert "domain" not in seen[1]
+
+
+def test_pmcid_never_reaches_a_model_or_a_cache_key():
+    from research_agent.agents import without_sources
+
+    paper = {"id": "MED:1", "title": "t", "abstract": "a", "sources": ["europepmc"], "pmcid": "PMC1"}
+    assert without_sources({"paper": paper})["paper"] == {"id": "MED:1", "title": "t", "abstract": "a"}

@@ -106,6 +106,7 @@ class EuropePMC:
             abstract=plain(row.get("abstractText")),
             year=str(row.get("pubYear", "")),
             doi=normalize_doi(row.get("doi", "")),
+            pmcid=row.get("pmcid") or (rid if source == "PMC" else ""),
             sources=[self.name],
             provenance=[
                 Source(
@@ -349,6 +350,7 @@ def deduplicate(papers):
     for group in groups:
         primary = min(group, key=lambda p: (-len(p.abstract), p.id)).model_copy(deep=True)
         primary.doi = next((p.doi for p in group if p.doi), "")
+        primary.pmcid = next((p.pmcid for p in group if p.pmcid), "")
         primary.sources = sorted({s for p in group for s in p.sources})
         sources = {canonical_json(s.model_dump()): s for p in group for s in p.provenance}
         primary.provenance = [sources[k] for k in sorted(sources)]

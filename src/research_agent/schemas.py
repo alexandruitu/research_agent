@@ -161,6 +161,7 @@ class Paper(Model):
     abstract: str
     year: str = ""
     doi: str = ""
+    pmcid: str = ""  # PMC Open Access id (full text); provenance-like, never sent to a model
     sources: list[str] = Field(default_factory=list)  # connectors that found it (after dedup: all of them)
     provenance: list[Source] = Field(min_length=1)
 
