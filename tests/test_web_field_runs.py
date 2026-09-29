@@ -6,16 +6,11 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
 
 from research_agent.runner import run_research
 from research_agent.schemas import Contract, read_domain
-from research_agent.web.api.app import create_app
-from research_agent.web.auth import create_user
 from research_agent.web.db.models import Job, Run, SourceRow
 from research_agent.web.runner import RunSpec, build_command
-from research_agent.web.settings import load_settings
 from research_agent.web.worker import DOMAIN_REQUEST, Worker
 
 API = "/api/v1"
@@ -37,37 +32,6 @@ class Done:
 
     def poll(self):
         return 0
-
-
-@pytest.fixture
-def world(fresh_db_url, tmp_path):
-    settings = load_settings(
-        {
-            "RESEARCH_WEB_DATABASE_URL": fresh_db_url,
-            "RESEARCH_RUNS_DIR": str(tmp_path / "runs"),
-            "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
-            "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
-            "RESEARCH_WEB_COOKIE_SECURE": "false",
-            "RESEARCH_WEB_ALLOW_DEMO": "true",
-            "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.01",
-            "RESEARCH_WEB_PROGRESS_POLL_SECONDS": "0.01",
-        }
-    )
-    engine = sa.create_engine(fresh_db_url)
-    factory = sessionmaker(engine, expire_on_commit=False)
-    with factory() as db:
-        for role in ("member", "admin"):
-            create_user(db, email=f"{role}@example.org", name=role.title(), role=role, password=PASSWORD)
-        db.commit()
-    app = create_app(settings, session_factory=factory)
-
-    def sign_in(role):
-        client = TestClient(app)
-        r = client.post(f"{API}/auth/login", json={"email": f"{role}@example.org", "password": PASSWORD})
-        return client, {"X-CSRF-Token": r.json()["csrf_token"]}
-
-    yield settings, factory, sign_in
-    engine.dispose()
 
 
 def new_field(sign_in, **overrides):

@@ -117,7 +117,7 @@ def job_out(job):
     )
 
 
-def _check_active_cap(db, user, settings):
+def check_active_cap(db, user, settings):
     active = db.scalar(
         select(func.count())
         .select_from(Job)
@@ -164,7 +164,7 @@ def start_run(
             domain = svc.domain_for_version(db, field, version)
         except svc.FieldConflict as exc:
             raise ApiError(exc.status, exc.code, exc.message) from None
-    _check_active_cap(db, user, settings)
+    check_active_cap(db, user, settings)
     contract = {"topic": field.topic if domain is None else domain["topic"]}
     contract |= {"max_papers": body.max_papers, "mode": body.mode}
     manifest = {"contract": contract} | ({"domain_request": domain} if domain else {})
@@ -205,7 +205,7 @@ def resume_run(
     conflict = ApiError(409, "conflict", "Only a failed research run can be resumed")
     if run.kind != "research":
         raise conflict
-    _check_active_cap(db, user, settings)
+    check_active_cap(db, user, settings)
     active = db.scalar(
         select(func.count())
         .select_from(Job)

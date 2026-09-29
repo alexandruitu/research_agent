@@ -136,3 +136,43 @@ def fresh_db_url(pg_url, pg_engine):
     yield url
     with pg_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
         connection.execute(sa.text(f'drop database "{name}" with (force)'))
+
+
+@pytest.fixture
+def world(fresh_db_url, tmp_path):
+    """A migrated database with a member and an admin, the real app on real sessions, and sign_in(role)
+    -> (client, csrf headers). For tests that also run the worker (which opens its own sessions)."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import sessionmaker
+
+    from research_agent.web.api.app import create_app
+    from research_agent.web.auth import create_user
+    from research_agent.web.settings import load_settings
+
+    settings = load_settings(
+        {
+            "RESEARCH_WEB_DATABASE_URL": fresh_db_url,
+            "RESEARCH_RUNS_DIR": str(tmp_path / "runs"),
+            "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
+            "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
+            "RESEARCH_WEB_COOKIE_SECURE": "false",
+            "RESEARCH_WEB_ALLOW_DEMO": "true",
+            "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.01",
+            "RESEARCH_WEB_PROGRESS_POLL_SECONDS": "0.01",
+        }
+    )
+    engine = sa.create_engine(fresh_db_url)
+    factory = sessionmaker(engine, expire_on_commit=False)
+    with factory() as db:
+        for role in ("member", "admin"):
+            create_user(db, email=f"{role}@example.org", name=role.title(), role=role, password=PASSWORD)
+        db.commit()
+    app = create_app(settings, session_factory=factory)
+
+    def sign_in(role):
+        client = TestClient(app)
+        r = client.post("/api/v1/auth/login", json={"email": f"{role}@example.org", "password": PASSWORD})
+        return client, {"X-CSRF-Token": r.json()["csrf_token"]}
+
+    yield settings, factory, sign_in
+    engine.dispose()

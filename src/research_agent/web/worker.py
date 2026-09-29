@@ -6,13 +6,18 @@ import os
 import re
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
-from .db.models import Job, Run
+from ..storage import Store
+from .checks import criteria_test, source_check
+from .db.models import Job, Run, SourceRow
 from .db.session import make_engine, make_session_factory
+from .fields import SOURCE_NAMES, settings_row
 from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
@@ -61,6 +66,8 @@ class Worker:
         clock=None,
         worker_id=None,
         monotonic=time.monotonic,
+        http_client=None,
+        jev_client=None,
     ):
         self.settings = settings
         self.factory = session_factory or make_session_factory(make_engine(settings.database_url))
@@ -69,6 +76,8 @@ class Worker:
         self.sleep = sleep or self.stop_requested.wait  # a stop request cuts the wait short
         self.clock = clock or (lambda: None)  # None: the database clock (see jobs)
         self.worker_id = worker_id or f"{socket.gethostname()}-{os.getpid()}"
+        # HTTP clients for source checks and criteria tests (None: the connectors' own); tests inject mocks.
+        self.http_client, self.jev_client = http_client, jev_client
 
     def request_stop(self):
         self.stop_requested.set()
@@ -114,6 +123,10 @@ class Worker:
                     return self._research(db, job)
                 if job.kind == "import":
                     return self._import(db, job)
+                if job.kind == "source_check":
+                    return self._source_check(db, job)
+                if job.kind == "criteria_test":
+                    return self._criteria_test(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -263,3 +276,47 @@ class Worker:
             return True
         db.commit()
         return True
+
+    def _finish(self, db, job, result):
+        if not complete(db, job, {"status": "done", "result": result}, worker_id=self.worker_id):
+            db.rollback()
+            return True
+        db.commit()
+        return True
+
+    def _source_check(self, db, job):
+        name = (job.payload or {}).get("name")
+        if name not in SOURCE_NAMES:
+            raise ValueError("not a known source")
+        contact = settings_row(db).contact_email if name == "openalex" else None
+        with tempfile.TemporaryDirectory() as scratch:  # the raw response is not kept
+            result = source_check(name, Store(scratch), contact=contact, http_client=self.http_client)
+        row = db.get(SourceRow, name)
+        row.last_check_at = datetime.now(UTC)
+        row.last_check_ok, row.last_check_ms, row.last_check_error = (
+            result["ok"],
+            result["ms"],
+            result["error"],
+        )
+        return self._finish(db, job, result)
+
+    def _criteria_test(self, db, job):
+        payload = job.payload or {}
+
+        def progress(snapshot):
+            set_progress(db, job, snapshot, self.clock(), worker_id=self.worker_id)
+            db.commit()
+
+        # A scratch store: nothing is written to the paper tables, and nothing is kept.
+        with tempfile.TemporaryDirectory() as scratch, self._heartbeat_while(job.id):
+            result = criteria_test(
+                payload["domain"],
+                Store(scratch),
+                mode=payload.get("mode", "live"),
+                api_key=os.environ.get("TYPESAFE_API_KEY"),
+                jev_client=self.jev_client,
+                http_client=self.http_client,
+                progress=progress,
+            )
+        result["field_id"], result["version"] = payload.get("field_id"), payload.get("version")
+        return self._finish(db, job, result)

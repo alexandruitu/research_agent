@@ -5,9 +5,11 @@ from sqlalchemy import func, select
 
 from ... import fields as svc
 from ...db.models import Field, FieldVersion, Run, User
-from ..deps import get_db, require_role
+from ...jobs import enqueue
+from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
 from ..schemas import (
+    CriteriaTestRequest,
     CriterionOut,
     CriterionText,
     FieldCreate,
@@ -16,8 +18,10 @@ from ..schemas import (
     FieldSave,
     FieldVersionOut,
     FieldVersionSummary,
+    JobOut,
     Years,
 )
+from .runs import check_active_cap, job_out
 
 router = APIRouter(prefix="/fields", tags=["fields"])
 
@@ -182,3 +186,50 @@ def unarchive_field(field_id: uuid.UUID, user=Depends(require_role("admin")), db
     field = svc.set_archived(db, load_field(db, field_id), False)
     db.commit()
     return field_out(db, field, detail=True)
+
+
+@router.post("/{field_id}/test", response_model=JobOut, status_code=202)
+def test_criteria(
+    field_id: uuid.UUID,
+    body: CriteriaTestRequest,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Queue a criteria test (Jev only, at most 20 papers): the saved current version, or the unsaved
+    draft in the body. The result arrives in the job's `progress.result`."""
+    field = load_field(db, field_id)
+    if field.archived_at is not None:
+        raise ApiError(409, "archived", "This field is archived; restore it first")
+    if body.mode == "demo" and not settings.allow_demo:
+        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    version = svc.get_version(db, field)
+    try:
+        if body.draft is not None:
+            draft = body.draft
+            domain = svc.build_domain(
+                db,
+                field,
+                None,
+                topic=draft.topic,
+                include=[c.text for c in draft.include],
+                exclude=[c.text for c in draft.exclude],
+                names=list(draft.sources),
+                years={"from": draft.years.start, "to": draft.years.end},
+            )
+        elif version is None or svc.is_legacy(db, version):
+            raise ApiError(422, "no_criteria", "This field has no inclusion or exclusion criteria to test")
+        else:
+            domain = svc.domain_for_version(db, field, version)
+    except svc.FieldConflict as exc:
+        raise conflict(exc) from None
+    check_active_cap(db, user, settings)
+    payload = {
+        "field_id": str(field.id),
+        "version": None if body.draft is not None else version.version,
+        "mode": body.mode,
+        "domain": domain,
+    }
+    job, _ = enqueue(db, "criteria_test", payload, user.id)
+    db.commit()
+    return job_out(job)

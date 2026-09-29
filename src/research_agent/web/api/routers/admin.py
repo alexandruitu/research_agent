@@ -5,9 +5,11 @@ from sqlalchemy import select
 
 from ...db.models import SourceRow, WorkerStatus
 from ...fields import SOURCE_NAMES, settings_row
-from ..deps import get_db, require_role
+from ...jobs import enqueue
+from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import SettingsOut, SettingsPatch, SourceOut, SourcePatch, WorkerStatusOut
+from ..schemas import JobOut, SettingsOut, SettingsPatch, SourceOut, SourcePatch, WorkerStatusOut
+from .runs import check_active_cap, job_out
 
 router = APIRouter(tags=["settings"])
 LABELS = {"europepmc": "Europe PMC", "openalex": "OpenAlex", "arxiv": "arXiv"}
@@ -48,6 +50,18 @@ def patch_source(name: str, body: SourcePatch, user=Depends(require_role("admin"
         row.max_results = body.max_results
     db.commit()
     return source_out(row)
+
+
+@router.post("/sources/{name}/check", response_model=JobOut, status_code=202)
+def check_source(
+    name: str, user=Depends(require_role("admin")), db=Depends(get_db), settings=Depends(get_settings)
+):
+    """Queue a connection check (the worker searches for one result and records the outcome)."""
+    load_source(db, name)
+    check_active_cap(db, user, settings)
+    job, _ = enqueue(db, "source_check", {"name": name}, user.id)
+    db.commit()
+    return job_out(job)
 
 
 @router.get("/settings", response_model=SettingsOut)
