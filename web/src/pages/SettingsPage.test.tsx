@@ -36,6 +36,20 @@ function setup(role: "viewer" | "member" | "admin", route: string, extra: Parame
   return api;
 }
 
+describe("Settings tabs", () => {
+  it("lists the tabs in order, Users for admins only", async () => {
+    setup("admin", "/settings/sources");
+    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Sources", "Reviewers", "AI models", "Screening", "Full text", "Users"]);
+  });
+
+  it("explains read-only mode to non-admins", async () => {
+    setup("viewer", "/settings/sources");
+    expect(await screen.findByText(/Every run records the settings version it used/)).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Settings sections" })).queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Settings → Sources", () => {
   it("lists every source with its status and last check in words", async () => {
     setup("admin", "/settings/sources");

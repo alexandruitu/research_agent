@@ -1,4 +1,4 @@
-import type { CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
+import type { ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -181,4 +181,53 @@ export const testResult = (over: Partial<CriteriaTestResult> = {}): CriteriaTest
     { source_id: "MED:3", title: "A paper without an abstract", year: 2019, sources: ["europepmc"], probabilities: {}, decision: "not_screened", decided_by: null },
   ],
   summary: { total: 3, kept: 1, dropped: 1, to_llm: 0, not_screened: 1 }, field_id: FIELD_ID, version: null, ...over,
+});
+
+export const settingsContent = (): ReviewSettingsContent => ({
+  models: { plan: null, screen: "anthropic:claude-sonnet-5", screen_criteria: null, extract: null },
+  screening: { keep_min: 0.8, include_fail_max: 0.05, exclude_hit_min: 0.95, exclude_clear_max: 0.2 },
+  fulltext: { sources: ["pmc_oa", "unpaywall", "upload"], contact: "lab@example.org", max_chars: 60000, upload_max_mb: 30 },
+  default_panel: ["methodologist", "clinician", "statistician"],
+  editor: { model: "anthropic:claude-opus-5-5", instructions: "Weigh the reports and give one verdict." },
+});
+
+export const reviewSettings = (over: Partial<ReviewSettingsContent> = {}, version = 3): ReviewSettingsOut => ({
+  current: { ...settingsContent(), ...over, version, note: "tightened", imported: false, created_by_name: "Ada Admin", created_at: "2026-09-29T10:00:00Z", run_count: 2 },
+  versions: [{ version, note: "tightened", imported: false, created_by_name: "Ada Admin", created_at: "2026-09-29T10:00:00Z", run_count: 2 }],
+  defaults: { ...settingsContent(), fulltext: { sources: ["pmc_oa", "upload"], contact: null, max_chars: 60000, upload_max_mb: 30 }, editor: { model: null, instructions: "Default editor." } },
+});
+
+const item = (key: string, text: string, over: Partial<ChecklistItemOut> = {}): ChecklistItemOut => ({ key, text, weight: 1, source: "CLAIM 7", pass_if: "yes", red_flag_if: null, ...over });
+
+export const reviewerOut = (key = "methodologist", name = "Methodologist", over: Partial<ReviewerOut> = {}): ReviewerOut => ({
+  key, current_version: 2, archived_at: null, in_default_panel: true,
+  current: {
+    version: 2, name, perspective: `You judge the study as a ${name.toLowerCase()}. Focus on design.`, model: "anthropic:claude-sonnet-5",
+    items: [
+      item(`${key[0]}1`, "Data were split at patient level, not image level.", { weight: 2, red_flag_if: "no", source: "CLAIM 21" }),
+      item(`${key[0]}2`, "The model was validated on an external dataset.", { weight: 3, source: "TRIPOD+AI 12" }),
+    ],
+    note: "added external validation", imported: false, created_by_name: "Ada Admin", created_at: "2026-09-29T09:00:00Z", run_count: 1,
+  },
+  default: { name, perspective: "Default perspective.", model: null, items: [item(`${key[0]}1`, "Default item.")] },
+  versions: [
+    { version: 2, note: "added external validation", imported: false, created_by_name: "Ada Admin", created_at: "2026-09-29T09:00:00Z", run_count: 1, item_count: 2 },
+    { version: 1, note: "default", imported: false, created_by_name: null, created_at: "2026-09-28T09:00:00Z", run_count: 3, item_count: 1 },
+  ],
+  ...over,
+});
+
+export const reviewerRows = (): ReviewerOut[] => [
+  reviewerOut(),
+  reviewerOut("clinician", "Clinician"),
+  reviewerOut("statistician", "Statistician", { current: { ...reviewerOut("statistician", "Statistician").current, model: "openai:gpt-6" } }),
+];
+
+export const modelsAvailable = (): ModelsAvailableOut => ({
+  models: [
+    { id: "anthropic:claude-sonnet-5", provider: "anthropic", available: true, roles: ["screen"], in_settings: true },
+    { id: "anthropic:claude-opus-5-5", provider: "anthropic", available: true, roles: [], in_settings: true },
+    { id: "openai:gpt-6", provider: "openai", available: false, roles: ["adjudicate"], in_settings: true },
+  ],
+  providers: [{ provider: "anthropic", key_present: true, key_accepted: true }, { provider: "openai", key_present: true, key_accepted: false }],
 });
