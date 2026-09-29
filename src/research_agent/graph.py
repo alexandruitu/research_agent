@@ -1,12 +1,23 @@
 import itertools
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from .agents import validate_evidence
 from .connectors import deduplicate
 from .criteria import criterion_keys, decide_llm, screen_payload
-from .schemas import CriteriaScreen, Decision, Evidence, Paper, Plan, Review, Screen
+from .schemas import (
+    CriteriaScreen,
+    Decision,
+    EditorDecision,
+    Evidence,
+    PanelReview,
+    Paper,
+    Plan,
+    Review,
+    Screen,
+)
+from .scoring import rank_panel, score_paper
 
 NO_ABSTRACT = "No abstract available; retained in audit, unranked."
 
@@ -20,6 +31,17 @@ def plan_payload(contract):
     return payload
 
 
+def merge(left, right):
+    return {**(left or {}), **(right or {})}
+
+
+def effective_domain(domain, review):
+    """review.json's screening thresholds (when set) replace the field's for this run."""
+    if domain and review and review.get("screening"):
+        return {**domain, "thresholds": review["screening"]}
+    return domain
+
+
 class State(TypedDict, total=False):
     contract: dict
     plan: dict
@@ -31,6 +53,11 @@ class State(TypedDict, total=False):
     reviews_b: dict
     decisions: dict
     ranking: list[dict]
+    # Panel runs (review.json) only:
+    texts: dict  # paper id -> text used (source, reason, sections, sha256 of the content in `raw`)
+    panel: Annotated[dict, merge]  # reviewer key -> paper id -> review (reviewers write in parallel)
+    editor_decisions: dict
+    review: dict  # paper id -> per-paper panel result for report.json
 
 
 def disagreement(a, b):
@@ -44,7 +71,19 @@ def score(review):
     return round(100 * (0.4 * review["relevance"] + 0.3 * review["methods"] + 0.3 * review["support"]) / 4, 2)
 
 
-def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, observer=None, jev=None):
+def build_graph(
+    connector,
+    evaluator,
+    checkpointer=None,
+    interrupt_after=None,
+    observer=None,
+    jev=None,
+    fulltext=None,
+    panel=None,
+):
+    """Legacy graph (review_a/review_b/adjudicate) unless `fulltext` and `panel` (review.json's reviewers)
+    are given: then screen -> fulltext -> extract -> review_<key> (parallel) -> editor -> score -> rank."""
+
     def plan(s):
         return {"plan": evaluator.ask("plan", Plan, plan_payload(s["contract"])).model_dump()}
 
@@ -114,7 +153,8 @@ def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, o
         return entry
 
     def screen(s):
-        topic, domain, results = s["contract"]["topic"], s["contract"].get("domain"), {}
+        topic, results = s["contract"]["topic"], {}
+        domain = effective_domain(s["contract"].get("domain"), s["contract"].get("review"))
         for paper in s["papers"]:
             if not paper["abstract"]:
                 keys = criterion_keys(domain["criteria"]) if domain else []
@@ -199,6 +239,101 @@ def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, o
         ]
         return {"ranking": sorted(rows, key=lambda r: (-r["score"], r["paper_id"]))[:10]}
 
+    def kept(s, paper):
+        return s["screens"][paper["id"]]["decision"] != "exclude" and bool(paper["abstract"])
+
+    def fulltext_node(s):
+        texts = {}
+        for paper in s["papers"]:
+            if kept(s, paper):
+                text = fulltext.resolve(paper)
+                content = text.pop("content")
+                # The text itself goes to the Raw Layer; state (and report.json) keep its hash.
+                text["sha256"] = evaluator.store.raw({"fulltext": content})
+                text["chars"] = len(content)
+                texts[paper["id"]] = text
+        return {"texts": texts}
+
+    def reviewed_text(entry):
+        return evaluator.store.raw_payload(entry["sha256"])["fulltext"]
+
+    def brief(paper):
+        return {"id": paper["id"], "title": paper["title"], "year": paper["year"]}
+
+    def panel_reviewer(spec):
+        def run(s):
+            # No sibling review enters the prompt; weights and red-flag rules stay in code.
+            out = {}
+            for paper in s["papers"]:
+                if paper["id"] not in s["evidence"]:
+                    continue
+                entry = s["texts"][paper["id"]]
+                payload = {
+                    "topic": s["contract"]["topic"],
+                    "paper": brief(paper),
+                    "text": {"source": entry["text_source"], "content": reviewed_text(entry)},
+                    "reviewer": {"name": spec["name"], "perspective": spec["perspective"]},
+                    "items": [{"key": i["key"], "text": i["text"]} for i in spec["items"]],
+                }
+                out[paper["id"]] = evaluator.ask(f"review:{spec['key']}", PanelReview, payload).model_dump()
+            return {"panel": {spec["key"]: out}}
+
+        return run
+
+    def editor(s):
+        spec = s["contract"]["review"]
+        out = {}
+        for paper in s["papers"]:
+            if paper["id"] not in s["evidence"]:
+                continue
+            reviews = {
+                r["key"]: {"name": r["name"], **s["panel"][r["key"]][paper["id"]]} for r in spec["panel"]
+            }
+            payload = {
+                "topic": s["contract"]["topic"],
+                "paper": brief(paper),
+                "text_source": s["texts"][paper["id"]]["text_source"],
+                "reviews": reviews,
+                "instructions": spec["editor"]["instructions"],
+            }
+            out[paper["id"]] = evaluator.ask("editor", EditorDecision, payload).model_dump()
+        return {"editor_decisions": out}
+
+    def score_node(s):
+        reviewers = s["contract"]["review"]["panel"]
+        review = {}
+        for pid, decision in s["editor_decisions"].items():
+            reviews = {r["key"]: s["panel"][r["key"]][pid] for r in reviewers}
+            scored = score_paper(reviewers, reviews)
+            text = s["texts"][pid]
+            review[pid] = {
+                "text_source": text["text_source"],
+                "text_reason": text["reason"],
+                "text_origin": text["origin"],
+                "text_sections": text["sections"],
+                "text_truncated": text["truncated"],
+                "text_chars": text["chars"],
+                "reviews": {
+                    r["key"]: {
+                        "name": r["name"],
+                        "version": r["version"],
+                        **reviews[r["key"]],
+                        "score": scored["reviewers"][r["key"]]["score"],
+                        "coverage": scored["reviewers"][r["key"]]["coverage"],
+                    }
+                    for r in reviewers
+                },
+                "editor": decision,
+                "score": scored["score"],
+                "coverage": scored["coverage"],
+                "red_flags": scored["red_flags"],
+            }
+        # Legacy keys stay (empty) so report.json readers written for review_a/b keep working.
+        return {"review": review, "reviews_a": {}, "reviews_b": {}, "decisions": {}}
+
+    def rank_panel_node(s):
+        return {"ranking": rank_panel(s["review"])}
+
     def observed(name, node):
         def invoke(state):
             observer(name, "running")
@@ -213,6 +348,31 @@ def build_graph(connector, evaluator, checkpointer=None, interrupt_after=None, o
         return invoke
 
     graph = StateGraph(State)
+    if fulltext is not None:
+        reviewer_nodes = [(f"review_{r['key']}", panel_reviewer(r)) for r in panel]
+        nodes = [
+            ("plan", plan),
+            ("discover", discover),
+            ("normalize", normalize),
+            ("screen", screen),
+            ("fulltext", fulltext_node),
+            ("extract", extract),
+            *reviewer_nodes,
+            ("editor", editor),
+            ("score", score_node),
+            ("rank", rank_panel_node),
+        ]
+        for name, node in nodes:
+            graph.add_node(name, observed(name, node) if observer else node)
+        chain = [START, "plan", "discover", "normalize", "screen", "fulltext", "extract"]
+        for a, b in itertools.pairwise(chain):
+            graph.add_edge(a, b)
+        for name, _node in reviewer_nodes:
+            graph.add_edge("extract", name)
+        graph.add_edge([name for name, _node in reviewer_nodes], "editor")
+        for a, b in itertools.pairwise(["editor", "score", "rank", END]):
+            graph.add_edge(a, b)
+        return graph.compile(checkpointer=checkpointer, interrupt_after=interrupt_after or [])
     for name, node in [
         ("plan", plan),
         ("discover", discover),
