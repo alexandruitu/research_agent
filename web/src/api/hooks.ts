@@ -1,15 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "./client";
+import { api, uploadFile } from "./client";
 import type {
-  CallOut, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
+  CallOut, DrawerOut, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
   SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
 
 export type PaperParams = {
   page: number; page_size: number; sort: string; direction: "asc" | "desc";
   decision?: string; tier?: string; escalated?: boolean; in_sr?: boolean; criterion?: string; p_min?: number; p_max?: number;
-  decided_by?: string; source?: string;
+  decided_by?: string; source?: string; has_red_flags?: boolean;
 };
 
 export const keys = {
@@ -30,6 +30,12 @@ export const keys = {
   sources: ["sources"] as const,
   settings: ["settings"] as const,
   workers: ["workers"] as const,
+  allReviewers: ["reviewers"] as const,
+  reviewers: (archived: boolean) => ["reviewers", { archived }] as const,
+  reviewer: (key: string) => ["reviewer", key] as const,
+  reviewSettings: ["review-settings"] as const,
+  models: ["models-available"] as const,
+  paperFiles: (paperId: string) => ["paper-files", paperId] as const,
 };
 
 export const newIdempotencyKey = () =>
@@ -154,5 +160,78 @@ export function usePatchUser() {
   return useMutation({
     mutationFn: ({ id, ...body }: { id: string; role?: string; active?: boolean; name?: string; password?: string }) => api.patch<UserOut>(`/users/${id}`, { body }),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.users }),
+  });
+}
+
+export const useReviewers = (archived = false) =>
+  useQuery({ queryKey: keys.reviewers(archived), queryFn: () => api.get<ReviewerOut[]>("/reviewers", { archived }) });
+export const useReviewer = (key: string | null) =>
+  useQuery({ queryKey: keys.reviewer(key ?? ""), enabled: !!key, queryFn: () => api.get<ReviewerOut>(`/reviewers/${key}`) });
+export const useReviewSettings = () => useQuery({ queryKey: keys.reviewSettings, queryFn: () => api.get<ReviewSettingsOut>("/settings/review") });
+export const useModelsAvailable = () => useQuery({ queryKey: keys.models, queryFn: () => api.get<ModelsAvailableOut>("/models/available") });
+export const usePaperFiles = (paperId: string | null) =>
+  useQuery({ queryKey: keys.paperFiles(paperId ?? ""), enabled: !!paperId, queryFn: () => api.get<PaperFileOut[]>(`/papers/${paperId}/files`) });
+
+/** Creates a reviewer (key null) or saves its next version against `baseVersion` (409 stale_version if it moved on). */
+export function useSaveReviewer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, baseVersion, body }: { key: string | null; baseVersion: number | null; body: Omit<ReviewerSave, "base_version"> & { key?: string | null } }) =>
+      key
+        ? api.post<ReviewerOut>(`/reviewers/${key}/versions`, { body: { ...body, base_version: baseVersion } })
+        : api.post<ReviewerOut>("/reviewers", { body: body as ReviewerCreate }),
+    onSuccess: (reviewer) => {
+      client.setQueryData(keys.reviewer(reviewer.key), reviewer);
+      void client.invalidateQueries({ queryKey: keys.allReviewers });
+      void client.invalidateQueries({ queryKey: keys.models });
+    },
+  });
+}
+
+export function useArchiveReviewer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, archive }: { key: string; archive: boolean }) => api.post<ReviewerOut>(`/reviewers/${key}/${archive ? "archive" : "restore"}`),
+    onSuccess: (reviewer) => {
+      client.setQueryData(keys.reviewer(reviewer.key), reviewer);
+      void client.invalidateQueries({ queryKey: keys.allReviewers });
+    },
+  });
+}
+
+export type ReviewSettingsBody = ReviewSettingsContent & { note: string; base_version: number };
+
+export function useSaveReviewSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ReviewSettingsBody) => api.post<ReviewSettingsOut>("/settings/review", { body }),
+    onSuccess: (settings) => {
+      client.setQueryData(keys.reviewSettings, settings);
+      void client.invalidateQueries({ queryKey: keys.allReviewers });
+      void client.invalidateQueries({ queryKey: keys.models });
+    },
+  });
+}
+
+export function useUploadPaperFile(paperId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, onProgress }: { file: File; onProgress?: (fraction: number) => void }) =>
+      uploadFile<PaperFileOut>(`/papers/${paperId}/files`, file, onProgress),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.paperFiles(paperId) });
+      void client.invalidateQueries({ queryKey: ["paper"] });
+    },
+  });
+}
+
+export function useDeletePaperFile(paperId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) => api.delete(`/papers/${paperId}/files/${fileId}`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.paperFiles(paperId) });
+      void client.invalidateQueries({ queryKey: ["paper"] });
+    },
   });
 }

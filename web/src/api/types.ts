@@ -27,6 +27,25 @@ export type ReviewOut = S["ReviewOut"];
 export type SourceOut = S["SourceOut"];
 export type SettingsOut = S["SettingsOut"];
 export type WorkerStatusOut = S["WorkerStatusOut"];
+export type ReviewerOut = S["ReviewerOut"];
+export type ReviewerVersionOut = S["ReviewerVersionOut"];
+export type ReviewerContent = S["ReviewerContent"];
+export type ChecklistItemIn = S["ChecklistItemIn"];
+export type ChecklistItemOut = S["ChecklistItemOut"];
+export type ReviewerSave = S["ReviewerSave"];
+export type ReviewerCreate = S["ReviewerCreate"];
+export type ReviewSettingsOut = S["ReviewSettingsOut"];
+export type ReviewSettingsContent = S["ReviewSettingsContent"];
+export type ReviewSettingsVersionOut = S["ReviewSettingsVersionOut"];
+export type ScreeningIO = S["ScreeningIO"];
+export type FulltextIO = S["FulltextIO"];
+export type RoleModelsIO = S["RoleModelsIO"];
+export type ModelsAvailableOut = S["ModelsAvailableOut"];
+export type AvailableModelOut = S["AvailableModelOut"];
+export type PanelOut = S["PanelOut"];
+export type PanelReportOut = S["PanelReportOut"];
+export type PanelAnswerOut = S["PanelAnswerOut"];
+export type PaperFileOut = S["PaperFileOut"];
 
 /** A job's `progress` while running ({status, done, total}) and when done ({status, result}). */
 export type JobProgressData = { status?: string; done?: number; total?: number; result?: unknown };

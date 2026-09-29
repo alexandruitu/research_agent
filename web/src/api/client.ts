@@ -29,6 +29,22 @@ export const onUnauthorized = (listener: () => void): (() => void) => {
   };
 };
 
+type ErrorBody = { code?: string; message?: string; request_id?: string; fields?: { loc: string; message: string }[] };
+
+function toApiError(status: number, statusText: string, data: unknown): ApiError {
+  const body = (data ?? {}) as ErrorBody;
+  if (status === 401) unauthorizedListeners.forEach((listener) => listener());
+  return new ApiError(status, body.code ?? "error", body.message ?? (statusText || "Request failed"), body.request_id ?? "-", body.fields);
+}
+
+const parse = (text: string): unknown => {
+  try {
+    return text ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 async function request<T>(method: string, path: string, options: Options = {}): Promise<T> {
   const url = new URL(`/api/v1${path}`, window.location.origin);
   for (const [key, value] of Object.entries(options.params ?? {})) {
@@ -44,23 +60,40 @@ async function request<T>(method: string, path: string, options: Options = {}): 
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
   if (response.status === 204) return undefined as T;
-  const text = await response.text();
-  let data: unknown;
-  try {
-    data = text ? JSON.parse(text) : undefined;
-  } catch {
-    data = undefined;
-  }
-  if (!response.ok) {
-    const body = (data ?? {}) as { code?: string; message?: string; request_id?: string; fields?: { loc: string; message: string }[] };
-    if (response.status === 401) unauthorizedListeners.forEach((listener) => listener());
-    throw new ApiError(response.status, body.code ?? "error", body.message ?? (response.statusText || "Request failed"), body.request_id ?? "-", body.fields);
-  }
+  const data = parse(await response.text());
+  if (!response.ok) throw toApiError(response.status, response.statusText, data);
   return data as T;
+}
+
+/**
+ * POSTs one file as multipart (field `file`). XMLHttpRequest, because fetch cannot report upload progress;
+ * cookies and the CSRF header as for `api`.
+ */
+export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/v1${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Accept", "application/json");
+    if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network", "Could not reach the server.", "-"));
+    xhr.onload = () => {
+      const data = parse(xhr.responseText);
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
+      else reject(toApiError(xhr.status, "", data));
+    };
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
+  });
 }
 
 export const api = {
   get: <T>(path: string, params?: Params) => request<T>("GET", path, { params }),
   post: <T>(path: string, options?: Options) => request<T>("POST", path, options),
   patch: <T>(path: string, options?: Options) => request<T>("PATCH", path, options),
+  delete: <T = void>(path: string) => request<T>("DELETE", path),
 };

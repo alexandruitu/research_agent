@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mockApi } from "../test/mockApi";
-import { ApiError, api, onUnauthorized, setCsrfToken } from "./client";
+import { fakeXhr } from "../test/fakeXhr";
+import { ApiError, api, onUnauthorized, setCsrfToken, uploadFile } from "./client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,5 +57,34 @@ describe("api client", () => {
     await expect(api.get("/runs")).rejects.toBeInstanceOf(ApiError);
     expect(listener).toHaveBeenCalledTimes(1);
     off();
+  });
+});
+
+describe("uploads and deletes", () => {
+  it("uploadFile posts multipart with cookies and the CSRF token, and reports progress", async () => {
+    const { sent } = fakeXhr({ status: 201, body: { id: "x" }, progress: [0.5, 1] });
+    setCsrfToken("t");
+    const seen: number[] = [];
+    const row = await uploadFile("/papers/p/files", new File(["%PDF-1.4"], "a.pdf"), (f) => seen.push(f));
+    expect(sent[0]).toMatchObject({ method: "POST", url: "/api/v1/papers/p/files", withCredentials: true });
+    expect(sent[0]?.headers["X-CSRF-Token"]).toBe("t");
+    expect(sent[0]?.body).toBeInstanceOf(FormData);
+    expect((sent[0]?.body as FormData).get("file")).toBeInstanceOf(File);
+    expect(seen).toEqual([0.5, 1]);
+    expect(row).toEqual({ id: "x" });
+  });
+
+  it("uploadFile turns an error body into an ApiError, and a network failure too", async () => {
+    fakeXhr({ status: 413, body: { code: "too_large", message: "The PDF is larger than 30 MB", request_id: "r1" } });
+    await expect(uploadFile("/papers/p/files", new File(["x"], "a.pdf"))).rejects.toMatchObject({ status: 413, code: "too_large", message: "The PDF is larger than 30 MB" });
+    fakeXhr({ status: 0 });
+    await expect(uploadFile("/papers/p/files", new File(["x"], "a.pdf"))).rejects.toMatchObject({ code: "network" });
+  });
+
+  it("api.delete sends DELETE with the CSRF token", async () => {
+    const { calls } = mockApi({ "DELETE /api/v1/x": { status: 204 } });
+    setCsrfToken("t");
+    expect(await api.delete("/x")).toBeUndefined();
+    expect(calls[0]?.headers.get("X-CSRF-Token")).toBe("t");
   });
 });
