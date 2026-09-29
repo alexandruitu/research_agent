@@ -251,3 +251,55 @@ def test_import_links_by_content_and_reimport_is_unchanged(db, tmp_path):
     assert current_settings(db).version == 1  # an imported version never becomes current
     assert get_profile(db, "newcomer").current_version == 1
     assert get_profile(db, "methodologist").current_version == 1
+
+
+def test_paper_table_and_drawer_show_the_panel(db, tmp_path, sign_in, settings):
+    from research_agent.web.importer.research import import_research_run
+
+    run_id = import_research_run(db, make_panel_run(settings.runs_dir / "p1", red_flag=True)).run_id
+    db.commit()
+    viewer, _ = sign_in("viewer")
+    page = viewer.get(f"{API}/runs/{run_id}/papers?sort=score&direction=desc").json()
+    rows = page["items"]
+    assert page["total"] == 3
+    scores = [r["score"] for r in rows]
+    assert scores == sorted(scores, reverse=True) and all(s is not None for s in scores)
+    assert all(r["text_source"] == "abstract" and 0 <= r["coverage"] <= 1 for r in rows)
+    assert sorted(r["red_flag_count"] for r in rows) == [0, 0, 1]
+    flagged = viewer.get(f"{API}/runs/{run_id}/papers?has_red_flags=true").json()["items"]
+    assert [r["paper"]["source_id"] for r in flagged] == ["demo:2"]
+    clean = viewer.get(f"{API}/runs/{run_id}/papers?has_red_flags=false").json()["items"]
+    assert sorted(r["paper"]["source_id"] for r in clean) == ["demo:1", "demo:3"]
+
+    paper_id = flagged[0]["paper"]["id"]
+    member, csrf = sign_in("member")
+    upload = member.post(f"{API}/papers/{paper_id}/files", files={"file": ("p.pdf", PDF)}, headers=csrf)
+    assert upload.status_code == 201
+    drawer = viewer.get(f"{API}/runs/{run_id}/papers/{paper_id}").json()
+    panel = drawer["panel"]
+    assert panel["text_source"] == "abstract" and panel["red_flag_count"] == 1
+    assert panel["text_reason"] == "pmc_oa: no PMCID; upload: no uploaded PDF"
+    assert panel["editor"]["verdict"] and panel["editor"]["call_key"]
+    assert [r["key"] for r in panel["reviews"]] == ["methodologist", "clinician", "statistician"]
+    first = panel["reviews"][0]["answers"][0]
+    item = DEFAULT_PANEL[0]["items"][0]
+    assert (first["key"], first["text"], first["source"], first["weight"]) == (
+        item["key"],
+        item["text"],
+        item["source"],
+        item["weight"],
+    )
+    assert panel["red_flags"][0]["raised_by"][0]["reviewer"] == "methodologist"
+    [listed] = drawer["files"]
+    assert listed["filename"] == "p.pdf" and listed["can_delete"] is False  # the viewer did not upload it
+    call = member.get(f"{API}/runs/{run_id}/calls/{panel['reviews'][0]['call_key']}").json()
+    assert call["role"] == "review:methodologist"
+
+
+def test_legacy_runs_have_no_panel(sign_in, imported):
+    viewer, _ = sign_in("viewer")
+    rows = viewer.get(f"{API}/runs/{imported['research']}/papers").json()["items"]
+    assert all(r["score"] is None and r["red_flag_count"] is None for r in rows)
+    paper_id = rows[0]["paper"]["id"]
+    drawer = viewer.get(f"{API}/runs/{imported['research']}/papers/{paper_id}").json()
+    assert drawer["panel"] is None and drawer["files"] == []

@@ -357,7 +357,7 @@ class RankCell(Model):
 
 
 class PaperRow(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["sources"])
+    ADDED: ClassVar[frozenset] = frozenset(["sources", "score", "coverage", "red_flag_count", "text_source"])
     paper: PaperRef
     found_by: str
     sources: list[str] = Field(default_factory=list)  # europepmc | openalex | arxiv | demo
@@ -366,6 +366,11 @@ class PaperRow(Model):
     extract: ExtractCell | MissingCell | None
     reviews: ReviewsCell | MissingCell | None
     rank: RankCell | None
+    # panel runs (null for legacy runs and papers the panel did not review)
+    score: float | None = None  # 0-100, computed in code from the checklist answers
+    coverage: float | None = None  # 0-1: share of checklist items answered yes or no
+    red_flag_count: int | None = None
+    text_source: str | None = None  # pmc_oa | unpaywall | upload | abstract
 
 
 class PaperPage(Model):
@@ -430,8 +435,85 @@ class ReviewOut(Model):
     call_key: str | None
 
 
+class PaperFileOut(Model):
+    id: uuid.UUID
+    filename: str
+    size: int  # bytes
+    sha256: str
+    uploaded_by_name: str | None
+    created_at: datetime
+    can_delete: bool  # the signed-in user uploaded it, or is an admin
+
+
+class PanelAnswerOut(Model):
+    key: str
+    text: str | None  # the checklist item as the reviewer version states it (null: version unknown)
+    source: str | None  # e.g. "CLAIM 2020 #21"
+    weight: int | None
+    answer: str  # yes | no | unclear | not_reported
+    quote: str  # exact span of the text reviewed ("" when none)
+    section: str  # section of the full text the quote comes from ("" when unknown)
+    red_flag: bool  # this answer raises the item's red flag
+
+
+class PanelReportOut(Model):
+    key: str
+    name: str
+    version: int
+    verdict: str  # include | exclude | uncertain
+    score: float | None
+    coverage: float | None
+    strengths: list[str]
+    weaknesses: list[str]
+    summary: str
+    call_key: str | None
+    answers: list[PanelAnswerOut]
+
+
+class DisagreementOut(Model):
+    item: str
+    reviewers: list[str]
+    note: str
+
+
+class EditorOut(Model):
+    verdict: str | None
+    reason: str
+    disagreements: list[DisagreementOut]
+    call_key: str | None
+
+
+class RaisedByOut(Model):
+    reviewer: str
+    item: str
+    answer: str
+    quote: str
+    section: str
+
+
+class RedFlagOut(Model):
+    text: str
+    source: str | None
+    raised_by: list[RaisedByOut]
+
+
+class PanelOut(Model):
+    text_source: str  # pmc_oa | unpaywall | upload | abstract
+    text_reason: str | None  # why full text was not used, source by source
+    text_origin: str | None  # URL, or "upload:<sha256>"
+    text_sections: list[str]
+    text_truncated: bool
+    text_chars: int | None
+    editor: EditorOut
+    reviews: list[PanelReportOut]  # in panel order
+    red_flags: list[RedFlagOut]
+    score: float | None
+    coverage: float | None
+    red_flag_count: int
+
+
 class DrawerOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["sources"])
+    ADDED: ClassVar[frozenset] = frozenset(["sources", "panel", "files"])
     paper: PaperDetail
     found_by: str
     sources: list[str] = Field(default_factory=list)
@@ -441,6 +523,8 @@ class DrawerOut(Model):
     claims: list[ClaimOut]
     reviews: list[ReviewOut]
     rank: RankCell | None
+    panel: PanelOut | None = None  # the review panel (panel runs)
+    files: list[PaperFileOut] = Field(default_factory=list)  # uploaded full-text PDFs of this paper
 
 
 class CallOut(Model):
@@ -669,13 +753,3 @@ class AvailableModelOut(Model):
 class ModelsAvailableOut(Model):
     models: list[AvailableModelOut]
     providers: list[ProviderOut]
-
-
-class PaperFileOut(Model):
-    id: uuid.UUID
-    filename: str
-    size: int  # bytes
-    sha256: str
-    uploaded_by_name: str | None
-    created_at: datetime
-    can_delete: bool  # the signed-in user uploaded it, or is an admin

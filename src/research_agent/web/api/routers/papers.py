@@ -9,6 +9,7 @@ from ...papers import PaperQuery, paper_drawer, paper_table
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
 from ..schemas import CallOut, DrawerOut, PaperPage
+from .files import files_of
 
 router = APIRouter(prefix="/runs", tags=["papers"])
 MAX_PAGE = 100_000  # keeps (page - 1) * page_size far inside a SQL bigint offset
@@ -30,6 +31,7 @@ def list_papers(
     p_max: float | None = Query(None, ge=0, le=1),
     decided_by: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
     source: Literal["europepmc", "openalex", "arxiv", "demo"] | None = None,
+    has_red_flags: bool | None = None,
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
     settings=Depends(get_settings),
@@ -59,6 +61,7 @@ def list_papers(
         p_max,
         decided_by,
         source,
+        has_red_flags,
     )
     items, total = paper_table(db, run, query)
     return PaperPage(items=items, total=total, page=page, page_size=page_size)
@@ -74,7 +77,7 @@ def get_paper(
     drawer = paper_drawer(db, run, paper)
     if drawer is None:
         raise ApiError(404, "not_found", "This paper is not part of the run")
-    return drawer
+    return drawer | {"files": files_of(db, user, paper.id)}
 
 
 @router.get("/{run_id}/calls/{call_key}", response_model=CallOut)

@@ -13,9 +13,13 @@ from .db.models import (
     CriterionScore,
     EvidenceClaim,
     GoldLabel,
+    PanelReport,
     Paper,
+    PaperReview,
     Ranking,
+    RedFlag,
     Review,
+    ReviewerVersion,
     Screening,
 )
 
@@ -37,6 +41,7 @@ class PaperQuery:
     p_max: float | None = None
     decided_by: str | None = None
     source: str | None = None
+    has_red_flags: bool | None = None
 
 
 def _criterion_probability(key):
@@ -78,7 +83,7 @@ def reviews_cell(verdicts, adjudication_expected, expected):
     return {"a": a, "b": b, "adjudicated": adjudicated, "adjudicator": adjudicator}
 
 
-def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label):
+def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label, panel=None):
     expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
     if quotes:
         extract = {"claims": len(quotes), "quotes_verified": quotes_verified(quotes, paper.abstract)}
@@ -108,6 +113,9 @@ def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expec
         "extract": extract,
         "reviews": reviews,
         "rank": {"score": rank[0], "position": rank[1]} if rank[0] is not None else None,
+        **dict(
+            zip(("score", "coverage", "red_flag_count", "text_source"), panel or (None,) * 4, strict=True)
+        ),
     }
 
 
@@ -117,8 +125,8 @@ def _sort_key(sort):
         return func.lower(Paper.title)
     if sort == "year":
         return Paper.year
-    if sort == "score":
-        return Ranking.score
+    if sort == "score":  # a panel run's score for every reviewed paper; the ranking score otherwise
+        return func.coalesce(PaperReview.score, Ranking.score)
     if sort.startswith("criterion:"):
         return _criterion_probability(sort.split(":", 1)[1])  # a bound parameter, not SQL text
     raise ValueError(f"unknown sort {sort!r}")
@@ -144,6 +152,10 @@ def paper_table(db, run, q):
             Ranking.score,
             Ranking.position,
             gl.label,
+            PaperReview.score,
+            PaperReview.coverage,
+            PaperReview.red_flag_count,
+            PaperReview.text_source,
         )
         .join(Paper, Paper.id == Screening.paper_id)
         .outerjoin(ra, review_join(ra, "a"))
@@ -151,6 +163,10 @@ def paper_table(db, run, q):
         .outerjoin(rj, review_join(rj, "adjudicator"))
         .outerjoin(Ranking, and_(Ranking.run_id == Screening.run_id, Ranking.paper_id == Screening.paper_id))
         .outerjoin(gl, and_(gl.gold_set_id == run.gold_set_id, gl.paper_id == Screening.paper_id))
+        .outerjoin(
+            PaperReview,
+            and_(PaperReview.run_id == Screening.run_id, PaperReview.paper_id == Screening.paper_id),
+        )
         .where(Screening.run_id == run.id)
     )
     if q.decision:
@@ -171,6 +187,10 @@ def paper_table(db, run, q):
         stmt = stmt.where(Screening.decided_by == q.decided_by)
     if q.source:
         stmt = stmt.where(Screening.sources.contains([q.source]))
+    if q.has_red_flags is True:
+        stmt = stmt.where(PaperReview.red_flag_count > 0)
+    elif q.has_red_flags is False:
+        stmt = stmt.where(or_(PaperReview.id.is_(None), PaperReview.red_flag_count == 0))
     if q.criterion:
         conditions = [CriterionScore.screening_id == Screening.id, Criterion.key == q.criterion]
         if q.p_min is not None:
@@ -226,8 +246,9 @@ def paper_table(db, run, q):
             any((d or {}).get("adjudicated") is True for d in (da, db_)),
             (score, position),
             label,
+            panel,
         )
-        for s, p, va, vb, vj, da, db_, score, position, label in rows
+        for s, p, va, vb, vj, da, db_, score, position, label, *panel in rows
     ]
     return items, total
 
@@ -292,6 +313,7 @@ def paper_drawer(db, run, paper):
     )
     rank = db.scalar(select(Ranking).where(Ranking.run_id == run.id, Ranking.paper_id == paper.id))
     return {
+        "panel": panel_drawer(db, run, paper),
         "paper": {
             "id": paper.id,
             "source_id": paper.source_id,
@@ -331,4 +353,81 @@ def paper_drawer(db, run, paper):
             for r in reviews
         ],
         "rank": {"score": rank.score, "position": rank.position} if rank else None,
+    }
+
+
+def _answer(item, answer):
+    """A reviewer's answer with the item it answers (text, source, weight from the reviewer version)."""
+    item = item or {}
+    return {
+        "key": answer["key"],
+        "text": item.get("text"),
+        "source": item.get("source"),
+        "weight": item.get("weight"),
+        "answer": answer["answer"],
+        "quote": answer.get("quote", ""),
+        "section": answer.get("section", ""),
+        "red_flag": item.get("red_flag_if") is not None and answer["answer"] == item.get("red_flag_if"),
+    }
+
+
+def panel_drawer(db, run, paper):
+    """The panel review of one paper in one run (null for legacy runs and papers the panel did not review)."""
+    review = db.scalar(
+        select(PaperReview).where(PaperReview.run_id == run.id, PaperReview.paper_id == paper.id)
+    )
+    if review is None:
+        return None
+    reports = []
+    for report in db.scalars(
+        select(PanelReport)
+        .where(PanelReport.paper_review_id == review.id)
+        .order_by(PanelReport.position, PanelReport.reviewer_key)
+    ):
+        version = db.get(ReviewerVersion, report.reviewer_version_id) if report.reviewer_version_id else None
+        items = {item["key"]: item for item in (version.items if version else [])}
+        reports.append(
+            {
+                "key": report.reviewer_key,
+                "name": report.name,
+                "version": report.version,
+                "verdict": report.verdict,
+                "score": report.score,
+                "coverage": report.coverage,
+                "strengths": report.strengths,
+                "weaknesses": report.weaknesses,
+                "summary": report.summary,
+                "call_key": report.call_key,
+                "answers": [_answer(items.get(a["key"]), a) for a in report.answers],
+            }
+        )
+    flags = db.scalars(select(RedFlag).where(RedFlag.paper_review_id == review.id).order_by(RedFlag.position))
+    return {
+        "text_source": review.text_source,
+        "text_reason": review.text_reason,
+        "text_origin": review.text_origin,
+        "text_sections": review.text_sections,
+        "text_truncated": review.text_truncated,
+        "text_chars": review.text_chars,
+        "editor": {
+            "verdict": review.editor_verdict,
+            "reason": review.editor_reason,
+            "disagreements": review.disagreements,
+            "call_key": review.editor_call_key,
+        },
+        "reviews": reports,
+        "red_flags": [
+            {
+                "text": f.text,
+                "source": f.source,
+                "raised_by": [
+                    {k: r.get(k, "") for k in ("reviewer", "item", "answer", "quote", "section")}
+                    for r in f.raised_by
+                ],
+            }
+            for f in flags
+        ],
+        "score": review.score,
+        "coverage": review.coverage,
+        "red_flag_count": review.red_flag_count,
     }
