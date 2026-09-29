@@ -94,13 +94,47 @@ test.describe("member", () => {
     await row.getByRole("link", { name: /See papers/ }).click();
     await expect(page.locator("table.papers tbody tr")).toHaveCount(3);
   });
+  test("creates a field, tests its criteria in demo mode, starts a demo run and sees what decided", async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.goto("/fields");
+    await page.getByRole("link", { name: "New field" }).click();
+    await page.getByLabel("Name", { exact: true }).fill("E2E plaque");
+    await page.getByLabel(/^Topic/).fill("AI plaque characterisation on coronary CT angiography");
+    const include = ["The study uses machine learning or deep learning.", "Plaque is assessed on coronary CT angiography."];
+    for (const [index, text] of include.entries()) {
+      await page.getByRole("button", { name: "Add inclusion criterion" }).click();
+      await page.getByLabel(`incl ${index + 1}`, { exact: true }).fill(text);
+    }
+    await page.getByRole("button", { name: "Add exclusion criterion" }).click();
+    await page.getByLabel("excl 1", { exact: true }).fill("The paper is a review or an editorial.");
+    await page.getByLabel("Change note").fill("first version");
+    await page.getByRole("button", { name: "Create field" }).click();
+    await expect(page.getByRole("heading", { name: "E2E plaque (v1)" })).toBeVisible();
+
+    await page.getByLabel(/Demo mode/).check();
+    await page.getByRole("button", { name: "Test criteria" }).click();
+    const results = page.getByRole("region", { name: "Criteria test" });
+    await expect(results.getByRole("table")).toBeVisible({ timeout: 60_000 });
+    await expect(results).toContainText(/\d+ papers · \d+ kept · \d+ dropped/);
+
+    await page.goto("/fields");
+    await page.getByRole("link", { name: "Start run for E2E plaque" }).click();
+    await page.getByLabel("Papers to screen").fill("3");
+    await page.getByLabel(/Demo mode/).check();
+    await page.getByRole("button", { name: "Start run" }).click();
+    await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
+    await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /See papers/ }).click();
+    await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque · v1");
+    await expect(page.locator("table.papers tbody tr").first()).toContainText(/all met|dropped by (incl|excl) \d|no single criterion decided/);
+    await expect(page.getByRole("combobox", { name: "Dropped by criterion" })).toContainText("incl 1: The study uses machine learning or deep learning.");
+  });
 });
 
 test.describe("admin", () => {
   test.use({ storageState: auth("admin") });
 
   test("invites a user who can then sign in", async ({ page }) => {
-    await page.goto("/users");
+    await page.goto("/settings/users");
     // the label wraps the select, so its accessible name also carries the selected option: scope to the form
     const invite = page.getByRole("form", { name: "Invite a user" });
     await invite.getByLabel("Email").fill("nina@example.org");

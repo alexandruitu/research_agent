@@ -66,11 +66,47 @@ test.describe("member", () => {
   });
 });
 
-test.describe("admin", () => {
-  test.use({ storageState: auth("admin") });
-  test("users", async ({ page }) => {
-    await page.goto("/users");
-    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
-    await audit(page);
+test.describe("fields and settings", () => {
+  test.describe("member", () => {
+    test.use({ storageState: auth("member") });
+    test("fields list", async ({ page }) => {
+      await page.goto("/fields");
+      await expect(page.getByRole("heading", { name: "Fields" })).toBeVisible();
+      await audit(page);
+    });
+    test("field editor with test results", async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.goto("/fields");
+      await page.locator("table.runs tbody tr a").first().click();
+      await expect(page.getByRole("form", { name: "Field editor" })).toBeVisible();
+      await page.getByRole("button", { name: "Add inclusion criterion" }).click();
+      await page.getByLabel("incl 1", { exact: true }).fill("The study uses deep learning.");
+      await page.getByLabel(/Demo mode/).check();
+      await page.getByRole("button", { name: "Test criteria" }).click();
+      await expect(page.getByRole("region", { name: "Criteria test" }).getByRole("table")).toBeVisible({ timeout: 60_000 });
+      await audit(page);
+    });
+  });
+  test.describe("viewer", () => {
+    test.use({ storageState: auth("viewer") });
+    for (const tab of ["sources", "models"]) {
+      test(`settings ${tab} (read-only)`, async ({ page }) => {
+        await page.goto(`/settings/${tab}`);
+        await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
+        await expect(page.getByText(/Read-only/)).toBeVisible();
+        await audit(page);
+      });
+    }
+  });
+  test.describe("admin", () => {
+    test.use({ storageState: auth("admin") });
+    for (const tab of ["sources", "models", "users"]) {
+      test(`settings ${tab}`, async ({ page }) => {
+        await page.goto(`/settings/${tab}`);
+        await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
+        await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+        await audit(page);
+      });
+    }
   });
 });

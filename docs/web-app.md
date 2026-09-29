@@ -4,7 +4,7 @@
 
 The department web app: a PostgreSQL database, importers that load finished research runs and eval runs,
 sign-in with roles, a job queue and worker that start runs, a JSON API under `/api/v1`, and a React
-frontend in `web/` (Papers, Runs, Evals, System map, Users) that talks only to that API.
+frontend in `web/` (Papers, Runs, Fields, Evals, System map, Settings) that talks only to that API.
 
 ## Requirements
 
@@ -173,14 +173,32 @@ CI regenerates the file and fails if it differs. `npm run e2e` needs `npx playwr
 
 Screens and who sees them:
 
-- **Papers** (every role): run picker, counts, filter chips, the pipeline strip, the paper table and the paper
-  drawer. The drawer's Raw calls tab (exact prompt and response) is for members and admins only.
+- **Papers** (every role): run picker (`field · vN · kind`), counts, filter chips, "Dropped by criterion" and
+  "Source" filters, the pipeline strip, the paper table and the paper drawer. The **Criteria** column names the
+  criterion that decided ("dropped by incl 1 (0.01)", "dropped by excl 1 (LLM: yes)", "all met"); runs of a
+  legacy field (only `topic_match`) still show the probability, sortable, with the topic-match range filter.
+  The drawer's Screen step is a per-criterion table (Jev p, LLM answer, quote) naming the decider; "Found by"
+  lists the sources.
+  The drawer's Raw calls tab (exact prompt and response) is for members and admins only.
 - **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
   run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
 - **Evals** (every role): summary cards, recall with intervals per strategy, the threshold grid (default
   outlined, recommended starred, pairs that lose an SR-included paper in red and in words).
 - **System map** (every role): every stage with its status in words and a panel explaining it.
-- **Users** (admins only): invite, change role, deactivate.
+- **Fields** (every role reads; members create, edit, test and start runs; admins archive and restore): the
+  list (version, author, criteria counts, sources, last run, Start run, "Show archived fields") and the editor
+  at `/fields/<id>`: name, topic, inclusion and exclusion lists (add, reorder, remove), sources (only those
+  enabled in Settings), years, change note, **Save as vN+1**. Saving sends the version the editor opened; if
+  someone saved in between, the editor says "This field changed since you opened it (now vN)" and offers to
+  reload (unsaved edits are discarded). **Test criteria** sends the editor's current text (saved or not) to a
+  Jev-only test of up to 20 papers; "Demo mode" uses the offline stand-in. The side panel lists versions with
+  notes and runs, compares two versions (each line says added / removed / unchanged), and says "screening
+  for this field (vN): not measured" unless an eval ran on that version. A legacy field is edited by adding
+  criteria, which creates v2. Start run links to `/runs?field=<id>` with the field preselected.
+- **Settings** (every role reads; admins write): **Sources** (enable, max results per run, Test = one real
+  one-result search, the contact address sent to OpenAlex), **AI models** (per role: model, whether the
+  worker has a key and whether a test call accepted it; never a key), **Users** (admins only: invite, change
+  role, deactivate). `/users` redirects to `/settings/users`.
 
 Three rules the UI keeps:
 
