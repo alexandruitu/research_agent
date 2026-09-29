@@ -15,10 +15,12 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .agents import PROMPT_VERSION, Evaluator, live_models
 from .connectors import DemoConnector, EuropePMC, SourceUnavailable, domain_connector
+from .fulltext import FULLTEXT_VERSION, FullText
 from .graph import build_graph
 from .jev import DEFAULT_MODEL, JEV_SCREEN_VERSION, JevScreener, JevThresholds
 from .report import write_report
 from .schemas import Contract
+from .scoring import SCORE_VERSION
 from .storage import Store
 
 STAGES = {
@@ -75,6 +77,56 @@ def copy_domain(path, contract, domain_file):
         "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
         "field": field.model_dump() if field else None,
     }
+
+
+def copy_review(path, contract, review_file, uploads):
+    """review.json in the run folder is the exact file the run was started with (or the validated spec)."""
+    target = Path(path) / "review.json"
+    if review_file is not None:
+        shutil.copyfile(review_file, target)
+    else:
+        target.write_text(json.dumps(contract.review.model_dump(), ensure_ascii=False, indent=2))
+    return {
+        "file": "review.json",
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+        "panel": [{"key": r.key, "name": r.name, "version": r.version} for r in contract.review.panel],
+        "uploads": [str(Path(u)) for u in uploads],
+    }
+
+
+def review_models(review):
+    """Per-role models from review.json; they override the env models (live_models)."""
+    overrides = {role: model for role, model in review.models.model_dump().items() if model}
+    overrides.update({f"review:{r.key}": r.model for r in review.panel if r.model})
+    if review.editor.model:
+        overrides["editor"] = review.editor.model
+    return overrides
+
+
+def run_models(contract):
+    if contract.mode != "live":
+        return {}
+    if contract.review is None:
+        return live_models()
+    return live_models(review_models(contract.review), [r.key for r in contract.review.panel])
+
+
+def completed_stages(values, contract):
+    """Stages whose output is in the committed checkpoint (not a previous process's display state)."""
+    done = {name: "completed" for name, field in FIELDS.items() if field in values}
+    if contract.review is not None:
+        for name in ("review_a", "review_b", "adjudicate"):
+            done.pop(name, None)  # panel runs write these legacy keys empty; the stages never ran
+        if "texts" in values:
+            done["fulltext"] = "completed"
+        for reviewer in contract.review.panel:
+            if reviewer.key in (values.get("panel") or {}):
+                done[f"review_{reviewer.key}"] = "completed"
+        if "editor_decisions" in values:
+            done["editor"] = "completed"
+        if "review" in values:
+            done["score"] = "completed"
+    return done
 
 
 def read_json(path, default=None):
@@ -168,7 +220,15 @@ class Progress:
 
 
 def run_research(
-    path, contract=None, models=None, resume=False, stop_after=None, on_event=None, domain_file=None
+    path,
+    contract=None,
+    models=None,
+    resume=False,
+    stop_after=None,
+    on_event=None,
+    domain_file=None,
+    review_file=None,
+    uploads=(),
 ):
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -185,11 +245,12 @@ def run_research(
             if contract and contract.topic != saved.topic:
                 raise RunRefused("The topic cannot be changed when resuming.")
             contract, models = saved, manifest["models"]
+            uploads = (manifest.get("review") or {}).get("uploads", [])
         else:
             if manifest_path.exists():
                 raise RunRefused("This research already exists; resume it or choose a new folder.")
             contract = Contract.model_validate(contract)
-            models = models or (live_models() if contract.mode == "live" else {})
+            models = models or run_models(contract)
             manifest = {
                 "contract": contract.model_dump(),
                 "models": {
@@ -198,8 +259,10 @@ def run_research(
                 },
                 "jev_screen_version": JEV_SCREEN_VERSION if contract.jev else None,
                 "domain": copy_domain(path, contract, domain_file) if contract.domain else None,
+                "review": copy_review(path, contract, review_file, uploads) if contract.review else None,
                 "prompt_version": PROMPT_VERSION,
-                "score_version": "m1.1",
+                "score_version": SCORE_VERSION if contract.review else "m1.1",
+                **({"fulltext_version": FULLTEXT_VERSION} if contract.review else {}),
                 "packages": {
                     p: version(p)
                     for p in ["langgraph", "langgraph-checkpoint-sqlite", "pydantic", "langchain"]
@@ -219,16 +282,32 @@ def run_research(
                 if contract.jev
                 else None
             )
-            config = {"configurable": {"thread_id": "research-v1"}, "max_concurrency": 2}
+            fulltext = (
+                FullText(
+                    store,
+                    contract.review.fulltext.model_dump(),
+                    mode=contract.mode,
+                    uploads=[path / "uploads", *uploads],
+                )
+                if contract.review
+                else None
+            )
+            panel = contract.review.model_dump()["panel"] if contract.review else None
+            config = {"configurable": {"thread_id": "research-v1"}, "max_concurrency": 5}
             with SqliteSaver.from_conn_string(str(path / "checkpoints.sqlite")) as saver:
                 graph = build_graph(
-                    connector, evaluator, saver, [stop_after] if stop_after else [], progress.observe, jev
+                    connector,
+                    evaluator,
+                    saver,
+                    [stop_after] if stop_after else [],
+                    progress.observe,
+                    jev,
+                    fulltext=fulltext,
+                    panel=panel,
                 )
                 snapshot = graph.get_state(config)
                 # Reconstruct committed progress rather than trusting a previous process's display state.
-                progress.write(
-                    stages={name: "completed" for name, field in FIELDS.items() if field in snapshot.values}
-                )
+                progress.write(stages=completed_stages(snapshot.values, contract))
                 if resume and snapshot.values and not snapshot.next:
                     result = snapshot.values
                 else:
