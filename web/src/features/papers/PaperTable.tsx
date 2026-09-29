@@ -1,10 +1,10 @@
 import type { PaperRow, StageOut } from "../../api/types";
-import { DecisionCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell, TopicMatchCell } from "./cells";
+import { DecisionCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell, CriteriaCell } from "./cells";
 import { PipelineStrip } from "./PipelineStrip";
 
 type Props = {
   rows: PaperRow[]; stages: StageOut[]; sort: string; direction: "asc" | "desc"; onSort: (sort: string) => void;
-  selectedPaperId: string | null; onOpen: (paperId: string) => void; selectedStageId: string | null; onSelectStage: (id: string) => void;
+  selectedPaperId: string | null; onOpen: (paperId: string) => void; selectedStageId: string | null; onSelectStage: (id: string) => void; legacy: boolean;
 };
 
 function SortHeader({ label, sortKey, sort, direction, onSort }: { label: string; sortKey: string; sort: string; direction: string; onSort: (key: string) => void }) {
@@ -18,7 +18,7 @@ function SortHeader({ label, sortKey, sort, direction, onSort }: { label: string
   );
 }
 
-export function PaperTable({ rows, stages, sort, direction, onSort, selectedPaperId, onOpen, selectedStageId, onSelectStage }: Props) {
+export function PaperTable({ rows, stages, sort, direction, onSort, selectedPaperId, onOpen, selectedStageId, onSelectStage, legacy }: Props) {
   const sortProps = { sort, direction, onSort };
   return (
     <div className="table-scroll">
@@ -28,7 +28,7 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
           <tr>
             <SortHeader label="Paper" sortKey="title" {...sortProps} />
             <th scope="col">Found by</th>
-            <SortHeader label="Topic match" sortKey="criterion:topic_match" {...sortProps} />
+            {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" {...sortProps} /> : <th scope="col">Criteria</th>}
             <th scope="col">Decision</th>
             <th scope="col">Claims</th>
             <th scope="col">Reviewers A / B</th>
@@ -47,8 +47,8 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                   </button>
                   <span className="sub">{row.paper.year ?? ""} {row.paper.source_id}</span>
                 </td>
-                <td><FoundByCell value={row.found_by} /></td>
-                <td><TopicMatchCell screen={row.screen} /></td>
+                <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>
+                <td><CriteriaCell screen={row.screen} /></td>
                 <td><DecisionCell screen={row.screen} /></td>
                 <td><ExtractCellView cell={row.extract} /></td>
                 <td><ReviewsCellView cell={row.reviews} /></td>

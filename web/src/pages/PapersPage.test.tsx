@@ -4,7 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../test/fixtures";
+import { lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID, versionOut } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { PapersPage } from "./PapersPage";
@@ -112,7 +112,7 @@ describe("PapersPage", () => {
   it("sorting by topic match toggles ascending and descending and sets aria-sort", async () => {
     const { calls } = setup();
     await screen.findByRole("table");
-    const header = screen.getByRole("columnheader", { name: /Topic match/ });
+    const header = screen.getByRole("columnheader", { name: /Criteria/ });
     await userEvent.click(within(header).getByRole("button"));
     expect(header).toHaveAttribute("aria-sort", "ascending");
     await userEvent.click(within(header).getByRole("button"));
@@ -145,5 +145,22 @@ describe("PapersPage", () => {
   it("asks for a run when there is none", async () => {
     setup({ "GET /api/v1/runs": { body: [] } });
     expect(await screen.findByText(/No runs yet/)).toBeInTheDocument();
+  });
+
+  it("filters by the deciding criterion and by source, naming criteria from the run's field version", async () => {
+    const { calls } = setup({
+      "GET /api/v1/runs": { body: [runOut({ field_version: 2 })] },
+      "GET /api/v1/fields/:id/versions/2": { body: versionOut() },
+    });
+    await screen.findByRole("table");
+    expect(screen.getByRole("combobox", { name: "Run" })).toHaveTextContent("ML CT-FFR · v2 · eval");
+    const by = await screen.findByRole("combobox", { name: "Dropped by criterion" });
+    await within(by).findByRole("option", { name: /excl 1: The paper is a review/ });
+    await userEvent.selectOptions(by, "e1");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Source" }), "openalex");
+    const last = new URLSearchParams(calls.filter((c) => c.path.endsWith("/papers")).at(-1)!.search);
+    expect(last.get("decided_by")).toBe("e1");
+    expect(last.get("source")).toBe("openalex");
+    expect(screen.queryByLabelText(/Topic match from/)).not.toBeInTheDocument();
   });
 });

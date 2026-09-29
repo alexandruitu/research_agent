@@ -1,9 +1,11 @@
 import { useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
-import { usePapers, useRun, useRuns, useStages } from "../api/hooks";
+import { useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { FilterBar } from "../features/papers/FilterBar";
+import { isFieldCriterion } from "../features/fields/labels";
+import { screenKeys } from "../features/papers/cells";
+import { FilterBar, type CriterionOption } from "../features/papers/FilterBar";
 import { PaperTable } from "../features/papers/PaperTable";
 import { parseView, patchView } from "../features/papers/papersState";
 import { PapersSidePanel } from "../features/papers/PapersSidePanel";
@@ -23,6 +25,12 @@ export function PapersPage() {
   const params = hasGoldSet ? view.params : { ...view.params, in_sr: undefined };
   const papers = usePapers(selected ? runId : null, params);
   const stages = useStages();
+  const version = useFieldVersion(selected?.field_id ?? null, selected?.field_version ?? null);
+  // A run's criteria come from its field version; without one, from the keys the rows carry.
+  const criteria: CriterionOption[] = version.data
+    ? [...version.data.include, ...version.data.exclude, ...version.data.legacy]
+    : [...new Set((papers.data?.items ?? []).flatMap((row) => screenKeys(row.screen)))].map((key) => ({ key, text: "" }));
+  const legacy = !criteria.some((c) => isFieldCriterion(c.key));
   const change = (changes: Parameters<typeof patchView>[1], reset = true) => setSearch(patchView(search, changes, reset));
   const close = () => {
     const open = view.paperId;
@@ -47,7 +55,7 @@ export function PapersPage() {
           Run
           <select value={runId} onChange={(e) => change({ run: e.target.value })}>
             {runs.data?.map((r) => (
-              <option key={r.id} value={r.id}>{r.field_name} · {r.kind}{r.gold_set_name ? ` · ${r.gold_set_name}` : ""} · {r.paper_count} papers</option>
+              <option key={r.id} value={r.id}>{r.field_name}{r.field_version ? ` · v${r.field_version}` : ""} · {r.kind}{r.gold_set_name ? ` · ${r.gold_set_name}` : ""} · {r.paper_count} papers</option>
             ))}
           </select>
         </label>
@@ -57,7 +65,7 @@ export function PapersPage() {
           </p>
         )}
       </div>
-      <FilterBar view={view} showSr={hasGoldSet} onChange={(changes) => change(changes)} />
+      <FilterBar view={view} showSr={hasGoldSet} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
           {papers.isError || (!selected && run.isError) ? (
@@ -69,6 +77,7 @@ export function PapersPage() {
           ) : (
             <ErrorBoundary label="the paper table">
               <PaperTable
+                legacy={legacy}
                 rows={papers.data.items} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
                 onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
                 selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}

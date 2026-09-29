@@ -57,4 +57,13 @@ describe("patchView", () => {
     patchView(original, { page: 3 }, false);
     expect(original.toString()).toBe("page=2");
   });
+
+  it("reads the criterion and source filters, ignoring values the API would refuse", () => {
+    const view = parseView(new URLSearchParams("by=i1&src=openalex"));
+    expect(view.params.decided_by).toBe("i1");
+    expect(view.params.source).toBe("openalex");
+    const bad = parseView(new URLSearchParams("by=I 1&src=pubmed"));
+    expect(bad.params.decided_by).toBeUndefined();
+    expect(bad.params.source).toBeUndefined();
+  });
 });

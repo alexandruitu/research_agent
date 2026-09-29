@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { lostRow, paperRow } from "../../test/fixtures";
-import { DecisionCell, ExtractCellView, InSrCell, ReviewsCellView, ScoreCell, TopicMatchCell } from "./cells";
+import type { PaperRow } from "../../api/types";
+import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell } from "./cells";
 
 describe("tri-state cells", () => {
   it("shows a labelled dash when the stage does not apply", () => {
@@ -27,13 +28,13 @@ describe("tri-state cells", () => {
 
 describe("screening cells", () => {
   it("shows the Jev probability with a Jev badge when Jev decided", () => {
-    render(<TopicMatchCell screen={paperRow().screen} />);
+    render(<CriteriaCell screen={paperRow().screen} />);
     expect(screen.getByText("0.99")).toBeInTheDocument();
     expect(screen.getByText("Jev")).toBeInTheDocument();
   });
 
   it("marks an escalated paper and names the deciding tier", () => {
-    render(<><TopicMatchCell screen={lostRow().screen} /><DecisionCell screen={lostRow().screen} /></>);
+    render(<><CriteriaCell screen={lostRow().screen} /><DecisionCell screen={lostRow().screen} /></>);
     expect(screen.getByText("0.06")).toBeInTheDocument();
     expect(screen.getByText("escalated")).toBeInTheDocument();
     expect(screen.getByText("drop")).toBeInTheDocument();
@@ -41,9 +42,9 @@ describe("screening cells", () => {
   });
 
   it("shows a dash when there is no Jev score, and prefixes keys when there are several criteria", () => {
-    const { rerender } = render(<TopicMatchCell screen={{ ...paperRow().screen, criteria: {} }} />);
+    const { rerender } = render(<CriteriaCell screen={{ ...paperRow().screen, criteria: {} }} />);
     expect(screen.getByLabelText("not applicable")).toBeInTheDocument();
-    rerender(<TopicMatchCell screen={{ ...paperRow().screen, criteria: { topic_match: 0.9, uses_dl: 0.4 } }} />);
+    rerender(<CriteriaCell screen={{ ...paperRow().screen, criteria: { topic_match: 0.9, uses_dl: 0.4 } }} />);
     expect(screen.getByText("uses_dl 0.40")).toBeInTheDocument();
   });
 
@@ -56,5 +57,38 @@ describe("screening cells", () => {
     expect(screen.getByLabelText("not applicable")).toBeInTheDocument();
     rerender(<ScoreCell rank={{ score: 81.6, position: 2 }} />);
     expect(screen.getByText("82")).toBeInTheDocument();
+  });
+});
+
+const fieldScreen = (over: Partial<PaperRow["screen"]> = {}): PaperRow["screen"] => ({
+  tier: "jev", decision: "exclude", jev_decision: "exclude", llm_decision: null, criteria: { i1: 0.01, i2: 0.9, e1: 0.02 }, decided_by: "i1",
+  cells: { i1: { kind: "include", jev_p: 0.01, llm: null, quote: null }, i2: { kind: "include", jev_p: 0.9, llm: null, quote: null }, e1: { kind: "exclude", jev_p: 0.02, llm: null, quote: null } },
+  ...over,
+});
+
+describe("criteria cell for a field with criteria", () => {
+  it("names the criterion Jev dropped the paper on", () => {
+    render(<CriteriaCell screen={fieldScreen()} />);
+    expect(screen.getByText("dropped by incl 1 (0.01)")).toBeInTheDocument();
+  });
+
+  it("names the criterion and the LLM's answer when the LLM decided", () => {
+    render(<CriteriaCell screen={fieldScreen({ tier: "llm", jev_decision: "escalate", llm_decision: "exclude", decided_by: "e1", cells: { e1: { kind: "exclude", jev_p: 0.5, llm: "yes", quote: "a narrative review" } } })} />);
+    expect(screen.getByText("dropped by excl 1 (LLM: yes)")).toBeInTheDocument();
+    expect(screen.getByText("escalated")).toBeInTheDocument();
+  });
+
+  it("says all met when kept, and says so when no single criterion decided", () => {
+    const { rerender } = render(<CriteriaCell screen={fieldScreen({ decision: "include", jev_decision: "include", decided_by: null })} />);
+    expect(screen.getByText("all met")).toBeInTheDocument();
+    rerender(<CriteriaCell screen={fieldScreen({ tier: "llm", decision: "uncertain", decided_by: null })} />);
+    expect(screen.getByText("no single criterion decided")).toBeInTheDocument();
+  });
+
+  it("lists the sources a paper was found in", () => {
+    const { rerender } = render(<FoundByCell foundBy="query" sources={["europepmc", "openalex"]} />);
+    expect(screen.getByText("Europe PMC, OpenAlex")).toBeInTheDocument();
+    rerender(<FoundByCell foundBy="lookup" sources={[]} />);
+    expect(screen.getByText("lookup")).toBeInTheDocument();
   });
 });
