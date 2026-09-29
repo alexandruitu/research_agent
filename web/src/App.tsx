@@ -5,6 +5,8 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
 import { ModelsTab } from "./features/settings/ModelsTab";
 import { FulltextTab } from "./features/settings/FulltextTab";
+import { ReviewerEditorPage } from "./features/settings/ReviewerEditor";
+import { ReviewersTab } from "./features/settings/ReviewersTab";
 import { ScreeningTab } from "./features/settings/ScreeningTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalsPage } from "./pages/EvalsPage";
@@ -38,6 +40,11 @@ export function App() {
               <Route index element={<Navigate to="sources" replace />} />
               <Route path="sources" element={<SourcesTab />} />
               <Route path="models" element={<ModelsTab />} />
+              <Route path="reviewers" element={<ReviewersTab />} />
+              <Route element={<RequireRole role="admin" />}>
+                <Route path="reviewers/new" element={<ReviewerEditorPage />} />
+              </Route>
+              <Route path="reviewers/:reviewerKey" element={<ReviewerEditorPage />} />
               <Route path="screening" element={<ScreeningTab />} />
               <Route path="fulltext" element={<FulltextTab />} />
               <Route element={<RequireRole role="admin" />}>

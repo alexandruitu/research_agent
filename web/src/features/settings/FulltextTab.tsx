@@ -44,7 +44,7 @@ function FulltextForm({ data, admin, saver }: { data: ReviewSettingsOut; admin: 
               <li key={source.key}>
                 <label className="switch">
                   <input type="checkbox" role="switch" checked={on} aria-describedby={`ft-${source.key}`} onChange={(e) => toggle(source.key, e.target.checked)} />
-                  <span className="switch-label">{source.label}</span>
+                  <span className="switch-label">{source.label}</span>{" "}
                   <span className="switch-state">{on ? "on" : "off"}</span>
                 </label>
                 <p id={`ft-${source.key}`} className="hint">{source.explain}</p>
