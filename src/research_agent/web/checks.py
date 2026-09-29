@@ -7,8 +7,12 @@ results go into the job's progress, the `sources` row, or `worker_status` (never
 import hashlib
 import time
 
+import httpx
+
+from ..agents import INSTRUCTIONS
 from ..connectors import ArXiv, DemoConnector, EuropePMC, OpenAlex, SourceUnavailable, deduplicate
 from ..criteria import decide_jev
+from ..jev import DEFAULT_MODEL as JEV_MODEL
 from ..jev import JevScreener
 from ..schemas import DomainSpec
 from .runner import sanitize_error
@@ -121,3 +125,78 @@ def criteria_test(
             "not_screened": decisions.count("not_screened"),
         },
     }
+
+
+# Provider -> (key variable, a free call that only lists models, headers). None: no cheap check exists.
+PROVIDERS = {
+    "anthropic": (
+        "ANTHROPIC_API_KEY",
+        "https://api.anthropic.com/v1/models?limit=1",
+        lambda key: {"x-api-key": key, "anthropic-version": "2023-06-01"},
+    ),
+    "openai": (
+        "OPENAI_API_KEY",
+        "https://api.openai.com/v1/models",
+        lambda key: {"Authorization": f"Bearer {key}"},
+    ),
+    "typesafe": ("TYPESAFE_API_KEY", None, None),
+}
+ROLE_MODEL_VARIABLES = {
+    "review_a": "RESEARCH_REVIEWER_A_MODEL",
+    "review_b": "RESEARCH_REVIEWER_B_MODEL",
+    "adjudicate": "RESEARCH_ADJUDICATOR_MODEL",
+}
+
+
+def role_models(env):
+    """{role: model id or None}, the way the pipeline's live mode picks them, plus Jev."""
+    default = env.get("RESEARCH_MODEL") or None
+    models = {role: env.get(ROLE_MODEL_VARIABLES.get(role, ""), "") or default for role in INSTRUCTIONS}
+    models["jev"] = JEV_MODEL
+    return models
+
+
+def _validate(provider, key, http_client):
+    """(accepted, detail) from one free listing call. The key goes only into the request header."""
+    _variable, url, headers = PROVIDERS[provider]
+    if url is None:
+        return None, "not checked"
+    try:
+        if http_client is not None:
+            response = http_client.get(url, headers=headers(key), timeout=10)
+        else:
+            with httpx.Client(timeout=10) as http:
+                response = http.get(url, headers=headers(key))
+    except httpx.HTTPError:
+        return None, "check failed"
+    if response.status_code == 200:
+        return True, "accepted"
+    if response.status_code in (401, 403):
+        return False, f"rejected ({response.status_code})"
+    return None, f"check failed (HTTP {response.status_code})"
+
+
+def check_keys(env, http_client=None):
+    """One row per role: provider, model, key present, key accepted (None: not checked or the check failed)
+    and a short detail. Never a key value; each provider is checked once."""
+    results, rows = {}, []
+    for role, model in role_models(env).items():
+        provider = (
+            "typesafe" if role == "jev" else (model.split(":", 1)[0] if model and ":" in model else None)
+        )
+        row = {"role": role, "provider": provider, "model": model, "key_present": False, "key_accepted": None}
+        if model is None:
+            rows.append(row | {"detail": "no model configured"})
+            continue
+        if provider not in PROVIDERS:
+            rows.append(row | {"detail": "provider not checked"})
+            continue
+        key = env.get(PROVIDERS[provider][0]) or ""
+        if not key:
+            rows.append(row | {"detail": "key missing"})
+            continue
+        if provider not in results:
+            results[provider] = _validate(provider, key, http_client)
+        accepted, detail = results[provider]
+        rows.append(row | {"key_present": True, "key_accepted": accepted, "detail": detail})
+    return rows

@@ -162,7 +162,7 @@ def cmd_dev(args, settings):
     # (never into dev_settings or a log). Keys live only in .env, so it overrides stray shell variables
     # (e.g. an unrelated ANTHROPIC_API_KEY exported by the shell). PYTHON_DOTENV_DISABLED=1 turns this off.
     load_dotenv(override=True)
-    worker = Worker(dev_settings)
+    worker = Worker(dev_settings, key_check=True)
     thread = threading.Thread(target=worker.run_forever, name="dev-worker")  # joined below, never abandoned
     with stop_on_signals(worker):  # uvicorn re-raises the signal it stopped on once it has shut down
         thread.start()
@@ -198,7 +198,7 @@ def stop_on_signals(worker):
 
 
 def cmd_worker(args, settings):
-    worker = Worker(settings)
+    worker = Worker(settings, key_check=not args.once)
     with stop_on_signals(worker):
         if args.once:
             try:

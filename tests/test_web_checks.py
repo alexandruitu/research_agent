@@ -195,3 +195,109 @@ def test_criteria_tests_refuse_archived_and_legacy_fields(world):
     only_arxiv = new_field(sign_in, sources=["arxiv"])
     r = member.post(f"{API}/fields/{only_arxiv}/test", json={}, headers=csrf)
     assert r.status_code == 422 and r.json()["code"] == "no_enabled_source"
+
+
+SENTINELS = {
+    "ANTHROPIC_API_KEY": "sk-ant-SENTINEL-keycheck-1234567890",
+    "OPENAI_API_KEY": "sk-openai-SENTINEL-keycheck-1234567890",
+    "TYPESAFE_API_KEY": "ts-SENTINEL-keycheck-1234567890",
+}
+
+
+def provider_client(answers):
+    """Mock provider APIs: `answers` maps host -> status (or an exception class to raise)."""
+    seen = []
+
+    def handler(request):
+        seen.append((request.url.host, dict(request.headers)))
+        answer = answers[request.url.host]
+        if isinstance(answer, type):
+            raise answer("boom", request=request)
+        return httpx.Response(answer, json={"data": []})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    client.seen = seen
+    return client
+
+
+def test_check_keys_reports_presence_and_acceptance_per_role():
+    from research_agent.web.checks import check_keys
+
+    env = {"RESEARCH_MODEL": "anthropic:model-x", "RESEARCH_REVIEWER_B_MODEL": "openai:gpt-x", **SENTINELS}
+    client = provider_client({"api.anthropic.com": 200, "api.openai.com": 401})
+    rows = {r["role"]: r for r in check_keys(env, client)}
+    assert rows["screen"] == {
+        "role": "screen",
+        "provider": "anthropic",
+        "model": "anthropic:model-x",
+        "key_present": True,
+        "key_accepted": True,
+        "detail": "accepted",
+    }
+    assert rows["review_b"]["key_accepted"] is False and rows["review_b"]["detail"] == "rejected (401)"
+    assert rows["jev"] == {
+        "role": "jev",
+        "provider": "typesafe",
+        "model": "jev-latest",
+        "key_present": True,
+        "key_accepted": None,
+        "detail": "not checked",
+    }
+    assert sorted(host for host, _ in client.seen) == ["api.anthropic.com", "api.openai.com"]  # once each
+    assert dict(client.seen)["api.anthropic.com"]["x-api-key"] == SENTINELS["ANTHROPIC_API_KEY"]
+    assert not any(value in str(rows) for value in SENTINELS.values())
+
+
+def test_missing_keys_and_models_send_nothing():
+    from research_agent.web.checks import check_keys
+
+    client = provider_client({})
+    rows = {r["role"]: r for r in check_keys({"RESEARCH_MODEL": "anthropic:m"}, client)}
+    assert rows["screen"]["key_present"] is False and rows["screen"]["detail"] == "key missing"
+    assert rows["jev"]["detail"] == "key missing" and client.seen == []
+    rows = {r["role"]: r for r in check_keys({}, client)}
+    assert rows["screen"]["model"] is None and rows["screen"]["detail"] == "no model configured"
+
+
+def test_a_failed_check_is_not_a_rejection():
+    from research_agent.web.checks import check_keys
+
+    env = {"RESEARCH_MODEL": "anthropic:m", "ANTHROPIC_API_KEY": SENTINELS["ANTHROPIC_API_KEY"]}
+    rows = check_keys(env, provider_client({"api.anthropic.com": httpx.ConnectError}))
+    assert {(r["key_accepted"], r["detail"]) for r in rows if r["provider"] == "anthropic"} == {
+        (None, "check failed")
+    }
+    rows = check_keys(env, provider_client({"api.anthropic.com": 529}))
+    assert {r["detail"] for r in rows if r["provider"] == "anthropic"} == {"check failed (HTTP 529)"}
+
+
+def test_the_worker_records_the_key_status_and_never_a_key(world, monkeypatch, caplog):
+    settings, factory, sign_in = world
+    monkeypatch.setenv("RESEARCH_MODEL", "anthropic:model-x")
+    for name, value in SENTINELS.items():
+        monkeypatch.setenv(name, value)
+    client = provider_client({"api.anthropic.com": 401})
+    worker = Worker(settings, factory, sleep=lambda s: None, http_client=client, key_check=True)
+    worker.run_forever(stop=lambda: True)  # the check runs once at start, before the first poll
+    member, _ = sign_in("member")
+    r = member.get(f"{API}/workers/status")
+    rows = {row["role"]: row for row in r.json()}
+    assert rows["screen"]["key_present"] is True and rows["screen"]["key_accepted"] is False
+    assert rows["screen"]["worker_id"] == worker.worker_id and rows["jev"]["detail"] == "not checked"
+    with factory() as db:
+        stored = str([tuple(row) for row in db.execute(sa.text("select * from worker_status"))])
+    for value in SENTINELS.values():
+        assert value not in r.text and value not in stored and value not in caplog.text
+
+
+def test_the_worker_survives_a_broken_key_check(world, monkeypatch, caplog):
+    settings, factory, _ = world
+    sentinel = SENTINELS["ANTHROPIC_API_KEY"]
+    monkeypatch.setenv("ANTHROPIC_API_KEY", sentinel)
+
+    def explode(env, client):
+        raise RuntimeError(f"bad {sentinel}")
+
+    monkeypatch.setattr("research_agent.web.worker.check_keys", explode)
+    assert Worker(settings, factory, key_check=True).check_keys() is None
+    assert "key check failed" in caplog.text and sentinel not in caplog.text

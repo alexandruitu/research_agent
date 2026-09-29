@@ -142,11 +142,12 @@ class FakeWorker:
     behaviour = staticmethod(lambda worker: None)
     made: ClassVar[list] = []
 
-    def __init__(self, settings):
+    def __init__(self, settings, **kwargs):
         import threading
 
         self.stop_requested = threading.Event()
         self.worker_id = "fake"
+        self.kwargs = kwargs
         FakeWorker.made.append(self)
 
     def request_stop(self):
@@ -264,3 +265,9 @@ def test_the_real_worker_process_exits_cleanly_on_sigterm(cli_settings):
     finally:
         process.kill()
         process.stdout.close()
+
+
+def test_the_long_running_worker_checks_keys_and_the_one_shot_does_not(cli_settings, fake_worker):
+    assert main(["worker", "--once"], settings=cli_settings) == 0
+    assert main(["worker"], settings=cli_settings) == 0
+    assert [w.kwargs for w in fake_worker.made] == [{"key_check": False}, {"key_check": True}]

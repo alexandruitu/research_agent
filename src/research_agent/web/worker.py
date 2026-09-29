@@ -14,8 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..storage import Store
-from .checks import criteria_test, source_check
-from .db.models import Job, Run, SourceRow
+from .checks import check_keys, criteria_test, source_check
+from .db.models import Job, Run, SourceRow, WorkerStatus
 from .db.session import make_engine, make_session_factory
 from .fields import SOURCE_NAMES, settings_row
 from .importer.common import ImportFailed
@@ -68,6 +68,7 @@ class Worker:
         monotonic=time.monotonic,
         http_client=None,
         jev_client=None,
+        key_check=False,
     ):
         self.settings = settings
         self.factory = session_factory or make_session_factory(make_engine(settings.database_url))
@@ -78,6 +79,7 @@ class Worker:
         self.worker_id = worker_id or f"{socket.gethostname()}-{os.getpid()}"
         # HTTP clients for source checks and criteria tests (None: the connectors' own); tests inject mocks.
         self.http_client, self.jev_client = http_client, jev_client
+        self.key_check = key_check  # check the provider keys once when run_forever starts
 
     def request_stop(self):
         self.stop_requested.set()
@@ -100,7 +102,27 @@ class Worker:
             job_id = job.id
         return self.execute(job_id)
 
+    def check_keys(self):
+        """Record, per model role, whether the provider key is present and accepted (never its value).
+        A failure is logged and does not stop the worker: runs still start and fail clearly."""
+        try:
+            rows = check_keys(os.environ, self.http_client)
+            with self.factory() as db:
+                for row in rows:
+                    status = db.get(WorkerStatus, row["role"]) or WorkerStatus(role=row["role"])
+                    for name, value in row.items():
+                        setattr(status, name, value)
+                    status.checked_at, status.worker_id = datetime.now(UTC), self.worker_id
+                    db.add(status)
+                db.commit()
+            return rows
+        except Exception as exc:  # noqa: BLE001 -- the queue must not depend on this check
+            log.warning("key check failed: %s", redact(f"{type(exc).__name__}: {exc}"))
+            return None
+
     def run_forever(self, stop=lambda: False):
+        if self.key_check:
+            self.check_keys()
         while not (stop() or self.stopping):
             try:
                 busy = self.tick()
