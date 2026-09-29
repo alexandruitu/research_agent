@@ -17,7 +17,7 @@ export function RunsPage() {
   const canRun = hasRole(user, "member");
   // Members get the start form; render the page once its field list is known, so the form never
   // appears with an empty field picker that fills in a moment later.
-  const fields = useFields(canRun);
+  const fields = useFields({ enabled: canRun });
 
   const doResume = async (runId: string) => {
     setProblem(null);

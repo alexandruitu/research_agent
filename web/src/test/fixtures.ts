@@ -1,4 +1,4 @@
-import type { DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, JobOut, PaperRow, RunDetailOut, RunOut, StageOut, UserOut } from "../api/types";
+import type { CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -130,3 +130,55 @@ export const userRows = (): UserOut[] => [
   { id: "10000000-0000-4000-8000-000000000002", email: "member@example.org", name: "Mia Member", role: "member", active: true },
   { id: "10000000-0000-4000-8000-000000000003", email: "old@example.org", name: "Olga Old", role: "viewer", active: false },
 ];
+
+export const versionOut = (over: Partial<FieldVersionOut> = {}): FieldVersionOut => ({
+  version: 2, name: "ML CT-FFR", topic: "deep learning CT-FFR",
+  include: [{ key: "i1", text: "The study uses machine learning or deep learning." }, { key: "i2", text: "FFR is estimated from coronary CT angiography." }],
+  exclude: [{ key: "e1", text: "The paper is a review or an editorial." }],
+  legacy: [], sources: ["europepmc"], years: { from: 2018, to: null }, note: "added the exclusion", imported: false,
+  created_by_name: "Mia Member", created_at: "2026-09-28T10:00:00Z", run_count: 1, ...over,
+});
+
+export const legacyVersion = (): FieldVersionOut => versionOut({
+  version: 1, include: [], exclude: [], legacy: [{ key: "topic_match", text: "The paper's central subject is the topic." }],
+  years: { from: null, to: null }, note: "imported", imported: true, created_by_name: null, created_at: "2026-09-26T08:00:00Z", run_count: 3,
+});
+
+export const fieldDetail = (over: Partial<FieldOut> = {}): FieldOut => ({
+  ...fieldOut(), current_version: 2, archived_at: null, current: versionOut(),
+  last_run: { id: RUN_ID, kind: "research", status: "done", created_at: "2026-09-28T11:00:00Z", field_version: 2 },
+  versions: [
+    { version: 2, note: "added the exclusion", imported: false, created_by_name: "Mia Member", created_at: "2026-09-28T10:00:00Z", run_count: 1, include_count: 2, exclude_count: 1 },
+    { version: 1, note: "imported", imported: true, created_by_name: null, created_at: "2026-09-26T08:00:00Z", run_count: 3, include_count: 0, exclude_count: 0 },
+  ],
+  ...over,
+});
+
+export const legacyField = (): FieldOut => fieldDetail({
+  current_version: 1, current: legacyVersion(), last_run: null,
+  versions: [{ version: 1, note: "imported", imported: true, created_by_name: null, created_at: "2026-09-26T08:00:00Z", run_count: 3, include_count: 0, exclude_count: 0 }],
+});
+
+export const sourceRows = (): SourceOut[] => [
+  { name: "europepmc", label: "Europe PMC", enabled: true, max_results: 100, last_check_at: "2026-09-28T10:12:00Z", last_check_ok: true, last_check_ms: 800, last_check_error: null },
+  { name: "openalex", label: "OpenAlex", enabled: false, max_results: 100, last_check_at: null, last_check_ok: null, last_check_ms: null, last_check_error: null },
+  { name: "arxiv", label: "arXiv", enabled: false, max_results: 50, last_check_at: "2026-09-28T10:13:00Z", last_check_ok: false, last_check_ms: 30000, last_check_error: "SourceUnavailable: arxiv" },
+];
+
+export const workerRows = (): WorkerStatusOut[] => [
+  { role: "screen", provider: "anthropic", model: "claude-sonnet-5", key_present: true, key_accepted: true, detail: "", checked_at: "2026-09-28T10:00:00Z", worker_id: "w1" },
+  { role: "adjudicate", provider: "openai", model: "gpt-6", key_present: true, key_accepted: false, detail: "rejected (401)", checked_at: "2026-09-28T10:00:00Z", worker_id: "w1" },
+  { role: "jev", provider: "typesafe", model: "jev-latest", key_present: false, key_accepted: null, detail: "", checked_at: "2026-09-28T10:00:00Z", worker_id: "w1" },
+];
+
+export const testResult = (over: Partial<CriteriaTestResult> = {}): CriteriaTestResult => ({
+  mode: "demo", topic: "deep learning CT-FFR",
+  criteria: [{ key: "i1", kind: "include", text: "The study uses machine learning or deep learning." }, { key: "e1", kind: "exclude", text: "The paper is a review or an editorial." }],
+  sources: ["europepmc"], model_version: "demo-jev",
+  papers: [
+    { source_id: "MED:1", title: "Deep learning CT-FFR against invasive FFR", year: 2020, sources: ["europepmc"], probabilities: { i1: 0.97, e1: 0.02 }, decision: "include", decided_by: null },
+    { source_id: "MED:2", title: "Machine learning in cardiac imaging: a review", year: 2021, sources: ["europepmc"], probabilities: { i1: 0.93, e1: 0.96 }, decision: "exclude", decided_by: "e1" },
+    { source_id: "MED:3", title: "A paper without an abstract", year: 2019, sources: ["europepmc"], probabilities: {}, decision: "not_screened", decided_by: null },
+  ],
+  summary: { total: 3, kept: 1, dropped: 1, to_llm: 0, not_screened: 1 }, field_id: FIELD_ID, version: null, ...over,
+});
