@@ -4,7 +4,8 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../../api/client";
-import { drawerOut, panelOut, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
+import { fakeXhr } from "../../test/fakeXhr";
+import { drawerOut, paperFile, panelOut, reviewSettings, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
 import { mockApi } from "../../test/mockApi";
 import { renderWithProviders } from "../../test/render";
 import { PapersPage } from "../../pages/PapersPage";
@@ -205,5 +206,69 @@ describe("drawer · peer review", () => {
     const drawer = await openDrawer();
     expect(within(drawer).getByRole("heading", { name: "Reviewers" })).toBeInTheDocument();
     expect(within(drawer).queryByRole("heading", { name: "Peer review" })).not.toBeInTheDocument();
+  });
+});
+
+describe("drawer · full-text PDFs", () => {
+  const abstractPanel = () => drawerOut({ panel: panelOut({ text_source: "abstract", red_flags: [], red_flag_count: 0 }), files: [] });
+  const PAPER = "/api/v1/papers/55555555-5555-4555-8555-555555555555/files";
+  const filesRoutes = (files: unknown[] = []) => ({
+    "GET /api/v1/runs/:id/papers/:id": { body: abstractPanel() },
+    "GET /api/v1/papers/:id/files": { body: files },
+    "GET /api/v1/settings/review": { body: reviewSettings() },
+  });
+
+  it("offers the upload when only the abstract was reviewed, shows progress and lists the file", async () => {
+    let listed: unknown[] = [];
+    const { sent } = fakeXhr(() => {
+      listed = [paperFile()];
+      return { status: 201, body: paperFile(), progress: [0.4, 1] };
+    });
+    setup("member", { ...filesRoutes(), "GET /api/v1/papers/:id/files": () => ({ body: listed }) });
+    const drawer = await openDrawer();
+    expect(within(drawer).getByRole("heading", { name: "Upload full text (PDF)" })).toBeInTheDocument();
+    const input = drawer.querySelector<HTMLInputElement>("input[type=file]")!;
+    await userEvent.upload(input, new File(["%PDF-1.4"], "paper.pdf", { type: "application/pdf" }));
+    expect(await within(drawer).findByText(/Uploaded paper.pdf/)).toBeInTheDocument();
+    expect(sent[0]?.url).toBe(PAPER);
+    expect(await within(drawer).findByText("paper.pdf", { selector: ".file-name" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("link", { name: "Download paper.pdf" })).toHaveAttribute("href", `${PAPER}/${paperFile().id}`);
+  });
+
+  it("refuses a non-PDF and a too-large file in the browser, and shows the server's refusal", async () => {
+    const { sent } = fakeXhr({ status: 413, body: { code: "too_large", message: "The PDF is larger than 30 MB", request_id: "r" } });
+    setup("member", filesRoutes());
+    const drawer = await openDrawer();
+    const input = drawer.querySelector<HTMLInputElement>("input[type=file]")!;
+    await userEvent.upload(input, new File(["hello"], "notes.txt", { type: "text/plain" }), { applyAccept: false });
+    expect(await within(drawer).findByRole("alert")).toHaveTextContent("notes.txt is not a PDF");
+    expect(sent).toHaveLength(0);
+    await userEvent.upload(input, new File(["%PDF-1.4"], "paper.pdf", { type: "application/pdf" }));
+    expect(await within(drawer).findByRole("alert")).toHaveTextContent("The PDF is larger than 30 MB");
+  });
+
+  it("deletes a file after confirming", async () => {
+    const { calls } = setup("member", { ...filesRoutes([paperFile()]), [`DELETE ${PAPER}/${paperFile().id}`]: { status: 204 } });
+    const drawer = await openDrawer();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await userEvent.click(await within(drawer).findByRole("button", { name: "Delete paper.pdf" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Delete paper.pdf?"));
+    confirm.mockRestore();
+  });
+
+  it("viewers see the list but cannot upload, download or delete", async () => {
+    setup("viewer", filesRoutes([paperFile({ can_delete: false })]));
+    const drawer = await openDrawer();
+    expect(await within(drawer).findByText("paper.pdf", { selector: ".file-name" })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Choose a PDF/ })).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("link", { name: /Download/ })).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
+  });
+
+  it("says when uploads are turned off", async () => {
+    setup("member", { ...filesRoutes(), "GET /api/v1/settings/review": { body: reviewSettings({ fulltext: { sources: ["pmc_oa"], contact: null, max_chars: 60000, upload_max_mb: 30 } }) } });
+    const drawer = await openDrawer();
+    expect(await within(drawer).findByText(/Uploads are turned off in Settings → Full text/)).toBeInTheDocument();
   });
 });

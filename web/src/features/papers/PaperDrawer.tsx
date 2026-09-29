@@ -5,6 +5,7 @@ import { usePaper } from "../../api/hooks";
 import { hasRole, type CriterionRowOut, type DrawerOut, type ReviewOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
+import { PaperFiles } from "./PaperFiles";
 import { PeerReview } from "./PeerReview";
 import { RawCalls } from "./RawCalls";
 
@@ -145,7 +146,12 @@ export function PaperDrawer({ runId, paperId, onClose }: { runId: string; paperI
             <button type="button" aria-pressed={section === "abstract"} onClick={() => setSection("abstract")}>Abstract</button>
             {hasRole(user, "member") && <button type="button" aria-pressed={section === "calls"} onClick={() => setSection("calls")}>Raw calls</button>}
           </div>
-          {section === "overview" && <Timeline drawer={paper.data} />}
+          {section === "overview" && (
+            <>
+              <Timeline drawer={paper.data} />
+              <PaperFiles paperId={paper.data.paper.id} initial={paper.data.files ?? []} abstractOnly={paper.data.panel?.text_source === "abstract"} />
+            </>
+          )}
           {section === "abstract" && <p className="abstract">{paper.data.paper.abstract || "No abstract available."}</p>}
           {section === "calls" && <RawCalls runId={runId} drawer={paper.data} />}
         </>
