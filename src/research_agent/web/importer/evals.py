@@ -20,13 +20,13 @@ from ..db.models import (
     Run,
     Screening,
 )
+from ..fields import legacy_version
 from .common import (
     ImportFailed,
     ImportResult,
     clear_run,
     criterion,
     file_sha256,
-    get_or_create_field,
     upsert_paper,
 )
 
@@ -93,7 +93,7 @@ def _review_row(run, paper, role, review, call_key, **extra):
 
 def _import(db, folder, digest, run, manifest, gold, records, versions, created_by):
     warnings = []
-    field_row = get_or_create_field(db, gold.topic, created_by)
+    field_row, version_row = legacy_version(db, gold.topic, created_by)
     gold_row = _gold_set(db, gold)
     status = "updated" if run is not None else "created"
     if run is None:
@@ -104,6 +104,7 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
     else:
         clear_run(db, run.id)
     run.field_id = field_row.id  # a re-import may name another topic
+    run.field_version_id = version_row.id
     run.manifest = {**manifest, "jev_model_versions": versions}
     run.source_sha256, run.status, run.error, run.gold_set_id = digest, "done", None, gold_row.id
     run.finished_at = datetime.now(UTC)
@@ -169,7 +170,7 @@ def _import(db, folder, digest, run, manifest, gold, records, versions, created_
             db.add(
                 CriterionScore(
                     screening_id=row.id,
-                    criterion_id=criterion(db, field_row, name).id,
+                    criterion_id=criterion(db, field_row, name, version_row).id,
                     probability=probability,
                     jev_version=version,
                 )

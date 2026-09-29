@@ -100,17 +100,16 @@ def test_evals_list_and_detail_equal_the_stored_report(sign_in, imported, tmp_pa
     assert get(client, f"/evals/{uuid.uuid4()}").status_code == 404
 
 
-def test_fields_show_the_newest_criterion_version_whatever_its_position(sign_in, imported, db):
+def test_fields_show_the_current_versions_criteria(sign_in, imported, db):
+    """Criteria belong to a field version; the field lists its current version's criteria (slice 2)."""
     from sqlalchemy import select
 
-    from research_agent.web.db.models import Criterion, Field
+    from research_agent.web.db.models import Field
 
     field = db.scalar(select(Field).where(Field.topic == "deep learning CT-FFR"))
-    db.add(Criterion(field_id=field.id, key="topic_match", question="v2", version=2, position=5))
-    db.commit()
     client, _ = sign_in("viewer")
     (criterion,) = get(client, f"/fields/{field.id}").json()["criteria"]
-    assert criterion["version"] == 2 and criterion["question"] == "v2"
+    assert criterion["version"] == 1 and criterion["key"] == "topic_match" and criterion["kind"] == "legacy"
 
 
 def test_research_runs_have_no_in_sr_count(sign_in, imported):

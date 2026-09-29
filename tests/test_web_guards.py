@@ -49,12 +49,18 @@ def test_every_route_declares_a_role_or_is_explicitly_public(app):
     assert unguarded == PUBLIC, f"routes without a role guard: {unguarded - PUBLIC}"
 
 
-def matrix(imported, paper_id):
+def matrix(imported, paper_id, field_id):
     run, eval_run = imported["research"], imported["eval"]
     return [
         ("GET", "/auth/me", "viewer"),
         ("GET", "/users", "admin"),
         ("GET", "/fields", "viewer"),
+        ("GET", f"/fields/{field_id}", "viewer"),
+        ("GET", f"/fields/{field_id}/versions/1", "viewer"),
+        ("POST", "/fields", "member"),
+        ("POST", f"/fields/{field_id}/versions", "member"),
+        ("POST", f"/fields/{field_id}/archive", "admin"),
+        ("POST", f"/fields/{field_id}/unarchive", "admin"),
         ("GET", "/runs", "viewer"),
         ("GET", f"/runs/{run}", "viewer"),
         ("GET", f"/runs/{eval_run}/papers", "viewer"),
@@ -74,16 +80,17 @@ def matrix(imported, paper_id):
 def test_role_matrix(app, users, imported, db, role):
     from sqlalchemy import select
 
-    from research_agent.web.db.models import Paper
+    from research_agent.web.db.models import Field, Paper
 
     paper_id = db.scalar(select(Paper.id).where(Paper.source_id == "MED:1"))
+    field_id = db.scalar(select(Field.id).where(Field.topic == "retrieval augmented generation"))
     signed = TestClient(app)
     login = signed.post(
         "/api/v1/auth/login", json={"email": f"{role}@example.org", "password": "correct horse battery"}
     )
     csrf = {"X-CSRF-Token": login.json()["csrf_token"]}
     anonymous = TestClient(app)
-    for method, path, minimum in matrix(imported, paper_id):
+    for method, path, minimum in matrix(imported, paper_id, field_id):
         url = f"{API_PREFIX}{path}"
         kwargs = {"json": {}} if method == "POST" else {}
         assert anonymous.request(method, url, **kwargs).status_code == 401, (method, path)

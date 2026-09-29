@@ -8,13 +8,13 @@ from sqlalchemy import select
 
 from ..callstore import CallIndex, CallStoreError
 from ..db.models import CriterionScore, EvidenceClaim, Ranking, Review, Run, Screening
+from ..fields import legacy_version
 from .common import (
     ImportFailed,
     ImportResult,
     clear_run,
     criterion,
     file_sha256,
-    get_or_create_field,
     upsert_paper,
 )
 
@@ -62,7 +62,7 @@ def import_research_run(db, folder, created_by=None):
 
 def _import(db, folder, digest, run, state, manifest, created_by):
     warnings = []
-    field_row = get_or_create_field(db, state["contract"]["topic"], created_by)
+    field_row, version_row = legacy_version(db, state["contract"]["topic"], created_by)
     status = "updated" if run is not None else "created"
     if run is None:
         run = Run(
@@ -72,6 +72,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
     else:
         clear_run(db, run.id)
     run.field_id = field_row.id  # a re-import may name another topic
+    run.field_version_id = version_row.id
     run.manifest, run.source_sha256, run.status, run.error = manifest, digest, "done", None
     run.finished_at = _finished_at(folder)
     db.flush()
@@ -116,7 +117,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
             db.add(
                 CriterionScore(
                     screening_id=row.id,
-                    criterion_id=criterion(db, field_row, name).id,
+                    criterion_id=criterion(db, field_row, name, version_row).id,
                     probability=probability,
                     jev_version=jev.get("model_version", ""),
                 )

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Model(BaseModel):
@@ -47,13 +47,164 @@ class CriterionOut(Model):
     question: str
     version: int
     position: int
+    kind: str = "legacy"  # include | exclude | legacy
+
+
+PLAIN = r"^[^\x00-\x1f\x7f]*$"  # plain text: no control characters (line breaks included)
+SourceName = Literal["europepmc", "openalex", "arxiv"]
+
+
+class Years(Model):
+    model_config = ConfigDict(
+        extra="forbid",
+        from_attributes=True,
+        validate_by_name=True,
+        validate_by_alias=True,
+        serialize_by_alias=True,
+    )
+    start: int | None = Field(default=None, alias="from", ge=1900, le=2100)
+    end: int | None = Field(default=None, alias="to", ge=1900, le=2100)
+
+    @model_validator(mode="after")
+    def _order(self):
+        if self.start is not None and self.end is not None and self.start > self.end:
+            raise ValueError("years.from must not be after years.to")
+        return self
+
+
+class CriterionIn(Model):
+    text: str = Field(min_length=3, max_length=500, pattern=PLAIN)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class FieldDraft(Model):
+    """A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save."""
+
+    name: str = Field(min_length=1, max_length=200, pattern=PLAIN)
+    topic: str = Field(min_length=3, max_length=500, pattern=PLAIN)
+    include: list[CriterionIn] = Field(default_factory=list, max_length=10)
+    exclude: list[CriterionIn] = Field(default_factory=list, max_length=10)
+    sources: list[SourceName] = Field(min_length=1, max_length=3)
+    years: Years = Field(default_factory=Years)
+
+    @field_validator("name", "topic", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _rules(self):
+        if not (self.include or self.exclude):
+            raise ValueError("at least one inclusion or exclusion criterion is required")
+        if len(set(self.sources)) != len(self.sources):
+            raise ValueError("each source may be listed once")
+        return self
+
+
+class FieldCreate(FieldDraft):
+    note: str = Field(default="", max_length=500, pattern=PLAIN)
+
+
+class FieldSave(FieldCreate):
+    base_version: int = Field(ge=1)
+
+
+class CriterionText(Model):
+    key: str
+    text: str
+
+
+class FieldVersionOut(Model):
+    version: int
+    name: str
+    topic: str
+    include: list[CriterionText]
+    exclude: list[CriterionText]
+    legacy: list[CriterionText]
+    sources: list[str]
+    years: Years
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+
+
+class FieldVersionSummary(Model):
+    version: int
+    note: str
+    imported: bool
+    created_by_name: str | None
+    created_at: datetime
+    run_count: int
+    include_count: int
+    exclude_count: int
+
+
+class FieldRunRef(Model):
+    id: uuid.UUID
+    kind: str
+    status: str
+    created_at: datetime
+    field_version: int | None
 
 
 class FieldOut(Model):
     id: uuid.UUID
     name: str
     topic: str
-    criteria: list[CriterionOut]
+    criteria: list[CriterionOut]  # the current version's criteria
+    current_version: int = 1
+    archived_at: datetime | None = None
+    current: FieldVersionOut | None = None
+    last_run: FieldRunRef | None = None
+    versions: list[FieldVersionSummary] = Field(default_factory=list)  # newest first; detail only
+
+
+class CriteriaTestRequest(Model):
+    """Test the saved current version (`draft` null) or unsaved edits (`draft`)."""
+
+    draft: FieldDraft | None = None
+    mode: Literal["live", "demo"] = "live"
+
+
+class SourceOut(Model):
+    name: str
+    label: str
+    enabled: bool
+    max_results: int
+    last_check_at: datetime | None
+    last_check_ok: bool | None
+    last_check_ms: int | None
+    last_check_error: str | None
+
+
+class SourcePatch(Model):
+    enabled: bool | None = None
+    max_results: int | None = Field(default=None, ge=1, le=200)
+
+
+class SettingsOut(Model):
+    contact_email: str | None
+
+
+class SettingsPatch(Model):
+    contact_email: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class WorkerStatusOut(Model):
+    role: str
+    provider: str | None
+    model: str | None
+    key_present: bool
+    key_accepted: bool | None  # null: not checked (no cheap check for this provider) or the check failed
+    detail: str
+    checked_at: datetime
+    worker_id: str
 
 
 class RunCounts(Model):
