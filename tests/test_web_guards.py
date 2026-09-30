@@ -95,6 +95,20 @@ def matrix(imported, paper_id, field_id):
         ("POST", f"/papers/{paper_id}/files", "member"),
         ("GET", f"/papers/{paper_id}/files/{NIL}", "member"),
         ("DELETE", f"/papers/{paper_id}/files/{NIL}", "member"),
+        ("POST", "/fields/assist", "member"),
+        ("POST", "/fields/preview", "member"),
+        ("GET", "/library", "viewer"),
+        ("POST", "/library", "member"),
+        ("GET", "/library/export", "viewer"),
+        ("GET", f"/library/{NIL}", "viewer"),
+        ("PATCH", f"/library/{NIL}", "member"),
+        ("DELETE", f"/library/{NIL}", "member"),
+        ("POST", f"/library/{NIL}/snapshot", "member"),
+        ("GET", "/library/collections", "viewer"),
+        ("POST", "/library/collections", "member"),
+        ("PATCH", f"/library/collections/{NIL}", "member"),
+        ("POST", f"/library/collections/{NIL}/archive", "admin"),
+        ("POST", f"/library/collections/{NIL}/restore", "admin"),
     ]
 
 

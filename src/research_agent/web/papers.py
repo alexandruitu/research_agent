@@ -235,6 +235,9 @@ def paper_table(db, run, q):
             .order_by(Criterion.position, Criterion.key)
         ):
             cells[screening_id][name] = {"kind": kind, "jev_p": probability, "llm": llm, "quote": quote}
+    from .library import library_refs  # the library builds on this module
+
+    refs = library_refs(db, [r[1].id for r in rows])
     items = [
         build_row(
             run,
@@ -250,6 +253,8 @@ def paper_table(db, run, q):
         )
         for s, p, va, vb, vj, da, db_, score, position, label, *panel in rows
     ]
+    for item in items:
+        item["library"] = refs.get(item["paper"]["id"])
     return items, total
 
 

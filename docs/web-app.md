@@ -178,6 +178,31 @@ Checked on the real data after migration 0002 (2026-09-29): the three imports gi
   panel score), the drawer gains `panel` and `files`. Raw calls of roles `review:<key>` and `editor` open from
   the drawer like the others.
 
+## Keyword fields, assist, preview and the team library (slice 4)
+
+**Keywords.** A field version may carry a `description` (≤ 2000), `keywords {all, any, none}` (≤ 20 terms of
+1–80 characters per group) and `query_override {europepmc?, openalex?, arxiv?}`. `research_agent.querybuild`
+turns keywords into one query per source (Europe PMC `TITLE_ABS:` boolean, OpenAlex
+`filter=title_and_abstract.search:`, arXiv `abs:` boolean plus the imaging categories); years are added by the
+connectors. A run's `domain.json` gets `queries {source: query}`; a source with a query is searched with it as
+is, and when every source has one the pipeline makes no planning call. Fields without keywords run as before.
+
+**Assist** (`POST /fields/assist`, member): one model call (role `assist`, model `RESEARCH_ASSIST_MODEL`, else
+`RESEARCH_MODEL`) suggests keywords per group with synonyms and 2–6 inclusion / 0–4 exclusion criteria. It runs
+in the worker as job `field_assist`; the result is in the job's `progress.result`. Calls are cached under
+`RESEARCH_CACHE_DIR` (default `<project>/cache`, gitignored). Demo mode is deterministic and needs no key.
+
+**Preview** (`POST /fields/preview`, member): job `field_preview` runs the built queries against the enabled
+sources (≤ 10 papers each, the source's own hit count, no model). At most 10 previews per user per minute (429).
+
+**Library** (`/library…`): one item per paper, saved from a run with a frozen `snapshot` of its evidence
+(paper and abstract, run, field version, screening and criteria, rank, panel score, editor verdict, red flags,
+reviewer summaries, text source, file refs). Items have a team status (`to_read`, `read`, `relevant`,
+`rejected`), a note, lower-case tags and collections; every change is an event. Saving is idempotent (already
+saved papers get the collections and tags merged). Search `q` is ILIKE over title, abstract and note. Viewers
+read and export (CSV, injection-safe; BibTeX, escaped); members save and edit; the adder or an admin deletes;
+admins archive collections. Paper rows and the drawer carry `library: {item_id, status, collections} | null`.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19

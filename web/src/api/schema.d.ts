@@ -334,6 +334,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fields/assist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assist
+         * @description Queue one model call that suggests keywords (per group, with synonyms) and criteria for a draft.
+         *     The result arrives in the job's `progress.result`; nothing is applied to the field.
+         */
+        post: operations["assist_api_v1_fields_assist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview
+         * @description Queue a preview of a draft's search: per enabled source the query, the source's own hit count and
+         *     the first 10 papers. No model is called. At most 10 previews per user per minute.
+         */
+        post: operations["preview_api_v1_fields_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fields/{field_id}": {
         parameters: {
             query?: never;
@@ -582,6 +624,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/library/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Collections */
+        get: operations["list_collections_api_v1_library_collections_get"];
+        put?: never;
+        /** Create Collection */
+        post: operations["create_collection_api_v1_library_collections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/collections/{collection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Collection */
+        patch: operations["patch_collection_api_v1_library_collections__collection_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/library/collections/{collection_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Collection */
+        post: operations["archive_collection_api_v1_library_collections__collection_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/collections/{collection_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Collection */
+        post: operations["restore_collection_api_v1_library_collections__collection_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Library */
+        get: operations["list_library_api_v1_library_get"];
+        put?: never;
+        /**
+         * Save To Library
+         * @description Save papers of a run. Already-saved papers keep their status, note and snapshot; the requested
+         *     collections and tags are merged into them and they are listed in `existing` (200 when none is new).
+         */
+        post: operations["save_to_library_api_v1_library_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Library
+         * @description Every item matching the list filters (at most 5000), as CSV or BibTeX, downloaded as a file.
+         */
+        get: operations["export_library_api_v1_library_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Item */
+        get: operations["get_item_api_v1_library__item_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Item */
+        delete: operations["delete_item_api_v1_library__item_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Item */
+        patch: operations["patch_item_api_v1_library__item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/library/{item_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Snapshot
+         * @description Replace the frozen evidence with this paper's evidence in another (usually newer) run.
+         */
+        post: operations["update_snapshot_api_v1_library__item_id__snapshot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stages": {
         parameters: {
             query?: never;
@@ -691,6 +883,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AssistRequest
+         * @description A draft to get suggestions for: a description and/or a topic and/or keywords.
+         */
+        AssistRequest: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Topic
+             * @default
+             */
+            topic: string;
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
+        };
         /** AvailableModelOut */
         AvailableModelOut: {
             /** Id */
@@ -771,6 +986,56 @@ export interface components {
             quote: string;
             /** Call Key */
             call_key: string | null;
+        };
+        /** CollectionCreate */
+        CollectionCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** CollectionOut */
+        CollectionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Archived At */
+            archived_at: string | null;
+            /** Item Count */
+            item_count: number;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** CollectionPatch */
+        CollectionPatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
+        /** CollectionRef */
+        CollectionRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * CriteriaTestRequest
@@ -883,6 +1148,7 @@ export interface components {
             panel?: components["schemas"]["PanelOut"] | null;
             /** Files */
             files?: components["schemas"]["PaperFileOut"][];
+            library?: components["schemas"]["LibraryRef"] | null;
         };
         /** EditorIO */
         EditorIO: {
@@ -984,6 +1250,10 @@ export interface components {
             /** Sources */
             sources: ("europepmc" | "openalex" | "arxiv")[];
             years?: components["schemas"]["Years"];
+            /** Description */
+            description?: string;
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /**
              * Note
              * @default
@@ -1006,6 +1276,10 @@ export interface components {
             /** Sources */
             sources: ("europepmc" | "openalex" | "arxiv")[];
             years?: components["schemas"]["Years"];
+            /** Description */
+            description?: string;
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            query_override?: components["schemas"]["QueryOverrideIO"] | null;
         };
         /** FieldOut */
         FieldOut: {
@@ -1061,6 +1335,10 @@ export interface components {
             /** Sources */
             sources: ("europepmc" | "openalex" | "arxiv")[];
             years?: components["schemas"]["Years"];
+            /** Description */
+            description?: string;
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /**
              * Note
              * @default
@@ -1099,6 +1377,14 @@ export interface components {
             created_at: string;
             /** Run Count */
             run_count: number;
+            /** Description */
+            description?: string;
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Queries */
+            queries?: {
+                [key: string]: string;
+            } | null;
         };
         /** FieldVersionSummary */
         FieldVersionSummary: {
@@ -1189,6 +1475,234 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * KeywordsIO
+         * @description Keyword groups: every `all` term, at least one `any` term, none of the `none` terms.
+         */
+        KeywordsIO: {
+            /** All */
+            all?: string[];
+            /** Any */
+            any?: string[];
+            /** None */
+            none?: string[];
+        };
+        /** LibraryEventOut */
+        LibraryEventOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /** User Name */
+            user_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** LibraryFieldOut */
+        LibraryFieldOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number | null;
+        };
+        /** LibraryItemDetail */
+        LibraryItemDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            paper: components["schemas"]["LibraryPaperOut"];
+            /** Status */
+            status: string;
+            /** Note */
+            note: string;
+            /** Tags */
+            tags: string[];
+            /** Collections */
+            collections: components["schemas"]["CollectionRef"][];
+            field: components["schemas"]["LibraryFieldOut"] | null;
+            /** Run Id */
+            run_id: string | null;
+            /** Score */
+            score: number | null;
+            /** Red Flag Count */
+            red_flag_count: number | null;
+            /** Text Source */
+            text_source: string | null;
+            /** Editor Verdict */
+            editor_verdict: string | null;
+            /** Added By Name */
+            added_by_name: string | null;
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Delete */
+            can_delete: boolean;
+            /** Abstract */
+            abstract: string;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Events */
+            events: components["schemas"]["LibraryEventOut"][];
+            /** Files */
+            files: components["schemas"]["PaperFileOut"][];
+        };
+        /** LibraryItemOut */
+        LibraryItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            paper: components["schemas"]["LibraryPaperOut"];
+            /** Status */
+            status: string;
+            /** Note */
+            note: string;
+            /** Tags */
+            tags: string[];
+            /** Collections */
+            collections: components["schemas"]["CollectionRef"][];
+            field: components["schemas"]["LibraryFieldOut"] | null;
+            /** Run Id */
+            run_id: string | null;
+            /** Score */
+            score: number | null;
+            /** Red Flag Count */
+            red_flag_count: number | null;
+            /** Text Source */
+            text_source: string | null;
+            /** Editor Verdict */
+            editor_verdict: string | null;
+            /** Added By Name */
+            added_by_name: string | null;
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Delete */
+            can_delete: boolean;
+        };
+        /** LibraryPage */
+        LibraryPage: {
+            /** Items */
+            items: components["schemas"]["LibraryItemOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** LibraryPaperOut */
+        LibraryPaperOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year: number | null;
+            /** Doi */
+            doi: string;
+        };
+        /** LibraryPatch */
+        LibraryPatch: {
+            /** Status */
+            status?: ("to_read" | "read" | "relevant" | "rejected") | null;
+            /** Note */
+            note?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Collection Ids */
+            collection_ids?: string[] | null;
+        };
+        /**
+         * LibraryRef
+         * @description A paper's place in the team library (on paper rows and the drawer); null when it is not saved.
+         */
+        LibraryRef: {
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Status */
+            status: string;
+            /** Collections */
+            collections: components["schemas"]["CollectionRef"][];
+        };
+        /** LibrarySaveOut */
+        LibrarySaveOut: {
+            /** Created */
+            created: string[];
+            /** Existing */
+            existing: string[];
+            /** Items */
+            items: components["schemas"]["LibraryItemOut"][];
+            collection: components["schemas"]["CollectionOut"] | null;
+        };
+        /** LibrarySaveRequest */
+        LibrarySaveRequest: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Paper Ids */
+            paper_ids: string[];
+            /** Collection Ids */
+            collection_ids?: string[];
+            new_collection?: components["schemas"]["CollectionCreate"] | null;
+            /** Tags */
+            tags?: string[];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Status
+             * @default to_read
+             * @enum {string}
+             */
+            status: "to_read" | "read" | "relevant" | "rejected";
         };
         /** LoginIn */
         LoginIn: {
@@ -1373,6 +1887,24 @@ export interface components {
             red_flag_count?: number | null;
             /** Text Source */
             text_source?: string | null;
+            library?: components["schemas"]["LibraryRef"] | null;
+        };
+        /**
+         * PreviewRequest
+         * @description A draft's search to preview: keywords and/or overrides, sources and years (no criteria needed).
+         */
+        PreviewRequest: {
+            keywords?: components["schemas"]["KeywordsIO"] | null;
+            query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Sources */
+            sources: ("europepmc" | "openalex" | "arxiv")[];
+            years?: components["schemas"]["Years"];
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
         };
         /** ProviderOut */
         ProviderOut: {
@@ -1382,6 +1914,18 @@ export interface components {
             key_present: boolean;
             /** Key Accepted */
             key_accepted: boolean | null;
+        };
+        /**
+         * QueryOverrideIO
+         * @description A hand-written query per source; it replaces the query built from the keywords.
+         */
+        QueryOverrideIO: {
+            /** Europepmc */
+            europepmc?: string | null;
+            /** Openalex */
+            openalex?: string | null;
+            /** Arxiv */
+            arxiv?: string | null;
         };
         /** RaisedByOut */
         RaisedByOut: {
@@ -1834,6 +2378,14 @@ export interface components {
         SettingsPatch: {
             /** Contact Email */
             contact_email?: string | null;
+        };
+        /** SnapshotRequest */
+        SnapshotRequest: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
         };
         /** SourceOut */
         SourceOut: {
@@ -2665,6 +3217,72 @@ export interface operations {
             };
         };
     };
+    assist_api_v1_fields_assist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_fields_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_field_api_v1_fields__field_id__get: {
         parameters: {
             query?: never;
@@ -3227,6 +3845,417 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_collections_api_v1_library_collections_get: {
+        parameters: {
+            query?: {
+                /** @description true: also list archived collections */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_collection_api_v1_library_collections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_collection_api_v1_library_collections__collection_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_collection_api_v1_library_collections__collection_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_collection_api_v1_library_collections__collection_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_library_api_v1_library_get: {
+        parameters: {
+            query?: {
+                /** @description words matched in title, abstract or note */
+                q?: string | null;
+                collection_id?: string | null;
+                status?: ("to_read" | "read" | "relevant" | "rejected") | null;
+                tag?: string | null;
+                field_id?: string | null;
+                min_score?: number | null;
+                has_red_flags?: boolean | null;
+                sort?: "added_at" | "title" | "year" | "score" | "status";
+                direction?: "asc" | "desc";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_to_library_api_v1_library_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibrarySaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibrarySaveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_library_api_v1_library_export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "bibtex";
+                /** @description words matched in title, abstract or note */
+                q?: string | null;
+                collection_id?: string | null;
+                status?: ("to_read" | "read" | "relevant" | "rejected") | null;
+                tag?: string | null;
+                field_id?: string | null;
+                min_score?: number | null;
+                has_red_flags?: boolean | null;
+                sort?: "added_at" | "title" | "year" | "score" | "status";
+                direction?: "asc" | "desc";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/x-bibtex": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_item_api_v1_library__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryItemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_item_api_v1_library__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_item_api_v1_library__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryItemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_snapshot_api_v1_library__item_id__snapshot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryItemDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

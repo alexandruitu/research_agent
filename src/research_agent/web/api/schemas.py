@@ -145,6 +145,8 @@ def _keyword_rule(keywords):
 class FieldDraft(Model):
     """A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save."""
 
+    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override"])
+
     name: str = Field(min_length=1, max_length=200, pattern=PLAIN)
     topic: str = Field(min_length=3, max_length=500, pattern=PLAIN)
     include: list[CriterionIn] = Field(default_factory=list, max_length=10)
@@ -443,7 +445,9 @@ class RankCell(Model):
 
 
 class PaperRow(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["sources", "score", "coverage", "red_flag_count", "text_source"])
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["sources", "score", "coverage", "red_flag_count", "text_source", "library"]
+    )
     paper: PaperRef
     found_by: str
     sources: list[str] = Field(default_factory=list)  # europepmc | openalex | arxiv | demo
@@ -457,6 +461,7 @@ class PaperRow(Model):
     coverage: float | None = None  # 0-1: share of checklist items answered yes or no
     red_flag_count: int | None = None
     text_source: str | None = None  # pmc_oa | unpaywall | upload | abstract
+    library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
 
 
 class PaperPage(Model):
@@ -599,7 +604,7 @@ class PanelOut(Model):
 
 
 class DrawerOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["sources", "panel", "files"])
+    ADDED: ClassVar[frozenset] = frozenset(["sources", "panel", "files", "library"])
     paper: PaperDetail
     found_by: str
     sources: list[str] = Field(default_factory=list)
@@ -611,6 +616,7 @@ class DrawerOut(Model):
     rank: RankCell | None
     panel: PanelOut | None = None  # the review panel (panel runs)
     files: list[PaperFileOut] = Field(default_factory=list)  # uploaded full-text PDFs of this paper
+    library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
 
 
 class CallOut(Model):
@@ -969,3 +975,8 @@ class LibraryPatch(Model):
 
 class SnapshotRequest(Model):
     run_id: uuid.UUID
+
+
+PaperRow.model_rebuild()
+PaperPage.model_rebuild()
+DrawerOut.model_rebuild()

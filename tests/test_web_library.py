@@ -245,3 +245,22 @@ def test_snapshot_update_from_another_run(sign_in, imported, db, tmp_path):
         f"{API}/library/{item_id}/snapshot", json={"run_id": str(imported["eval"])}, headers=csrf
     )
     assert bad.status_code == 422 and bad.json()["code"] == "not_in_run"
+
+
+def test_rows_and_drawer_show_the_library_state(sign_in, imported, db):
+    member, csrf = sign_in("member")
+    paper = pid(db, "demo:1")
+    body = save(member, csrf, imported["research"], [paper], new_collection={"name": "C"}).json()
+    item_id = body["created"][0]
+    rows = member.get(f"{API}/runs/{imported['research']}/papers").json()["items"]
+    refs = {r["paper"]["id"]: r["library"] for r in rows}
+    assert refs[paper] == {
+        "item_id": item_id,
+        "status": "to_read",
+        "collections": [{"id": body["collection"]["id"], "name": "C"}],
+    }
+    assert refs[pid(db, "demo:2")] is None
+    drawer = member.get(f"{API}/runs/{imported['research']}/papers/{paper}").json()
+    assert drawer["library"]["item_id"] == item_id
+    other = member.get(f"{API}/runs/{imported['research']}/papers/{pid(db, 'demo:2')}").json()
+    assert other["library"] is None

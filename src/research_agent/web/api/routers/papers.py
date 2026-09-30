@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from ...callstore import HEX64, CallStoreError, read_call, safe_folder
 from ...db.models import Paper, Run
+from ...library import library_refs
 from ...papers import PaperQuery, paper_drawer, paper_table
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
@@ -77,7 +78,10 @@ def get_paper(
     drawer = paper_drawer(db, run, paper)
     if drawer is None:
         raise ApiError(404, "not_found", "This paper is not part of the run")
-    return drawer | {"files": files_of(db, user, paper.id)}
+    return drawer | {
+        "files": files_of(db, user, paper.id),
+        "library": library_refs(db, [paper.id]).get(paper.id),
+    }
 
 
 @router.get("/{run_id}/calls/{call_key}", response_model=CallOut)
