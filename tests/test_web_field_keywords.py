@@ -5,6 +5,7 @@ import uuid
 import pytest
 import sqlalchemy as sa
 
+from research_agent.schemas import SEARCH_SOURCES
 from research_agent.web.db.migrate import upgrade
 from research_agent.web.db.models import FieldVersion, Job, Run, SourceRow
 
@@ -37,7 +38,7 @@ def test_a_version_keeps_description_keywords_and_overrides(sign_in):
     current = r.json()["current"]
     assert current["description"] == "FFR estimated from coronary CT with ML."
     assert current["keywords"] == {"all": ["CT-FFR"], "any": ["deep learning", "CNN"], "none": ["review"]}
-    assert current["query_override"] == {"europepmc": None, "openalex": '"CT-FFR"', "arxiv": None}
+    assert current["query_override"] == {n: None for n in SEARCH_SOURCES} | {"openalex": '"CT-FFR"'}
     assert current["queries"] == {
         "europepmc": 'TITLE_ABS:"CT-FFR" AND (TITLE_ABS:"deep learning" OR TITLE_ABS:CNN) NOT TITLE_ABS:review',
         "openalex": '"CT-FFR"',

@@ -24,12 +24,14 @@ TEST_LIMIT = 20  # papers per criteria test
 DEMO_JEV = "demo-jev"
 
 
-def connector(name, store, *, mode="live", years=None, contact=None, http_client=None):
-    """The pipeline's own connector for one search source (demo: synthetic records, no network)."""
+def connector(name, store, *, mode="live", years=None, contact=None, http_client=None, keywords=None):
+    """The pipeline's own connector for one search source (demo: synthetic records, no network).
+    `keywords` ({all, any, none}) is the local filter of sources without boolean search."""
     if name not in REGISTRY or "search" not in REGISTRY[name].capabilities:
         raise ValueError(f"unknown source {name!r}")
     source = SimpleNamespace(name=name, contact=contact)
-    return make_connector(source, SimpleNamespace(years=years, keywords=None), store, mode, http_client)
+    words = SimpleNamespace(model_dump=lambda: dict(keywords)) if keywords else None
+    return make_connector(source, SimpleNamespace(years=years, keywords=words), store, mode, http_client)
 
 
 def source_check(name, store, *, contact=None, http_client=None, clock=time.monotonic):

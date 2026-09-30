@@ -1,9 +1,19 @@
 """Sources from the registry: metadata, key status from the worker, key-gated enabling, checks for every source."""
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
+import httpx
+import pytest
+import sqlalchemy as sa
+
+from research_agent.schemas import FULLTEXT_SOURCES, SEARCH_SOURCES
 from research_agent.sources import REGISTRY
+from research_agent.storage import Store
+from research_agent.web.checks import check_source_keys, source_check
 from research_agent.web.db.models import SourceRow
+from research_agent.web.worker import Worker
 
 API = "/api/v1"
 
@@ -59,16 +69,6 @@ def test_a_source_without_search_has_no_connection_test(sign_in):
 
 # ---- worker: per-source key status and connection checks (all HTTP mocked, sentinel keys) -----------------
 
-import json
-from pathlib import Path
-
-import httpx
-import pytest
-import sqlalchemy as sa
-
-from research_agent.storage import Store
-from research_agent.web.checks import check_source_keys, source_check
-from research_agent.web.worker import Worker
 
 FIXTURES = Path(__file__).parent / "fixtures"
 KEYS = {
@@ -182,3 +182,47 @@ def test_the_elsevier_institution_token_is_redacted(monkeypatch):
 
     monkeypatch.setenv("ELSEVIER_INSTTOKEN", "inst-SENTINEL-0123456789")
     assert redact("x inst-SENTINEL-0123456789 y") == "x *** y"
+
+
+# ---- field drafts and review settings accept the registry's names ------------------------------------------
+
+
+DRAFT = {
+    "name": "Every source",
+    "topic": "deep learning for coronary CT angiography",
+    "include": [{"text": "Uses deep learning."}],
+    "exclude": [],
+    "years": {"from": 2018, "to": None},
+}
+
+
+def test_a_field_may_search_every_source_with_per_source_overrides(sign_in):
+    member, csrf = sign_in("member")
+    body = DRAFT | {
+        "sources": list(SEARCH_SOURCES),
+        "keywords": {"all": ["coronary"], "any": ["deep learning"], "none": []},
+        "query_override": {"pubmed": "coronary[tiab]", "scopus": "TITLE-ABS-KEY(coronary)"},
+    }
+    r = member.post(f"{API}/fields", json=body, headers=csrf)
+    assert r.status_code == 201, r.text
+    current = r.json()["current"]
+    assert current["sources"] == list(SEARCH_SOURCES)
+    assert current["query_override"]["pubmed"] == "coronary[tiab]"
+    bad = body | {"query_override": {"openalex": "a, b"}}
+    assert member.post(f"{API}/fields", json=bad, headers=csrf).status_code == 422
+    assert member.post(f"{API}/fields", json=body | {"sources": ["scholar"]}, headers=csrf).status_code == 422
+
+
+def test_review_settings_take_every_resolver_in_any_order(sign_in):
+    admin, csrf = sign_in("admin")
+    current = admin.get(f"{API}/settings/review").json()["current"]
+    keys = ("models", "screening", "fulltext", "default_panel", "editor")
+    order = list(reversed(FULLTEXT_SOURCES))
+    body = {k: current[k] for k in keys} | {"base_version": current["version"], "note": "order"}
+    body["fulltext"] = {**current["fulltext"], "sources": order, "contact": "team@example.org"}
+    r = admin.post(f"{API}/settings/review", json=body, headers=csrf)
+    assert r.status_code == 201, r.text
+    assert r.json()["current"]["fulltext"]["sources"] == order
+    body["base_version"] = r.json()["current"]["version"]
+    body["fulltext"] = {**body["fulltext"], "sources": ["core", "core"]}
+    assert admin.post(f"{API}/settings/review", json=body, headers=csrf).status_code == 422

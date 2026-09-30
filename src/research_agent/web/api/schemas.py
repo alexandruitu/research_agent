@@ -5,6 +5,8 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ...schemas import FULLTEXT_SOURCES, SEARCH_SOURCES, FulltextSource, SourceName
+
 
 def _added_fields_are_optional(schema, cls):
     """Fields added to an existing response model (`ADDED`) are always sent, but the schema does not list
@@ -67,7 +69,6 @@ class CriterionOut(Model):
 
 PLAIN = r"^[^\x00-\x1f\x7f]*$"  # plain text: no control characters (line breaks included)
 TEXT = r"^[^\x00-\x08\x0b\x0c\x0e-\x1f\x7f]*$"  # like PLAIN, but line breaks and tabs are allowed
-SourceName = Literal["europepmc", "openalex", "arxiv"]
 
 
 class Years(Model):
@@ -128,6 +129,15 @@ class QueryOverrideIO(Model):
     europepmc: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
     openalex: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
     arxiv: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    semantic_scholar: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    crossref: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    pubmed: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    medrxiv: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    biorxiv: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    core: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    ieee: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    springer: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    scopus: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
 
     @field_validator("openalex")
     @classmethod
@@ -151,7 +161,7 @@ class FieldDraft(Model):
     topic: str = Field(min_length=3, max_length=500, pattern=PLAIN)
     include: list[CriterionIn] = Field(default_factory=list, max_length=10)
     exclude: list[CriterionIn] = Field(default_factory=list, max_length=10)
-    sources: list[SourceName] = Field(min_length=1, max_length=3)
+    sources: list[SourceName] = Field(min_length=1, max_length=len(SEARCH_SOURCES))
     years: Years = Field(default_factory=Years)
     description: str = Field(default="", max_length=2000, pattern=TEXT)
     keywords: KeywordsIO | None = None
@@ -266,7 +276,7 @@ class PreviewRequest(Model):
 
     keywords: KeywordsIO | None = None
     query_override: QueryOverrideIO | None = None
-    sources: list[SourceName] = Field(min_length=1, max_length=3)
+    sources: list[SourceName] = Field(min_length=1, max_length=len(SEARCH_SOURCES))
     years: Years = Field(default_factory=Years)
     mode: Literal["live", "demo"] = "live"
 
@@ -782,7 +792,14 @@ class ScreeningIO(Model):
 
 
 class FulltextIO(Model):
-    sources: list[Literal["pmc_oa", "unpaywall", "upload"]] = Field(max_length=3)
+    sources: list[FulltextSource] = Field(max_length=len(FULLTEXT_SOURCES))  # tried in this order
+
+    @field_validator("sources")
+    @classmethod
+    def _unique(cls, value):
+        if len(set(value)) != len(value):
+            raise ValueError("each full-text source may be listed once")
+        return value
     contact: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     max_chars: int = Field(ge=2000, le=200000)
     upload_max_mb: int = Field(default=30, ge=1, le=30)

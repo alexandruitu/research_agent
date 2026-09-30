@@ -11,10 +11,10 @@ from sqlalchemy import func, select
 
 from ..jev import default_criteria
 from ..querybuild import QueryError, build_queries, normalize_keywords
-from ..schemas import DomainSpec
+from ..schemas import SEARCH_SOURCES, DomainSpec
 from .db.models import AppSettings, Criterion, Field, FieldVersion, SourceRow
 
-SOURCE_NAMES = ("europepmc", "openalex", "arxiv")
+SOURCE_NAMES = SEARCH_SOURCES  # a field may search any of these (research_agent.sources.REGISTRY)
 NO_YEARS = {"from": None, "to": None}
 LEGACY_SOURCES = {"names": ["europepmc"], "years": NO_YEARS}
 KINDS = ("include", "exclude", "legacy")

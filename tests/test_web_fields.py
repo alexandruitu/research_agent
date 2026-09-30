@@ -107,7 +107,7 @@ def test_viewers_read_but_cannot_create(sign_in):
         {"include": [{"text": "x" * 501}]},
         {"include": [{"text": "ab"}]},
         {"include": [{"text": "two\nlines"}]},
-        {"sources": ["pubmed"]},
+        {"sources": ["scholar"]},
         {"sources": []},
         {"sources": ["arxiv", "arxiv"]},
         {"years": {"from": 2020, "to": 2019}},

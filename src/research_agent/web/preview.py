@@ -2,7 +2,7 @@
 
 A failing source reports its error and the others still answer. Nothing is kept (a scratch store)."""
 
-from ..connectors import SourceUnavailable
+from ..connectors import SourceKeyMissing, SourceUnavailable
 from ..schemas import Years
 from .checks import connector
 from .runner import sanitize_error
@@ -31,10 +31,19 @@ def field_preview(payload, store, *, http_client=None):
             rows.append(row | {"error": "no query for this source"})
             continue
         search = connector(
-            name, store, mode=mode, years=years, contact=source.get("contact"), http_client=http_client
+            name,
+            store,
+            mode=mode,
+            years=years,
+            contact=source.get("contact"),
+            http_client=http_client,
+            keywords=payload.get("keywords"),
         )
         try:
             result = search.search_with_total(query, PREVIEW_LIMIT, raw=True)
+        except SourceKeyMissing as exc:
+            rows.append(row | {"error": str(exc)})
+            continue
         except SourceUnavailable as exc:
             rows.append(row | {"error": f"SourceUnavailable: {exc.source}"})
             continue

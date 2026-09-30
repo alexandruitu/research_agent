@@ -211,11 +211,10 @@ def preview(
         "mode": body.mode,
         "years": {"from": body.years.start, "to": body.years.end},
         "sources": [
-            {"name": n, **({"contact": contact} if n == "openalex" and contact else {})}
-            for n in names
-            if n in queries
+            {"name": n, **({"contact": contact} if contact else {})} for n in names if n in queries
         ],
         "queries": queries,
+        "keywords": keywords,  # the local filter of sources without boolean search (Semantic Scholar, Crossref)
     }
     job, _ = enqueue(db, "field_preview", payload, user.id)
     db.commit()
