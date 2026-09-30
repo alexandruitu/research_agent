@@ -6,7 +6,18 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "deploy" / "docker-compose.yml"
-KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "TYPESAFE_API_KEY", "RESEARCH_MODEL")
+KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "TYPESAFE_API_KEY", "RESEARCH_MODEL", "ELSEVIER_INSTTOKEN")
+SOURCE_KEYS = (
+    "NCBI_API_KEY",
+    "S2_API_KEY",
+    "OPENALEX_API_KEY",
+    "CORE_API_KEY",
+    "IEEE_API_KEY",
+    "SPRINGER_API_KEY",
+    "ELSEVIER_API_KEY",
+    "ELSEVIER_INSTTOKEN",
+    "RESEARCH_AGENT_CONTACT",
+)
 
 
 @pytest.fixture(scope="module")
@@ -74,6 +85,7 @@ def test_provider_keys_exist_only_in_the_worker(compose):
         {"environment": ["RESEARCH_RUNS_DIR=/data/runs", "ANTHROPIC_API_KEY"]},
         {"environment": {"MISTRAL_API_KEY": "${MISTRAL_API_KEY}"}},
         {"environment": ["HF_TOKEN=x"]},
+        {"environment": ["ELSEVIER_INSTTOKEN=x"]},
         {"env_file": "worker.env"},
         {"volumes": ["./worker.env:/app/worker.env:ro"]},
         {"volumes": ["../.env:/app/.env:ro"]},
@@ -84,6 +96,14 @@ def test_provider_keys_exist_only_in_the_worker(compose):
 )
 def test_the_key_check_catches_every_way_in(service):
     assert key_problems(service)
+
+
+def test_source_key_names_are_listed_empty_in_the_worker_example_only():
+    worker = (DEPLOY / "worker.env.example").read_text().splitlines()
+    api = (DEPLOY / ".env.example").read_text()
+    for name in SOURCE_KEYS:
+        assert f"{name}=" in worker, name
+        assert name not in api, name
 
 
 def test_the_worker_forwards_stop_signals_to_python(compose):
@@ -240,5 +260,7 @@ def test_ci_runs_every_check_and_needs_no_secrets():
     python = " ".join(step.get("run", "") for step in workflow["jobs"]["python"]["steps"])
     assert "ruff check ." in python and "pytest" in python
     docker = " ".join(step.get("run", "") for step in workflow["jobs"]["docker"]["steps"])
-    assert "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile.web" in docker
+    assert (
+        "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile.web" in docker
+    )
     assert workflow["jobs"]["e2e"]["env"]["PYTHON_DOTENV_DISABLED"] == "1"
