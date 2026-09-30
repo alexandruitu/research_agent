@@ -203,6 +203,22 @@ saved papers get the collections and tags merged). Search `q` is ILIKE over titl
 read and export (CSV, injection-safe; BibTeX, escaped); members save and edit; the adder or an admin deletes;
 admins archive collections. Paper rows and the drawer carry `library: {item_id, status, collections} | null`.
 
+## More sources (slice 5)
+
+The `sources` table has a row per `research_agent.sources.REGISTRY` entry (14; migration 0006; only Europe PMC
+enabled by default). `GET /sources` returns the registry metadata (label, group, covers, auth `none|optional|
+required`, key variable names, capabilities, rate limits and `rps_in_use`) plus the worker's key report
+(`key_present`, `key_accepted`, `key_detail`, `key_checked_at`; never a value). The worker writes that report at
+start-up: presence of every variable, then one search for one result per keyed search source (`accepted`, or
+`null` with "check failed": a connector never exposes the HTTP cause when a key was sent). Enabling a source whose
+required key the worker did not report → 422 `key_missing` ("Set IEEE_API_KEY in the worker environment first");
+`POST /sources/{name}/check` on a full-text-only source (Unpaywall, ScienceDirect) → 422 `not_searchable`.
+Fields, previews and query overrides accept all 12 search sources; review settings take the 9 full-text resolvers
+in any order. Panel reviews record `text_licence` (`cc-*`, `cc0`, `open_access`, `publisher_licensed`,
+`user_upload`, `abstract`; null for older runs); exports read metadata keys only (`library.EXPORT_KEYS`), so no
+review text, of any licence, is ever exported. Keys go in `deploy/worker.env` (see `worker.env.example`); restart
+the worker after a change.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19
