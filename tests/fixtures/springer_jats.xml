@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written after https://dev.springernature.com/docs/api-endpoints/open-access/ (JATS response). -->
+<response>
+  <query>doi:10.1007/s00330-021-07890-1</query>
+  <result><total>1</total><start>1</start><pageLength>1</pageLength><recordsDisplayed>1</recordsDisplayed></result>
+  <records>
+    <article xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article">
+      <front>
+        <article-meta>
+          <permissions>
+            <license license-type="open-access" xlink:href="http://creativecommons.org/licenses/by/4.0/">
+              <license-p>This article is licensed under a Creative Commons Attribution 4.0 International License.</license-p>
+            </license>
+          </permissions>
+          <abstract><p>Objectives: to evaluate deep learning on coronary CT angiography.</p></abstract>
+        </article-meta>
+      </front>
+      <body>
+        <sec><title>Methods</title><p>We trained a network on 800 patients from two centres.</p></sec>
+        <sec><title>Results</title><p>The external AUC was 0.88 with patient-level splits.</p></sec>
+      </body>
+      <back><ref-list><ref><mixed-citation>Ignored reference.</mixed-citation></ref></ref-list></back>
+    </article>
+  </records>
+</response>

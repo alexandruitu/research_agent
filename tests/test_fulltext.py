@@ -185,6 +185,7 @@ def test_everything_fails_falls_back_to_the_abstract(tmp_path):
         "truncated": False,
         "origin": None,
         "reason": "pmc_oa: request failed; unpaywall: PDF download failed; upload: no uploaded PDF",
+        "text_licence": "abstract",
     }
 
 

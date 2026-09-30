@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<full-text-retrieval-response xmlns="http://www.elsevier.com/xml/svapi/article/dtd"
+    xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/">
+  <coredata><prism:doi>10.1016/j.x</prism:doi><openaccess>0</openaccess></coredata>
+</full-text-retrieval-response>

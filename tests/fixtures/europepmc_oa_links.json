@@ -1,0 +1,5 @@
+{"hitCount": 1, "resultList": {"result": [{"id": "38000001", "source": "MED", "doi": "10.3390/diagnostics11050789", "license": "cc by", "fullTextUrlList": {"fullTextUrl": [
+ {"availability": "Subscription required", "availabilityCode": "S", "documentStyle": "pdf", "site": "Publisher", "url": "https://publisher.example/closed.pdf"},
+ {"availability": "Open access", "availabilityCode": "OA", "documentStyle": "html", "site": "Publisher", "url": "https://publisher.example/article.html"},
+ {"availability": "Open access", "availabilityCode": "OA", "documentStyle": "pdf", "site": "Publisher", "url": "https://publisher.example/open.pdf"}
+]}}]}}

@@ -1,7 +1,12 @@
-"""Full text for the review panel: PMC Open Access (Europe PMC), Unpaywall (legal OA PDFs) and uploaded PDFs.
+"""Full text for the review panel, in the configured resolver order (DEFAULT_ORDER lists every resolver):
+PMC Open Access, Europe PMC open-access links, CORE, Springer Nature OA (JATS), Semantic Scholar OA PDFs,
+Unpaywall, IEEE Xplore (open-access articles only), ScienceDirect (only when the Elsevier Entitlement API says the
+institution is entitled; never a paywall bypass) and uploaded PDFs.
 
-Never fatal: any failure falls back to the abstract and records why. Only open-access or user-provided
-text is ever sent to a model provider."""
+Never fatal: any failure falls back to the abstract and records why. Every result carries `text_licence`:
+a Creative Commons id (cc-by, cc-by-nc-nd, cc0, ...), `open_access`, `publisher_licensed` (entitled, not open:
+never exported), `user_upload` or `abstract`. Keys come from the environment; a missing key makes its resolver
+unavailable with the variable's name as the reason."""
 
 import hashlib
 import io
@@ -10,7 +15,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from .connectors import SourceUnavailable, digest, fetch
+from .connectors import SourceUnavailable, digest, env_key, fetch
 
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MIN_PDF_TEXT = 100  # fewer extractable characters: a scanned or empty PDF
@@ -87,7 +92,7 @@ def parse_jats(xml_text):
     """Europe PMC fullTextXML (JATS): front abstract plus each top-level body section; back matter
     (references) is never read. expat refuses entity-expansion attacks."""
     try:
-        root = ET.fromstring(xml_text)
+        root = xml_text if isinstance(xml_text, ET.Element) else ET.fromstring(xml_text)
     except ET.ParseError:
         raise FulltextUnavailable("unreadable XML") from None
     body = root.find("body")
@@ -154,6 +159,50 @@ def upload_name(paper_id):
 
 
 FULLTEXT_VERSION = "ft-1"
+DEFAULT_ORDER = (
+    "pmc_oa",
+    "europepmc",
+    "core",
+    "springer_oa",
+    "semantic_scholar_oa",
+    "unpaywall",
+    "ieee",
+    "sciencedirect",
+    "upload",
+)
+EPMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+CORE_SEARCH = "https://api.core.ac.uk/v3/search/works"
+SPRINGER_JATS = "https://api.springernature.com/openaccess/jats"
+S2_PAPER = "https://api.semanticscholar.org/graph/v1/paper/{ref}"
+IEEE_SEARCH = "https://ieeexploreapi.ieee.org/api/v1/search/articles"
+ELSEVIER_ENTITLEMENT = "https://api.elsevier.com/content/article/entitlement/doi/{doi}"
+ELSEVIER_ARTICLE = "https://api.elsevier.com/content/article/doi/{doi}"
+CE = "{http://www.elsevier.com/xml/common/dtd}"
+ELS = "{http://www.elsevier.com/xml/svapi/article/dtd}"
+XLINK = "{http://www.w3.org/1999/xlink}href"
+CC = re.compile(r"(?:creativecommons\.org/licenses/|\bcc[\s_-]?)(by(?:[\s_-](?:nc|sa|nd))*)", re.IGNORECASE)
+DEFAULT_LICENCE = {"upload": "user_upload"}
+
+
+def normalize_licence(value):
+    """A Creative Commons id (cc-by, cc-by-nc-nd, cc0) from a licence URL or name; None when not CC."""
+    text = str(value or "")
+    if re.search(r"publicdomain/zero|\bcc[\s_-]?0\b|\bcc[\s_-]?zero\b", text, re.IGNORECASE):
+        return "cc0"
+    match = CC.search(text)
+    if not match:
+        return None
+    return "cc-" + "-".join(re.split(r"[\s_-]+", match.group(1).lower()))
+
+
+def jats_licence(root):
+    licence = root.find(".//license")
+    if licence is None:
+        return "open_access"
+    found = normalize_licence(licence.get(XLINK)) or normalize_licence(licence.get("license-type"))
+    return found or normalize_licence(" ".join(licence.itertext())) or "open_access"
+
+
 PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
 UNPAYWALL_URL = "https://api.unpaywall.org/v2/{doi}"
 
@@ -176,7 +225,7 @@ class FullText:
         reasons = []
         for source in self.spec["sources"]:
             try:
-                sections, origin = getattr(self, f"_{source}")(paper)
+                sections, origin, licence = getattr(self, f"_{source}")(paper)
             except FulltextUnavailable as exc:
                 reasons.append(f"{source}: {exc.reason}")
                 continue
@@ -191,6 +240,7 @@ class FullText:
                 "truncated": truncated,
                 "origin": origin,
                 "reason": "; ".join(reasons) or None,
+                "text_licence": licence,
             }
         return {
             "text_source": "abstract",
@@ -199,6 +249,7 @@ class FullText:
             "truncated": False,
             "origin": None,
             "reason": "; ".join(reasons) or "no full-text source configured",
+            "text_licence": "abstract",
         }
 
     def _cached(self, source, locator, load):
@@ -206,10 +257,15 @@ class FullText:
         key = digest({"version": FULLTEXT_VERSION, "source": source, "locator": locator})
         hit = self.store.cached_fulltext(key)
         if hit is None:
-            sections, origin = load()
+            sections, origin, *licence = load()
             hit = {"sections": [[s.title, s.text] for s in sections], "origin": origin}
+            if licence and licence[0]:
+                hit["licence"] = licence[0]
             self.store.record_fulltext(key, source, locator, hit)
-        return [Section(t, x) for t, x in hit["sections"]], hit["origin"]
+        licence = hit.get("licence") or DEFAULT_LICENCE.get(
+            source, "open_access"
+        )  # older entries: no licence
+        return [Section(t, x) for t, x in hit["sections"]], hit["origin"], licence
 
     def _network(self):
         if self.mode == "demo":
@@ -227,7 +283,8 @@ class FullText:
                 xml = fetch(self.client, url, None, "pmc_oa", lambda response: response.text)
             except SourceUnavailable:
                 raise FulltextUnavailable("request failed") from None
-            return parse_jats(xml), url
+            sections = parse_jats(xml)
+            return sections, url, jats_licence(ET.fromstring(xml))
 
         return self._cached("pmc_oa", pmcid, load)
 
@@ -254,9 +311,11 @@ class FullText:
             urls = list(dict.fromkeys(loc["url_for_pdf"] for loc in locations if loc.get("url_for_pdf")))
             if not urls:
                 raise FulltextUnavailable("no open-access PDF")
+            best = next((loc for loc in locations if loc.get("url_for_pdf")), {})
+            licence = normalize_licence(best.get("license")) or "open_access"
             for url in urls[:2]:
                 try:
-                    return pdf_sections(fetch(self.client, url, None, "unpaywall", _pdf_bytes)), url
+                    return pdf_sections(fetch(self.client, url, None, "unpaywall", _pdf_bytes)), url, licence
                 except (SourceUnavailable, FulltextUnavailable):
                     continue
             raise FulltextUnavailable("PDF download failed")
@@ -273,6 +332,224 @@ class FullText:
                 data = path.read_bytes()
                 sha = hashlib.sha256(data).hexdigest()
                 return self._cached(
-                    "upload", sha, lambda data=data, sha=sha: (pdf_sections(data), f"upload:{sha}")
+                    "upload",
+                    sha,
+                    lambda data=data, sha=sha: (pdf_sections(data), f"upload:{sha}", "user_upload"),
                 )
         raise FulltextUnavailable("no uploaded PDF")
+
+    # Resolvers added with the new sources (slice 5). Each returns (sections, origin, licence) via _cached.
+
+    def _get(self, source, url, params=None, decode=None, headers=None, secret=False):
+        try:
+            return fetch(
+                self.client,
+                url,
+                params,
+                source,
+                decode or (lambda response: response.json()),
+                headers=headers,
+                secret=secret,
+                keyed=secret,
+            )
+        except SourceUnavailable:
+            raise FulltextUnavailable("request failed") from None
+
+    def _pdf(self, urls):
+        for url in list(dict.fromkeys(urls))[:2]:
+            try:
+                return pdf_sections(fetch(self.client, url, None, "pdf", _pdf_bytes)), url
+            except (SourceUnavailable, FulltextUnavailable):
+                continue
+        raise FulltextUnavailable("PDF download failed")
+
+    @staticmethod
+    def _key(name):
+        value = env_key(name)
+        if value is None:
+            raise FulltextUnavailable(f"{name} not set")
+        return value
+
+    @staticmethod
+    def _doi(paper):
+        doi = paper.get("doi") or ""
+        if not doi:
+            raise FulltextUnavailable("no DOI")
+        return doi
+
+    def _europepmc(self, paper):
+        """Open-access PDF links Europe PMC lists for records outside PMC (PMC records are pmc_oa's)."""
+        if paper.get("pmcid"):
+            raise FulltextUnavailable("in PMC (pmc_oa)")
+        doi = self._doi(paper)
+        self._network()
+
+        def load():
+            params = {"query": f'DOI:"{doi}"', "resultType": "core", "format": "json", "pageSize": 1}
+            rows = (self._get("europepmc", EPMC_SEARCH, params).get("resultList") or {}).get("result") or []
+            if not rows:
+                raise FulltextUnavailable("not in Europe PMC")
+            links = ((rows[0].get("fullTextUrlList") or {}).get("fullTextUrl")) or []
+            urls = [
+                u["url"]
+                for u in links
+                if u.get("availabilityCode") == "OA" and u.get("documentStyle") == "pdf" and u.get("url")
+            ]
+            if not urls:
+                raise FulltextUnavailable("no open-access PDF link")
+            sections, url = self._pdf(urls)
+            return sections, url, normalize_licence(rows[0].get("license")) or "open_access"
+
+        return self._cached("europepmc", doi, load)
+
+    def _core(self, paper):
+        doi = self._doi(paper)
+        self._network()
+        key = self._key("CORE_API_KEY")
+
+        def load():
+            params = {"q": f'doi:"{doi}"', "limit": 1}
+            payload = self._get(
+                "core", CORE_SEARCH, params, headers={"Authorization": f"Bearer {key}"}, secret=True
+            )
+            rows = payload.get("results") or []
+            if not rows:
+                raise FulltextUnavailable("not in CORE")
+            row = rows[0]
+            origin = f"https://core.ac.uk/works/{row.get('id')}"
+            text = row.get("fullText") or ""
+            if len("".join(text.split())) >= MIN_PDF_TEXT:
+                return split_sections(text), origin, "open_access"
+            if row.get("downloadUrl"):
+                sections, url = self._pdf([row["downloadUrl"]])
+                return sections, url, "open_access"
+            raise FulltextUnavailable("no full text in CORE")
+
+        return self._cached("core", doi, load)
+
+    def _springer_oa(self, paper):
+        doi = self._doi(paper)
+        self._network()
+        key = self._key("SPRINGER_API_KEY")
+
+        def load():
+            xml = self._get(
+                "springer_oa",
+                SPRINGER_JATS,
+                {"q": f"doi:{doi}", "api_key": key},
+                decode=lambda response: response.text,
+                secret=True,
+            )
+            try:
+                article = ET.fromstring(xml).find(".//article")
+            except ET.ParseError:
+                raise FulltextUnavailable("unreadable XML") from None
+            if article is None:
+                raise FulltextUnavailable("not open access at Springer Nature")
+            return parse_jats(article), f"https://doi.org/{doi}", jats_licence(article)
+
+        return self._cached("springer_oa", doi, load)
+
+    def _semantic_scholar_oa(self, paper):
+        ref = paper.get("s2") or (f"DOI:{paper['doi']}" if paper.get("doi") else "")
+        if not ref:
+            raise FulltextUnavailable("no DOI or Semantic Scholar id")
+        self._network()
+        key = env_key("S2_API_KEY")
+
+        def load():
+            record = self._get(
+                "semantic_scholar_oa",
+                S2_PAPER.format(ref=ref),
+                {"fields": "openAccessPdf"},
+                headers={"x-api-key": key} if key else None,
+                secret=key is not None,
+            )
+            pdf = record.get("openAccessPdf") or {}
+            if not pdf.get("url"):
+                raise FulltextUnavailable("no open-access PDF")
+            sections, url = self._pdf([pdf["url"]])
+            return sections, url, normalize_licence(pdf.get("license")) or "open_access"
+
+        return self._cached("semantic_scholar_oa", ref, load)
+
+    def _ieee(self, paper):
+        doi = self._doi(paper)
+        self._network()
+        key = self._key("IEEE_API_KEY")
+
+        def load():
+            params = {"doi": doi, "max_records": 1, "format": "json", "apikey": key}
+            articles = self._get("ieee", IEEE_SEARCH, params, secret=True).get("articles") or []
+            if not articles:
+                raise FulltextUnavailable("not in IEEE Xplore")
+            article = articles[0]
+            if article.get("access_type") != "OPEN_ACCESS" or not article.get("pdf_url"):
+                raise FulltextUnavailable("not open access via the IEEE API")
+            sections, url = self._pdf([article["pdf_url"]])
+            return sections, url, "open_access"
+
+        return self._cached("ieee", doi, load)
+
+    def _sciencedirect(self, paper):
+        doi = self._doi(paper)
+        self._network()
+        key = self._key("ELSEVIER_API_KEY")
+        headers = {"X-ELS-APIKey": key}
+        token = env_key("ELSEVIER_INSTTOKEN")
+        if token:
+            headers["X-ELS-Insttoken"] = token
+
+        def load():
+            entitlement = self._get(
+                "sciencedirect",
+                ELSEVIER_ENTITLEMENT.format(doi=doi),
+                None,
+                headers=headers | {"Accept": "application/json"},
+                secret=True,
+            )
+            entitled = (
+                (entitlement.get("entitlement-response") or {}).get("document-entitlement") or {}
+            ).get("entitled")
+            if entitled not in (True, "true"):
+                raise FulltextUnavailable("not entitled")
+            xml = self._get(
+                "sciencedirect",
+                ELSEVIER_ARTICLE.format(doi=doi),
+                {"view": "FULL"},
+                decode=lambda response: response.text,
+                headers=headers | {"Accept": "text/xml"},
+                secret=True,
+            )
+            return _elsevier(xml, doi)
+
+        return self._cached("sciencedirect", doi, load)
+
+
+def _elsevier(xml, doi):
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        raise FulltextUnavailable("unreadable XML") from None
+    if root.find(f"{ELS}originalText") is None:
+        raise FulltextUnavailable("no full text in the response (not entitled)")
+    sections = []
+    abstract = " ".join(" ".join("".join(p.itertext()).split()) for p in root.iter(f"{CE}simple-para"))
+    if abstract:
+        sections.append(Section("Abstract", abstract))
+    container = next(root.iter(f"{CE}sections"), None)
+    for sec in container.findall(f"{CE}section") if container is not None else []:
+        title = " ".join((sec.findtext(f"{CE}section-title") or "").split())
+        paras = [" ".join("".join(p.itertext()).split()) for p in sec.iter(f"{CE}para")]
+        sections.append(Section(title, "\n".join(p for p in paras if p)))
+    if not any(s.text for s in sections[1:]):
+        raise FulltextUnavailable("no body in the XML")
+    coredata = root.find(f"{ELS}coredata")
+    open_access = coredata is not None and (coredata.findtext(f"{ELS}openaccess") or "").strip() in (
+        "1",
+        "true",
+    )
+    licence = "publisher_licensed"
+    if open_access:
+        licence = normalize_licence(coredata.findtext(f"{ELS}openaccessUserLicense")) or "open_access"
+    return sections, ELSEVIER_ARTICLE.format(doi=doi), licence
