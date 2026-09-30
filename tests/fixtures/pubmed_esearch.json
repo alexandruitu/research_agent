@@ -1,0 +1,17 @@
+{
+ "header": {
+  "type": "esearch",
+  "version": "0.3"
+ },
+ "esearchresult": {
+  "count": "281",
+  "retmax": "2",
+  "retstart": "0",
+  "idlist": [
+   "42765352",
+   "42756380"
+  ],
+  "translationset": [],
+  "querytranslation": "\"deep learning\"[Title/Abstract] AND \"coronary angiography\"[Title/Abstract]"
+ }
+}

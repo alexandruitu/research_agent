@@ -26,6 +26,7 @@ class Store:
                     PRIMARY KEY(run_id, paper_id));
                 CREATE TABLE IF NOT EXISTS fulltext (key TEXT PRIMARY KEY, source TEXT, locator TEXT,
                     payload TEXT);
+                CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, source TEXT, payload TEXT);
             """)
 
     @contextmanager
@@ -58,6 +59,19 @@ class Store:
             db.execute(
                 "INSERT OR REPLACE INTO fulltext VALUES (?, ?, ?, ?)",
                 (key, source, locator, canonical_json(payload)),
+            )
+
+    def cached_lookup(self, request):
+        """An identity lookup answered before (`request` is a JSON-able dict without credentials)."""
+        with self.connect() as db:
+            row = db.execute("SELECT payload FROM lookups WHERE key=?", (digest(request),)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def record_lookup(self, request, payload):
+        with self.connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO lookups VALUES (?, ?, ?)",
+                (digest(request), request.get("source", ""), canonical_json(payload)),
             )
 
     def cached(self, key):

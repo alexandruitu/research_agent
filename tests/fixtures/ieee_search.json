@@ -1,0 +1,26 @@
+{
+ "total_records": 12,
+ "total_searched": 5000000,
+ "articles": [
+  {
+   "article_number": "9412345",
+   "doi": "10.1109/TMI.2021.3060000",
+   "title": "Deep Learning Coronary Angiography Analysis",
+   "abstract": "We present a deep learning method for coronary angiography.",
+   "publication_year": 2021,
+   "access_type": "OPEN_ACCESS",
+   "html_url": "https://ieeexplore.ieee.org/document/9412345/",
+   "pdf_url": "https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9412345"
+  },
+  {
+   "article_number": "9500001",
+   "doi": "10.1109/ISBI.2022.1111",
+   "title": "Locked Paper on Stenosis",
+   "abstract": "Stenosis grading.",
+   "publication_year": 2022,
+   "access_type": "LOCKED",
+   "html_url": "https://ieeexplore.ieee.org/document/9500001/",
+   "pdf_url": "https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9500001"
+  }
+ ]
+}

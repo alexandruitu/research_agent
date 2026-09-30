@@ -233,7 +233,18 @@ class OpenAlex:
             params["filter"] = ",".join(filters)
         if self.contact:
             params["mailto"] = self.contact
-        payload = fetch(self.client, self.endpoint, params, self.name, lambda response: response.json())
+        key = env_key("OPENALEX_API_KEY")  # optional; never part of the recorded query
+        sent_params = {**params, "api_key": key} if key else params
+        payload = fetch(
+            self.client,
+            self.endpoint,
+            sent_params,
+            self.name,
+            lambda response: response.json(),
+            secret=key is not None,
+            contact=self.contact,
+            keyed=key is not None,
+        )
         raw_hash = self.store.raw(payload)
         retrieved = datetime.now(UTC).isoformat()
         try:
@@ -418,17 +429,9 @@ class MultiSource:
 
 
 def domain_connector(domain, store, mode):
-    sources = []
-    for source in domain.sources:
-        if mode == "demo":
-            connector = DemoConnector(store, source=source.name)
-        elif source.name == "europepmc":
-            connector = EuropePMC(store, years=domain.years)
-        elif source.name == "openalex":
-            connector = OpenAlex(store, years=domain.years, contact=source.contact)
-        else:
-            connector = ArXiv(store, years=domain.years)
-        sources.append((connector, source.max_results))
+    from .sources import make_connector  # sources imports this module
+
+    sources = [(make_connector(source, domain, store, mode), source.max_results) for source in domain.sources]
     return MultiSource(sources, domain.queries)
 
 

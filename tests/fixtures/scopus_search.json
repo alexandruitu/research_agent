@@ -1,0 +1,27 @@
+{
+ "search-results": {
+  "opensearch:totalResults": "412",
+  "opensearch:startIndex": "0",
+  "opensearch:itemsPerPage": "2",
+  "entry": [
+   {
+    "@_fa": "true",
+    "link": [{"@_fa": "true", "@ref": "scopus", "@href": "https://www.scopus.com/inward/record.uri?partnerID=HzOxMe3b&scp=85100000001&origin=inward"}],
+    "dc:identifier": "SCOPUS_ID:85100000001",
+    "eid": "2-s2.0-85100000001",
+    "dc:title": "Deep learning for invasive coronary angiography",
+    "prism:doi": "10.1016/j.jcmg.2021.01.001",
+    "prism:coverDate": "2021-06-01",
+    "pubmed-id": "33600000"
+   },
+   {
+    "@_fa": "true",
+    "dc:identifier": "SCOPUS_ID:85100000002",
+    "eid": "2-s2.0-85100000002",
+    "dc:title": "Stenosis detection",
+    "prism:coverDate": "2022-02-01",
+    "dc:description": "Complete-view abstract of stenosis detection."
+   }
+  ]
+ }
+}

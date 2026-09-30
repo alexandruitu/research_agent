@@ -1,0 +1,29 @@
+{
+ "totalHits": 57,
+ "limit": 2,
+ "offset": 0,
+ "results": [
+  {
+   "id": 148473,
+   "doi": "10.3390/diagnostics11050789",
+   "title": "Deep learning for CT coronary angiography",
+   "abstract": "A deep learning model was evaluated on CT coronary angiography.",
+   "yearPublished": 2021,
+   "arxivId": null,
+   "pubmedId": "33925000",
+   "downloadUrl": "https://core.ac.uk/download/pdf/148473.pdf",
+   "fullText": "Abstract\nA deep learning model was evaluated.\nMethods\nWe trained a network on 500 scans of patients.\nResults\nThe AUC was 0.91 in the external test set of patients."
+  },
+  {
+   "id": 99001,
+   "doi": null,
+   "title": "Vessel segmentation with transformers",
+   "abstract": "Transformers segment coronary vessels.",
+   "yearPublished": 2022,
+   "arxivId": "2201.00001",
+   "pubmedId": null,
+   "downloadUrl": null,
+   "fullText": null
+  }
+ ]
+}

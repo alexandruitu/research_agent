@@ -1,0 +1,48 @@
+{
+ "status": "ok",
+ "message-type": "work-list",
+ "message-version": "1.0.0",
+ "message": {
+  "facets": {},
+  "total-results": 2079088,
+  "items": [
+   {
+    "DOI": "10.2139/ssrn.6218070",
+    "title": [
+     "Angle-Aware Deep Learning for Automate Coronary Segment Identification in Quantitative Coronary Angiography"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2026
+      ]
+     ]
+    },
+    "abstract": "<jats:p>Background and Objectives: Quantitative coronary angiography (QCA) requires accurate identification of coronary artery segments for lesion characterization and clinical scoring systems such as SYNTAX. Manual segment identification is time-consuming and subject to inter-observer variability, particularly when vessel appearance is ambiguous due to projection geometry. This study aims to deve</jats:p>",
+    "type": "posted-content"
+   },
+   {
+    "DOI": "10.47191/ijmcr/v14i4.09",
+    "title": [
+     "An Ensemble Deep Learning Framework for Coronary Heart Disease Detection Using Coronary Angiography Images"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2026,
+       4,
+       30
+      ]
+     ]
+    },
+    "abstract": "<jats:p>Coronary heart disease (CHD) is one of the most common causes of death and a significant health issue of concern globally. Recent cardiovascular epidemiological studies indicate that the worldwide cardiovascular diseases cause about 17.9 million deaths every year, with coronary heart disease constituting the biggest share of these mortalities. Timely coronary artery abnormalities identific</jats:p>",
+    "type": "journal-article"
+   }
+  ],
+  "items-per-page": 2,
+  "query": {
+   "start-index": 0,
+   "search-terms": null
+  }
+ }
+}

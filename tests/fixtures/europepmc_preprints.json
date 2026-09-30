@@ -1,0 +1,44 @@
+{
+ "version": "6.9",
+ "hitCount": 103,
+ "nextCursorMark": "AoIIQLbVwCg1NTkxODUyOQ==",
+ "nextPageUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=%22deep+learning%22+AND+%22coronary%22+AND+SRC%3APPR+AND+PUBLISHER%3A%22medRxiv%22&cursorMark=AoIIQLbVwCg1NTkxODUyOQ%3D%3D&resultType=core&pageSize=2&format=json",
+ "request": {
+  "queryString": "\"deep learning\" AND \"coronary\" AND SRC:PPR AND PUBLISHER:\"medRxiv\"",
+  "resultType": "core",
+  "cursorMark": "*",
+  "pageSize": 2,
+  "sort": "",
+  "synonym": false
+ },
+ "resultList": {
+  "result": [
+   {
+    "id": "PPR1264598",
+    "source": "PPR",
+    "doi": "10.64898/2026.06.30.26356920",
+    "title": "Deep-Learning-based Quantification of Epicardial Adipose Tissue by 3D Dixon Cardiovascular Magnetic Resonance",
+    "authorString": "Noyan H, Hickstein R, Ammann C, Kuhnt J, Fenski M, Prieto C, Botnar RM, Hadler T, Hickstein C, Daud E, Blaszczyk E, Gr\u00f6schel J, Lim C, Schulz-Menger J.",
+    "pubYear": "2026",
+    "abstractText": "<h4>Background</h4>  Epicardial adipose tissue (EAT) is a metabolically active fat depot adjacent to the myocardium and the coronary arteries that can be non-invasively assessed by cardiovascular magnetic resonance (CMR). Increased EAT volume quantified by CMR has been linked to adverse cardiac remodeling, atrial fibrillation, coronary artery disease, and heart failure. Among CMR techniques, isotropic three-dimensional (3D) Dixon imaging at 1.3 x 1.3 x 1.3 mm  3 resolution was developed to impro",
+    "bookOrReportDetails": {
+     "publisher": "medRxiv",
+     "yearOfPublication": 2026
+    }
+   },
+   {
+    "id": "PPR1271920",
+    "source": "PPR",
+    "doi": "10.64898/2026.07.02.26356002",
+    "title": "Cross-Domain Knowledge Transfer from Expert-Annotated Gated CT via Synthetic Ungated CT Improves Coronary Artery Calcium Scoring on CT Attenuation Correction Scans",
+    "authorString": "Shanbhag A, Miller RJ, Killekar A, Marcinkiewicz AM, Zhou J, Lemley M, Kamagate A, Kriekinge SDV, Kavanagh PB, Feher A, Miller EJ, Liang JX, Berman DS, Dey D, Leahy RM, Slomka PJ.",
+    "pubYear": "2026",
+    "abstractText": "<h4>ABSTRACT</h4>  <h4>Background</h4>  Coronary artery calcium (CAC) is an established measure of coronary atherosclerosis from computed tomography (CT). While deep learning (DL) can quantify CAC from non-dedicated CT, the accuracy is limited by image quality. <h4>Purpose</h4>  We derived and validated a novel method for DL CAC segmentation on ultra-low dose CT attenuation correction (CTAC) scans that is trained with synthetic low-dose, ungated images. <h4>Materials and Methods</h4>  Models wer",
+    "bookOrReportDetails": {
+     "publisher": "medRxiv",
+     "yearOfPublication": 2026
+    }
+   }
+  ]
+ }
+}

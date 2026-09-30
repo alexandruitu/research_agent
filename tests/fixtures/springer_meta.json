@@ -1,0 +1,28 @@
+{
+ "apiMessage": "This JSON was provided by Springer Nature",
+ "query": "\"deep learning\" AND angiography",
+ "apiKey": "SPRINGER-KEY-ECHO",
+ "result": [{"total": "31", "start": "1", "pageLength": "2", "recordsDisplayed": "2"}],
+ "records": [
+  {
+   "contentType": "Article",
+   "identifier": "doi:10.1007/s00330-021-07890-1",
+   "doi": "10.1007/s00330-021-07890-1",
+   "title": "Deep learning in coronary CT angiography",
+   "publicationDate": "2021-04-12",
+   "openaccess": "true",
+   "abstract": {"h1": "Abstract", "p": ["Objectives: to evaluate deep learning.", "Results: it worked."]},
+   "url": [{"format": "html", "platform": "web", "value": "http://link.springer.com/10.1007/s00330-021-07890-1"}]
+  },
+  {
+   "contentType": "Article",
+   "identifier": "doi:10.1007/s10554-022-02600-2",
+   "doi": "10.1007/s10554-022-02600-2",
+   "title": "Angiography <i>review</i>",
+   "publicationDate": "2022-01-02",
+   "openaccess": "false",
+   "abstract": "Plain string abstract.",
+   "url": [{"format": "", "platform": "", "value": "http://dx.doi.org/10.1007/s10554-022-02600-2"}]
+  }
+ ]
+}

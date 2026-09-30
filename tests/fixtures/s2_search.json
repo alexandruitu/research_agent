@@ -1,0 +1,23 @@
+{
+ "total": 1843,
+ "offset": 0,
+ "next": 2,
+ "data": [
+  {
+   "paperId": "649def34f8be52c8b66281af98ae884c09aef38b",
+   "externalIds": {"DOI": "10.1016/J.MEDIA.2021.102021", "PubMed": "33657462", "PubMedCentral": "8012345", "CorpusId": 232145211},
+   "title": "Deep learning for coronary angiography segmentation",
+   "abstract": "We trained a deep learning model on 2,000 coronary angiography runs and report segmentation accuracy on CT-matched patients.",
+   "year": 2021,
+   "openAccessPdf": {"url": "https://www.example.org/oa/paper1.pdf", "status": "GREEN", "license": "CC-BY"}
+  },
+  {
+   "paperId": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+   "externalIds": {"ArXiv": "2103.01234", "CorpusId": 232145999},
+   "title": "A survey of vessel analysis",
+   "abstract": null,
+   "year": 2021,
+   "openAccessPdf": null
+  }
+ ]
+}
