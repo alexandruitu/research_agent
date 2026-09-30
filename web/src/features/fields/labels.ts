@@ -1,7 +1,15 @@
-export const SOURCE_NAMES = ["europepmc", "openalex", "arxiv"] as const;
+import { QUERY_SOURCES } from "../fieldflow/querybuild";
+
+/** Every source a field may search (the server's registry; Settings → Sources lists the rest of it). */
+export const SOURCE_NAMES = QUERY_SOURCES;
 export type SourceName = (typeof SOURCE_NAMES)[number];
 
-const SOURCE_LABEL: Record<string, string> = { europepmc: "Europe PMC", openalex: "OpenAlex", arxiv: "arXiv", demo: "demo" };
+/** Names only, so paper rows render before /sources answers; groups and key status come from the API. */
+const SOURCE_LABEL: Record<string, string> = {
+  europepmc: "Europe PMC", pubmed: "PubMed", arxiv: "arXiv", medrxiv: "medRxiv", biorxiv: "bioRxiv", openalex: "OpenAlex",
+  semantic_scholar: "Semantic Scholar", core: "CORE", unpaywall: "Unpaywall", ieee: "IEEE Xplore", springer: "Springer Nature",
+  scopus: "Scopus", sciencedirect: "ScienceDirect", crossref: "Crossref", demo: "demo",
+};
 
 export const sourceLabel = (name: string) => SOURCE_LABEL[name] ?? name;
 export const isSourceName = (name: string): name is SourceName => (SOURCE_NAMES as readonly string[]).includes(name);
@@ -19,3 +27,13 @@ export function criterionLabel(key: string): string {
 }
 
 export const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+const LICENCE: Record<string, string> = {
+  "cc-by": "Creative Commons BY", "cc-by-sa": "Creative Commons BY-SA", "cc-by-nd": "Creative Commons BY-ND",
+  "cc-by-nc": "Creative Commons BY-NC", "cc-by-nc-sa": "Creative Commons BY-NC-SA", "cc-by-nc-nd": "Creative Commons BY-NC-ND",
+  cc0: "public domain (CC0)", open_access: "open access, licence not stated", publisher_licensed: "publisher licence (your institution's entitlement; not redistributed)",
+  user_upload: "uploaded by your team", abstract: "abstract only",
+};
+
+/** The licence of the text the reviewers read, in words; null for runs before licences were recorded. */
+export const licenceLabel = (licence: string | null | undefined) => (licence ? (LICENCE[licence] ?? licence.replace(/_/g, " ")) : null);

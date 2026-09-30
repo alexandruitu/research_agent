@@ -159,10 +159,22 @@ export const legacyField = (): FieldOut => fieldDetail({
   versions: [{ version: 1, note: "imported", imported: true, created_by_name: null, created_at: "2026-09-26T08:00:00Z", run_count: 3, include_count: 0, exclude_count: 0 }],
 });
 
+const source = (o: Partial<SourceOut> & Pick<SourceOut, "name" | "label" | "group">): SourceOut => ({
+  covers: "", auth: "none", env: [], capabilities: ["search"], rps: 10, rps_keyed: 10, rps_in_use: 10,
+  key_present: true, key_accepted: null, key_detail: "no key needed", key_checked_at: "2026-09-28T10:00:00Z",
+  enabled: false, max_results: 100, last_check_at: null, last_check_ok: null, last_check_ms: null, last_check_error: null,
+  ...o,
+});
+
 export const sourceRows = (): SourceOut[] => [
-  { name: "europepmc", label: "Europe PMC", enabled: true, max_results: 100, last_check_at: "2026-09-28T10:12:00Z", last_check_ok: true, last_check_ms: 800, last_check_error: null },
-  { name: "openalex", label: "OpenAlex", enabled: false, max_results: 100, last_check_at: null, last_check_ok: null, last_check_ms: null, last_check_error: null },
-  { name: "arxiv", label: "arXiv", enabled: false, max_results: 50, last_check_at: "2026-09-28T10:13:00Z", last_check_ok: false, last_check_ms: 30000, last_check_error: "SourceUnavailable: arxiv" },
+  source({ name: "europepmc", label: "Europe PMC", group: "biomedical", covers: "Life-science literature incl. PubMed and PMC", capabilities: ["search", "fulltext"], enabled: true, last_check_at: "2026-09-28T10:12:00Z", last_check_ok: true, last_check_ms: 800 }),
+  source({ name: "pubmed", label: "PubMed", group: "biomedical", covers: "MEDLINE citations with MeSH", auth: "optional", env: ["NCBI_API_KEY"], rps: 3, rps_in_use: 3, key_present: false, key_detail: "NCBI_API_KEY not set; lower rate limit" }),
+  source({ name: "arxiv", label: "arXiv", group: "preprints", covers: "Preprints in cs.CV, eess.IV, physics.med-ph", rps: 0, rps_keyed: 0, rps_in_use: 0, max_results: 50, last_check_at: "2026-09-28T10:13:00Z", last_check_ok: false, last_check_ms: 30000, last_check_error: "SourceUnavailable: arxiv" }),
+  source({ name: "openalex", label: "OpenAlex", group: "multidisciplinary", covers: "Open catalogue of scholarly works", auth: "optional", env: ["OPENALEX_API_KEY"], key_present: false, key_detail: "OPENALEX_API_KEY not set; lower rate limit" }),
+  source({ name: "core", label: "CORE", group: "multidisciplinary", covers: "Open-access research outputs", auth: "required", env: ["CORE_API_KEY"], capabilities: ["search", "fulltext"], rps: 0.17, rps_keyed: 0.17, rps_in_use: 0.17, key_accepted: true, key_detail: "accepted" }),
+  source({ name: "unpaywall", label: "Unpaywall", group: "multidisciplinary", covers: "Legal open-access PDFs by DOI", capabilities: ["fulltext"], rps: 5, rps_keyed: 5, rps_in_use: 5 }),
+  source({ name: "ieee", label: "IEEE Xplore", group: "publishers", covers: "IEEE journals and conferences", auth: "required", env: ["IEEE_API_KEY"], rps: 2, rps_keyed: 2, rps_in_use: 2, key_present: false, key_detail: "IEEE_API_KEY not set" }),
+  source({ name: "crossref", label: "Crossref", group: "identity", covers: "DOI registry", rps: 5, rps_keyed: 5, rps_in_use: 5 }),
 ];
 
 export const workerRows = (): WorkerStatusOut[] => [

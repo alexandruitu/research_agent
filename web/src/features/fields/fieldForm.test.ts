@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { legacyVersion, versionOut } from "../../test/fixtures";
-import { addTerms, effectiveTopic, emptyForm, formFromVersion, moveItem, toBody, toDraft, validate, type FieldForm } from "./fieldForm";
+import { addTerms, effectiveTopic, emptyForm, formFromVersion, moveItem, noOverrides, toBody, toDraft, validate, type FieldForm } from "./fieldForm";
 
 const good = (): FieldForm => ({ ...emptyForm(["europepmc"]), name: "Plaque", topic: "AI plaque on CCTA", include: ["Uses deep learning."] });
 
@@ -36,7 +36,7 @@ describe("field form", () => {
   it("loads a saved version; a legacy version has nothing to edit", () => {
     expect(formFromVersion(versionOut())).toEqual({
       name: "ML CT-FFR", topic: "deep learning CT-FFR", description: "", keywords: { all: [], any: [], none: [] },
-      overrides: { europepmc: "", openalex: "", arxiv: "" },
+      overrides: noOverrides(),
       include: ["The study uses machine learning or deep learning.", "FFR is estimated from coronary CT angiography."],
       exclude: ["The paper is a review or an editorial."], sources: ["europepmc"], yearFrom: "2018", yearTo: "", note: "",
     });
@@ -53,12 +53,12 @@ describe("field form", () => {
   it("refuses Exclude alone, long keywords and a comma in the OpenAlex override", () => {
     expect(validate({ ...good(), keywords: { all: [], any: [], none: ["review"] } })).toEqual(["Add a keyword to Must include or At least one of (Exclude alone cannot search)."]);
     expect(validate({ ...good(), keywords: { all: ["x".repeat(81)], any: [], none: [] } })).toEqual(["A keyword in Must include is longer than 80 characters."]);
-    expect(validate({ ...good(), overrides: { europepmc: "", openalex: "a, b", arxiv: "" } })).toEqual(["The OpenAlex query cannot contain a comma."]);
+    expect(validate({ ...good(), overrides: { ...noOverrides(), openalex: "a, b" } })).toEqual(["The OpenAlex query cannot contain a comma."]);
   });
 
   it("sends description, keywords and overrides only when set", () => {
     expect(toDraft(good())).not.toHaveProperty("keywords");
-    const draft = toDraft({ ...good(), description: " About plaque. ", keywords: { all: [" plaque "], any: [], none: [""] }, overrides: { europepmc: "", openalex: "", arxiv: " abs:x " } });
+    const draft = toDraft({ ...good(), description: " About plaque. ", keywords: { all: [" plaque "], any: [], none: [""] }, overrides: { ...noOverrides(), arxiv: " abs:x " } });
     expect(draft).toMatchObject({ description: "About plaque.", keywords: { all: ["plaque"], any: [], none: [] }, query_override: { arxiv: "abs:x" } });
   });
 

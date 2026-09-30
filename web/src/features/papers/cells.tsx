@@ -89,7 +89,10 @@ export function FoundByCell({ foundBy, sources = [] }: { foundBy: string; source
   return <span>{sources.map(sourceLabel).join(", ")}{foundBy === "lookup" && <span className="sub">lookup</span>}</span>;
 }
 
-const TEXT_SOURCE: Record<string, string> = { pmc_oa: "PMC", unpaywall: "Unpaywall", upload: "uploaded PDF" };
+const TEXT_SOURCE: Record<string, string> = {
+  pmc_oa: "PMC", europepmc: "Europe PMC", core: "CORE", springer_oa: "Springer Nature OA", semantic_scholar_oa: "Semantic Scholar",
+  unpaywall: "Unpaywall", ieee: "IEEE Xplore", sciencedirect: "ScienceDirect", upload: "uploaded PDF",
+};
 export const textSourceLabel = (source: string) => (source === "abstract" ? "abstract only" : `full text · ${TEXT_SOURCE[source] ?? source}`);
 
 /** Coverage is the share of checklist items the reviewers could answer, in tenths ("8/10 answered"). */

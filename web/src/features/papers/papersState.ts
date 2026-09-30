@@ -1,4 +1,5 @@
 import type { PaperParams } from "../../api/hooks";
+import { SOURCE_NAMES } from "../fields/labels";
 
 export const PAGE_SIZE = 25;
 const MAX_PAGE = 100_000; // the API refuses larger pages
@@ -6,7 +7,7 @@ const SORT = /^(title|year|score|criterion:[a-z0-9_]+)$/;
 const DECISIONS = ["include", "exclude", "uncertain"];
 const TIERS = ["jev", "llm", "rule"];
 const CRITERION_KEY = /^[a-z0-9_]{1,100}$/;
-export const PAPER_SOURCES = ["europepmc", "openalex", "arxiv", "demo"];
+export const PAPER_SOURCES: string[] = [...SOURCE_NAMES, "demo"];
 
 export type PapersView = { runId: string | null; paperId: string | null; stageId: string | null; params: PaperParams };
 

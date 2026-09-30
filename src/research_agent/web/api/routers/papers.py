@@ -9,7 +9,7 @@ from ...library import library_refs
 from ...papers import PaperQuery, paper_drawer, paper_table
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import CallOut, DrawerOut, PaperPage
+from ..schemas import CallOut, DrawerOut, PaperPage, SourceName
 from .files import files_of
 
 router = APIRouter(prefix="/runs", tags=["papers"])
@@ -31,7 +31,7 @@ def list_papers(
     p_min: float | None = Query(None, ge=0, le=1),
     p_max: float | None = Query(None, ge=0, le=1),
     decided_by: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
-    source: Literal["europepmc", "openalex", "arxiv", "demo"] | None = None,
+    source: SourceName | Literal["demo"] | None = None,
     has_red_flags: bool | None = None,
     user=Depends(require_role("viewer")),
     db=Depends(get_db),

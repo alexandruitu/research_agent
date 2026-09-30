@@ -62,7 +62,8 @@ describe("patchView", () => {
     const view = parseView(new URLSearchParams("by=i1&src=openalex"));
     expect(view.params.decided_by).toBe("i1");
     expect(view.params.source).toBe("openalex");
-    const bad = parseView(new URLSearchParams("by=I 1&src=pubmed"));
+    const bad = parseView(new URLSearchParams("by=I 1&src=scholar"));
+    expect(parseView(new URLSearchParams("src=pubmed")).params.source).toBe("pubmed");
     expect(bad.params.decided_by).toBeUndefined();
     expect(bad.params.source).toBeUndefined();
   });

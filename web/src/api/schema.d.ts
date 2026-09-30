@@ -1248,7 +1248,7 @@ export interface components {
             /** Exclude */
             exclude?: components["schemas"]["CriterionIn"][];
             /** Sources */
-            sources: ("europepmc" | "openalex" | "arxiv")[];
+            sources: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             years?: components["schemas"]["Years"];
             /** Description */
             description?: string;
@@ -1274,7 +1274,7 @@ export interface components {
             /** Exclude */
             exclude?: components["schemas"]["CriterionIn"][];
             /** Sources */
-            sources: ("europepmc" | "openalex" | "arxiv")[];
+            sources: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             years?: components["schemas"]["Years"];
             /** Description */
             description?: string;
@@ -1333,7 +1333,7 @@ export interface components {
             /** Exclude */
             exclude?: components["schemas"]["CriterionIn"][];
             /** Sources */
-            sources: ("europepmc" | "openalex" | "arxiv")[];
+            sources: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             years?: components["schemas"]["Years"];
             /** Description */
             description?: string;
@@ -1411,7 +1411,7 @@ export interface components {
         /** FulltextIO */
         FulltextIO: {
             /** Sources */
-            sources: ("pmc_oa" | "unpaywall" | "upload")[];
+            sources: ("pmc_oa" | "europepmc" | "core" | "springer_oa" | "semantic_scholar_oa" | "unpaywall" | "ieee" | "sciencedirect" | "upload")[];
             /** Contact */
             contact?: string | null;
             /** Max Chars */
@@ -1749,6 +1749,8 @@ export interface components {
         PanelOut: {
             /** Text Source */
             text_source: string;
+            /** Text Licence */
+            text_licence?: string | null;
             /** Text Reason */
             text_reason: string | null;
             /** Text Origin */
@@ -1887,6 +1889,8 @@ export interface components {
             red_flag_count?: number | null;
             /** Text Source */
             text_source?: string | null;
+            /** Text Licence */
+            text_licence?: string | null;
             library?: components["schemas"]["LibraryRef"] | null;
         };
         /**
@@ -1897,7 +1901,7 @@ export interface components {
             keywords?: components["schemas"]["KeywordsIO"] | null;
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /** Sources */
-            sources: ("europepmc" | "openalex" | "arxiv")[];
+            sources: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             years?: components["schemas"]["Years"];
             /**
              * Mode
@@ -1926,6 +1930,24 @@ export interface components {
             openalex?: string | null;
             /** Arxiv */
             arxiv?: string | null;
+            /** Semantic Scholar */
+            semantic_scholar?: string | null;
+            /** Crossref */
+            crossref?: string | null;
+            /** Pubmed */
+            pubmed?: string | null;
+            /** Medrxiv */
+            medrxiv?: string | null;
+            /** Biorxiv */
+            biorxiv?: string | null;
+            /** Core */
+            core?: string | null;
+            /** Ieee */
+            ieee?: string | null;
+            /** Springer */
+            springer?: string | null;
+            /** Scopus */
+            scopus?: string | null;
         };
         /** RaisedByOut */
         RaisedByOut: {
@@ -2393,6 +2415,36 @@ export interface components {
             name: string;
             /** Label */
             label: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "biomedical" | "preprints" | "multidisciplinary" | "publishers" | "identity";
+            /** Covers */
+            covers: string;
+            /**
+             * Auth
+             * @enum {string}
+             */
+            auth: "none" | "optional" | "required";
+            /** Env */
+            env: string[];
+            /** Capabilities */
+            capabilities: ("search" | "fulltext")[];
+            /** Rps */
+            rps: number;
+            /** Rps Keyed */
+            rps_keyed: number;
+            /** Rps In Use */
+            rps_in_use: number;
+            /** Key Present */
+            key_present: boolean;
+            /** Key Accepted */
+            key_accepted: boolean | null;
+            /** Key Detail */
+            key_detail: string;
+            /** Key Checked At */
+            key_checked_at: string | null;
             /** Enabled */
             enabled: boolean;
             /** Max Results */
@@ -3622,7 +3674,7 @@ export interface operations {
                 p_min?: number | null;
                 p_max?: number | null;
                 decided_by?: string | null;
-                source?: ("europepmc" | "openalex" | "arxiv" | "demo") | null;
+                source?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus") | "demo" | null;
                 has_red_flags?: boolean | null;
             };
             header?: never;

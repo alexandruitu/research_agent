@@ -2,7 +2,9 @@
  * Per-source queries from keyword groups, a line-for-line port of `research_agent.querybuild` so the editor
  * can show the query live. Display only: the server builds the query again on save and preview.
  */
-export const QUERY_SOURCES = ["europepmc", "openalex", "arxiv"] as const;
+export const QUERY_SOURCES = [
+  "europepmc", "openalex", "arxiv", "semantic_scholar", "crossref", "pubmed", "medrxiv", "biorxiv", "core", "ieee", "springer", "scopus",
+] as const;
 export type QuerySource = (typeof QUERY_SOURCES)[number];
 export type Keywords = { all: string[]; any: string[]; none: string[] };
 
@@ -11,8 +13,15 @@ export const MAX_QUERY = 2000;
 const SYNTAX = /["()[\]{}:\\^~,;<>|&!?=+/]/g;
 const BARE = /^[\p{L}\p{N}_]+\*?$/u;
 const OPERATORS = new Set(["AND", "OR", "NOT", "ANDNOT", "TO"]);
-const WILDCARDS = new Set<QuerySource>(["europepmc"]);
-const PREFIX: Record<QuerySource, string> = { europepmc: "TITLE_ABS:", openalex: "", arxiv: "abs:" };
+const WILDCARDS = new Set<QuerySource>(["europepmc", "medrxiv", "biorxiv", "pubmed", "scopus"]);
+/** How one (cleaned, quoted when needed) term is written; `{}` is the term. */
+const TERM: Record<QuerySource, string> = {
+  europepmc: "TITLE_ABS:{}", medrxiv: "TITLE_ABS:{}", biorxiv: "TITLE_ABS:{}", openalex: "{}", arxiv: "abs:{}",
+  pubmed: "{}[tiab]", core: "{}", ieee: "{}", springer: "{}", scopus: "TITLE-ABS-KEY({})", semantic_scholar: "{}", crossref: "{}",
+};
+const NOT: Partial<Record<QuerySource, string>> = { arxiv: " ANDNOT ", core: " AND NOT ", scopus: " AND NOT " };
+/** No boolean search: the plain terms; the connector filters the results locally. */
+export const PLAIN_SOURCES = new Set<QuerySource>(["semantic_scholar", "crossref"]);
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\x00-\x1f\x7f]/;
 
@@ -46,23 +55,30 @@ export const hasTerms = (keywords: Keywords | null | undefined) =>
 
 const phrase = (term: string) => (BARE.test(term) && !OPERATORS.has(term.replace(/\*+$/, "").toUpperCase()) ? term : `"${term}"`);
 
-function group(terms: string[], prefix: string): string {
-  const parts = terms.map((t) => `${prefix}${phrase(t)}`);
+const write = (form: string, term: string) => form.replace("{}", () => phrase(term));
+
+function group(terms: string[], form: string): string {
+  const parts = terms.map((t) => write(form, t));
   return parts.length === 1 ? parts[0]! : `(${parts.join(" OR ")})`;
 }
 
 export function buildQuery(source: QuerySource, keywords: Keywords): string {
   const wildcard = WILDCARDS.has(source);
-  const prefix = PREFIX[source];
+  const form = TERM[source];
   const all = unique(keywords.all, wildcard);
   const any = unique(keywords.any, wildcard);
   const none = unique(keywords.none, wildcard);
   if (all.length === 0 && any.length === 0) throw new QueryError("Add at least one keyword to 'All of' or 'Any of'");
-  const parts = all.map((t) => `${prefix}${phrase(t)}`);
-  if (any.length) parts.push(group(any, prefix));
-  if (source === "arxiv") parts.push(`(${ARXIV_CATEGORIES.map((c) => `cat:${c}`).join(" OR ")})`);
-  let query = parts.join(" AND ");
-  if (none.length) query += (source === "arxiv" ? " ANDNOT " : " NOT ") + group(none, prefix);
+  let query: string;
+  if (PLAIN_SOURCES.has(source)) {
+    query = [...all, ...any].join(" ");
+  } else {
+    const parts = all.map((t) => write(form, t));
+    if (any.length) parts.push(group(any, form));
+    if (source === "arxiv") parts.push(`(${ARXIV_CATEGORIES.map((c) => `cat:${c}`).join(" OR ")})`);
+    query = parts.join(" AND ");
+    if (none.length) query += (NOT[source] ?? " NOT ") + group(none, form);
+  }
   if (query.length > MAX_QUERY) throw new QueryError(`The ${source} query is too long (over ${MAX_QUERY} characters); use fewer keywords`);
   return query;
 }

@@ -13,7 +13,7 @@ export type FieldForm = {
 
 export const MAX_TERMS = 20;
 export const noKeywords = (): Keywords => ({ all: [], any: [], none: [] });
-const noOverrides = (): Overrides => ({ europepmc: "", openalex: "", arxiv: "" });
+export const noOverrides = (): Overrides => Object.fromEntries(QUERY_SOURCES.map((s) => [s, ""])) as Overrides;
 
 export const emptyForm = (sources: string[]): FieldForm => ({
   name: "", description: "", topic: "", keywords: noKeywords(), overrides: noOverrides(),
@@ -26,7 +26,7 @@ export const formFromVersion = (version: FieldVersionOut): FieldForm => ({
   description: version.description ?? "",
   topic: version.topic,
   keywords: { all: [...(version.keywords?.all ?? [])], any: [...(version.keywords?.any ?? [])], none: [...(version.keywords?.none ?? [])] },
-  overrides: { europepmc: version.query_override?.europepmc ?? "", openalex: version.query_override?.openalex ?? "", arxiv: version.query_override?.arxiv ?? "" },
+  overrides: Object.fromEntries(QUERY_SOURCES.map((s) => [s, version.query_override?.[s] ?? ""])) as Overrides,
   include: version.include.map((c) => c.text),
   exclude: version.exclude.map((c) => c.text),
   sources: [...version.sources],

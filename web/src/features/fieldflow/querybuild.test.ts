@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuery, checkOverride, cleanTerm, draftQueries, hasTerms, QueryError } from "./querybuild";
+import { buildQuery, checkOverride, cleanTerm, draftQueries, hasTerms, QUERY_SOURCES, QueryError } from "./querybuild";
 
 const kw = (all: string[] = [], any: string[] = [], none: string[] = []) => ({ all, any, none });
 
@@ -56,5 +56,26 @@ describe("query builder (same output as research_agent.querybuild)", () => {
     ]);
     expect(draftQueries(kw(), ["arxiv"], {})).toEqual([{ source: "arxiv", query: null, overridden: false, error: null }]);
     expect(draftQueries(kw(["x"]), ["openalex"], { openalex: "a,b" })[0]!.error).toMatch(/comma/);
+  });
+
+  it.each([
+    ["europepmc", "TITLE_ABS:\"coronary CT\" AND TITLE_ABS:segment* AND (TITLE_ABS:\"deep learning\" OR TITLE_ABS:CNN) NOT TITLE_ABS:review"],
+    ["openalex", "\"coronary CT\" AND segment AND (\"deep learning\" OR CNN) NOT review"],
+    ["arxiv", "abs:\"coronary CT\" AND abs:segment AND (abs:\"deep learning\" OR abs:CNN) AND (cat:cs.CV OR cat:eess.IV OR cat:physics.med-ph) ANDNOT abs:review"],
+    ["semantic_scholar", "coronary CT segment deep learning CNN"],
+    ["crossref", "coronary CT segment deep learning CNN"],
+    ["pubmed", "\"coronary CT\"[tiab] AND segment*[tiab] AND (\"deep learning\"[tiab] OR CNN[tiab]) NOT review[tiab]"],
+    ["medrxiv", "TITLE_ABS:\"coronary CT\" AND TITLE_ABS:segment* AND (TITLE_ABS:\"deep learning\" OR TITLE_ABS:CNN) NOT TITLE_ABS:review"],
+    ["biorxiv", "TITLE_ABS:\"coronary CT\" AND TITLE_ABS:segment* AND (TITLE_ABS:\"deep learning\" OR TITLE_ABS:CNN) NOT TITLE_ABS:review"],
+    ["core", "\"coronary CT\" AND segment AND (\"deep learning\" OR CNN) AND NOT review"],
+    ["ieee", "\"coronary CT\" AND segment AND (\"deep learning\" OR CNN) NOT review"],
+    ["springer", "\"coronary CT\" AND segment AND (\"deep learning\" OR CNN) NOT review"],
+    ["scopus", "TITLE-ABS-KEY(\"coronary CT\") AND TITLE-ABS-KEY(segment*) AND (TITLE-ABS-KEY(\"deep learning\") OR TITLE-ABS-KEY(CNN)) AND NOT TITLE-ABS-KEY(review)"],
+  ] as const)("builds %s exactly as the Python builder", (source, expected) => {
+    expect(buildQuery(source, kw(["coronary CT", "segment*"], ["deep learning", "CNN"], ["review"]))).toBe(expected);
+  });
+
+  it("lists every search source in the registry's order", () => {
+    expect(QUERY_SOURCES).toEqual(["europepmc", "openalex", "arxiv", "semantic_scholar", "crossref", "pubmed", "medrxiv", "biorxiv", "core", "ieee", "springer", "scopus"]);
   });
 });
