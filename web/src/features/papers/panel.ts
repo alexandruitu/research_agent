@@ -9,6 +9,16 @@ const ANSWER: Record<string, { icon: string; word: string }> = {
 };
 export const answerParts = (answer: string) => ANSWER[answer] ?? { icon: "·", word: answer.replace(/_/g, " ") };
 
+/**
+ * Whether an answer is good for the paper. A checklist item passes on "yes" or on "no" (negatively phrased
+ * items, e.g. "Patients overlap between training and test"): without the item's pass_if, "✓ yes" is ambiguous.
+ * Null when the item's rule is unknown or the answer is neither yes nor no.
+ */
+export function answerJudgement(answer: string, passIf: string | null | undefined): "meets" | "concern" | null {
+  if (!passIf || (answer !== "yes" && answer !== "no")) return null;
+  return answer === passIf ? "meets" : "concern";
+}
+
 const VERDICT: Record<string, string> = { include: "include", exclude: "exclude", uncertain: "uncertain" };
 export const verdictWord = (verdict: string | null | undefined) => (verdict ? (VERDICT[verdict] ?? verdict) : "no verdict");
 

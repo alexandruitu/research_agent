@@ -82,6 +82,7 @@ function PanelForm({ data, reviewers, admin, saver }: { data: ReviewSettingsOut;
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.current.name.localeCompare(b.current.name);
   });
   return (
+    <>
     <SettingsFrame
       id="reviewers" title="Reviewers" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving}
       intro="Every kept paper is peer-reviewed by a panel. Each reviewer reads the paper from one perspective and answers its checklist with exact quotes; code turns the answers into scores and red flags. An editor then weighs the reports."
@@ -107,9 +108,13 @@ function PanelForm({ data, reviewers, admin, saver }: { data: ReviewSettingsOut;
           <textarea rows={4} maxLength={2000} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
         </label>
       </section>
+    </SettingsFrame>
+    {/* outside the settings form: its fieldset is disabled for non-admins, and everyone may read the archive */}
+    <section aria-label="Archived reviewers" className="archived-box">
       <button type="button" className="linklike" aria-expanded={showArchived} onClick={() => setShowArchived((s) => !s)}>{showArchived ? "Hide archived reviewers" : "Show archived reviewers"}</button>
       {showArchived && <ArchivedList admin={admin} />}
-    </SettingsFrame>
+    </section>
+    </>
   );
 }
 

@@ -1,18 +1,25 @@
+import { useReviewerVersion } from "../../api/hooks";
 import type { PanelOut, PanelReportOut } from "../../api/types";
 import { coverageWords } from "./cells";
-import { answerParts, disagreementSentence, listWords, reviewerNames, textSentence, verdictWord } from "./panel";
+import { answerJudgement, answerParts, disagreementSentence, listWords, reviewerNames, textSentence, verdictWord } from "./panel";
 
 const scoreText = (score: number | null, coverage: number | null) =>
   `${score == null ? "no score" : `score ${Math.round(score)}`}${coverage == null ? "" : ` · ${coverageWords(coverage)}`}`;
 
+const JUDGEMENT = { meets: { icon: "●", word: "meets" }, concern: { icon: "▲", word: "concern" } } as const;
+
 function Checklist({ report }: { report: PanelReportOut }) {
+  // the exact version the reviewer used says which answer passes each item
+  const version = useReviewerVersion(report.key, report.version);
+  const passIf = Object.fromEntries((version.data?.items ?? []).map((item) => [item.key, item.pass_if]));
   return (
     <table className="criteria-table checklist-table">
       <caption>{report.name}'s checklist</caption>
-      <thead><tr><th scope="col">Item</th><th scope="col">Answer</th><th scope="col">Evidence</th></tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Answer<span className="sub">meets or concern for the paper</span></th><th scope="col">Evidence</th></tr></thead>
       <tbody>
         {report.answers.map((a) => {
           const { icon, word } = answerParts(a.answer);
+          const judgement = answerJudgement(a.answer, passIf[a.key]);
           return (
             <tr key={a.key} className={a.red_flag ? "is-red-flag" : undefined}>
               <th scope="row">
@@ -21,6 +28,7 @@ function Checklist({ report }: { report: PanelReportOut }) {
               </th>
               <td className={`answer answer--${a.answer}`}>
                 <span aria-hidden="true">{icon}</span> {word}
+                {judgement && <span className={`judgement judgement--${judgement}`}> · <span aria-hidden="true">{JUDGEMENT[judgement].icon}</span> {JUDGEMENT[judgement].word}</span>}
                 {a.red_flag && <strong className="red-flag-word"> ⚑ red flag</strong>}
               </td>
               <td>{a.quote ? <blockquote className="quote">“{a.quote}”{a.section && <footer>{a.section}</footer>}</blockquote> : <span className="na">no quote</span>}</td>

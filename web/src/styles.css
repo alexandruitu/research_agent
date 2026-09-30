@@ -612,3 +612,8 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .home-num { position: absolute; top: -18px; left: var(--s4); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 600 18px/1 var(--serif); box-shadow: 0 0 0 5px var(--paper); }
 .home-steps h2 { margin: var(--s2) 0 4px; font-size: 18px; }
 .home-steps p { margin: 0; color: var(--ink-2); }
+.judgement { font-weight: 500; white-space: nowrap; }
+.judgement--meets { color: var(--ok-fg); }
+.judgement--concern { color: var(--warn-fg); }
+.diff-tag--changed { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); }
+.archived-box { margin-top: var(--s3); }

@@ -82,9 +82,36 @@ describe("Settings → Reviewers", () => {
     expect(await screen.findByRole("switch", { name: /\(Methodologist\)/ })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "New reviewer" })).not.toBeInTheDocument();
   });
+
+  it("members can open the archive (read-only, no Restore)", async () => {
+    setup("member", "/settings/reviewers");
+    const toggle = await screen.findByRole("button", { name: "Show archived reviewers" });
+    expect(toggle).toBeEnabled();
+    await userEvent.click(toggle);
+    expect(await screen.findByRole("link", { name: "Radiologist" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Restore/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("Reviewer editor", () => {
+  it("compares two versions once the history is opened", async () => {
+    const item = (key: string, text: string) => ({ key, text, weight: 1, source: null, pass_if: "yes", red_flag_if: null });
+    const v = (n: number, items: ReturnType<typeof item>[]) => ({ ...reviewerOut().current, version: n, items });
+    setup("admin", "/settings/reviewers/methodologist", {
+      "GET /api/v1/reviewers/methodologist": { body: reviewerOut("methodologist", "Methodologist", {
+        versions: [
+          { version: 2, note: "added code sharing", imported: false, created_by_name: "Ada", created_at: "2026-09-29T10:00:00Z", run_count: 0, item_count: 2 },
+          { version: 1, note: "", imported: true, created_by_name: null, created_at: "2026-09-28T10:00:00Z", run_count: 3, item_count: 1 },
+        ],
+      } as never) },
+      "GET /api/v1/reviewers/methodologist/versions/1": { body: v(1, [item("m1", "Split by patient.")]) },
+      "GET /api/v1/reviewers/methodologist/versions/2": { body: v(2, [item("m1", "Split by patient."), item("m9", "Code is shared.")]) },
+    });
+    await userEvent.click(await screen.findByText(/Version history/));
+    expect(await screen.findByText(/m9: Code is shared/)).toBeInTheDocument();
+    expect(screen.getByText("added", { selector: ".diff-tag" })).toBeInTheDocument();
+  });
+
   it("previews only item keys and text, and says weights and red flags are hidden from the model", async () => {
     setup("admin", "/settings/reviewers/methodologist");
     const previewBox = await screen.findByRole("complementary", { name: "What the model reads" });

@@ -2,11 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "../../api/client";
-import { useArchiveReviewer, useModelsAvailable, useReviewer, useSaveReviewer } from "../../api/hooks";
+import { useArchiveReviewer, useModelsAvailable, useReviewer, useReviewerVersion, useSaveReviewer } from "../../api/hooks";
 import { hasRole, type AvailableModelOut, type ReviewerOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { useReportDirty } from "./dirtyGuard";
 import { modelOptions } from "./models";
+import { diffReviewers } from "./reviewerDiff";
 import {
   emptyForm, emptyItem, formFromContent, MAX_ITEMS, moveItem, preview, signature, SOURCE_FAMILIES, toBody, validateReviewer,
   type ItemForm, type RedFlagRule, type ReviewerForm, type SourceFamily, type Weight,
@@ -97,6 +98,7 @@ type EditorProps = {
 
 function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorProps) {
   const navigate = useNavigate();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const save = useSaveReviewer();
   const archive = useArchiveReviewer();
   const archived = !!reviewer?.archived_at;
@@ -201,7 +203,7 @@ function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorP
         <ModelPreview form={form} />
       </div>
       {reviewer?.versions && reviewer.versions.length > 0 && (
-        <details className="versions-box">
+        <details className="versions-box" onToggle={(e) => setHistoryOpen(e.currentTarget.open)}>
           <summary>Version history ({reviewer.versions.length})</summary>
           <ul className="versions">
             {reviewer.versions.map((v) => (
@@ -210,9 +212,33 @@ function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorP
               </li>
             ))}
           </ul>
+          {historyOpen && reviewer.versions.length > 1 && <ReviewerVersionDiff reviewerKey={reviewer.key} versions={reviewer.versions.map((v) => v.version)} />}
         </details>
       )}
     </section>
+  );
+}
+
+function ReviewerVersionDiff({ reviewerKey, versions }: { reviewerKey: string; versions: number[] }) {
+  const sorted = [...versions].sort((a, b) => b - a);
+  const [from, setFrom] = useState(sorted[1] ?? sorted[0]!);
+  const [to, setTo] = useState(sorted[0]!);
+  const before = useReviewerVersion(reviewerKey, from);
+  const after = useReviewerVersion(reviewerKey, to);
+  const changes = before.data && after.data ? diffReviewers(before.data, after.data) : null;
+  const options = sorted.map((v) => <option key={v} value={v}>v{v}</option>);
+  return (
+    <div className="diff">
+      <h3>Compare versions</h3>
+      <div className="actions">
+        <label>Compare from <select value={from} onChange={(e) => setFrom(Number(e.target.value))}>{options}</select></label>
+        <label>to <select value={to} onChange={(e) => setTo(Number(e.target.value))}>{options}</select></label>
+      </div>
+      {before.isError || after.isError ? <p role="alert" className="form-error">Could not load a version.</p>
+        : !changes ? <p className="sub">Loading…</p>
+        : changes.length === 0 ? <p>No differences.</p>
+        : <ul className="diff-lines">{changes.map((c, i) => <li key={i}><span className={`diff-tag diff-tag--${c.kind}`}>{c.kind}</span> {c.text}</li>)}</ul>}
+    </div>
   );
 }
 

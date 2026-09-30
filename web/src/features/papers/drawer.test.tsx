@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../../api/client";
 import { fakeXhr } from "../../test/fakeXhr";
-import { drawerOut, paperFile, panelOut, reviewSettings, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
+import { drawerOut, reviewerOut, paperFile, panelOut, reviewSettings, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID } from "../../test/fixtures";
 import { mockApi } from "../../test/mockApi";
 import { renderWithProviders } from "../../test/render";
 import { PapersPage } from "../../pages/PapersPage";
@@ -193,6 +193,27 @@ describe("drawer · peer review", () => {
     expect(m1).toHaveTextContent("✗ no ⚑ red flag");
     expect(m1).toHaveTextContent("“images were split 80/20”Methods");
     expect(within(table).getByRole("row", { name: /s2/ })).toHaveTextContent("– not reportedno quote");
+  });
+
+  it("says whether each answer meets the item, using the reviewer version's pass rule", async () => {
+    const item = (key: string, pass_if: string) => ({ key, text: key, weight: 1, source: null, pass_if, red_flag_if: null });
+    const version = { ...reviewerOut("statistician", "Statistician").current, version: 1, items: [item("m1", "yes"), item("s2", "yes")] };
+    const methodologist = { ...reviewerOut().current, version: 2, items: [item("m1", "no"), item("m2", "yes")] };
+    setup("viewer", {
+      "GET /api/v1/runs/:id/papers/:id": { body: drawerOut({ panel: panelOut(), files: [] }) },
+      "GET /api/v1/reviewers/statistician/versions/1": { body: version },
+      "GET /api/v1/reviewers/methodologist/versions/2": { body: methodologist },
+    });
+    const drawer = await openDrawer();
+    await userEvent.click(within(drawer).getByText("Statistician", { selector: "summary strong" }));
+    const stats = within(drawer).getByRole("table", { name: "Statistician's checklist" });
+    await waitFor(() => expect(within(stats).getByRole("row", { name: /m1/ })).toHaveTextContent("✗ no · ▲ concern"));
+    expect(within(stats).getByRole("row", { name: /s2/ })).not.toHaveTextContent(/meets|concern/);
+    await userEvent.click(within(drawer).getByText("Methodologist", { selector: "summary strong" }));
+    const methods = within(drawer).getByRole("table", { name: "Methodologist's checklist" });
+    // a negatively phrased rule: "yes" is the bad answer here
+    await waitFor(() => expect(within(methods).getByRole("row", { name: /m1/ })).toHaveTextContent("✓ yes · ▲ concern"));
+    expect(within(methods).getByRole("row", { name: /m2/ })).toHaveTextContent("✓ yes · ● meets");
   });
 
   it("says when only the abstract was reviewed", async () => {
