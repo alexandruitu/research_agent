@@ -4,7 +4,7 @@
 
 The department web app: a PostgreSQL database, importers that load finished research runs and eval runs,
 sign-in with roles, a job queue and worker that start runs, a JSON API under `/api/v1`, and a React
-frontend in `web/` (Papers, Runs, Fields, Evals, System map, Settings) that talks only to that API.
+frontend in `web/` (Papers, Library, Runs, Fields, Evals, System map, Settings) that talks only to that API.
 
 ## Requirements
 
@@ -222,8 +222,31 @@ For `npm run dev`, run the backend in another terminal:
 `RESEARCH_WEB_ADMIN_PASSWORD`). `npm run gen:api` must be run after any API change and the result committed:
 CI regenerates the file and fails if it differs. `npm run e2e` needs `npx playwright install chromium` once.
 
+Design ("the reading room", slice 4): warm paper background, ink text, one teal accent for primary actions and
+focus; Newsreader (serif) for titles and reading text, IBM Plex Sans for the interface, both self-hosted from
+`@fontsource` (no CDN, CSP-safe). Light and dark follow `prefers-color-scheme`. Feedback arrives as toasts
+(bottom right, a polite live region) with **Undo** where it makes sense; loading shows skeletons; empty lists
+say what to do next; only destructive actions ask for confirmation. Leaving a page with unsaved edits (a
+field, a settings tab, a reviewer) asks first, from the main navigation, the settings tabs, Sign out or a
+reload. With no paper to show yet, **Papers** opens on "Create your first field in 3 steps".
+
+Keyboard (Papers and Library; never while typing in a field; `?` lists them): `j`/`k` move, `o` open,
+`x` select (Papers), `s` save the selection to the library (Papers), `1`–`4` status (to read, read, relevant,
+rejected), `/` search (Library), `Esc` close the side panel.
+
 Screens and who sees them:
 
+- **Library** (every role reads; members save and edit; the adder or an admin removes; admins archive
+  collections): a list of saved papers (status as icon + word, score, red flags, collections, #tags, note mark)
+  and a reading pane. Search (title, abstract, note), status buttons, collection, tag, field, minimum score,
+  "Has red flags", sort and direction; active filters show as chips with **Clear all**; everything is in the URL
+  (`/library?status=relevant&collection=<id>&item=<id>`). The pane has a sticky header (title, status radio
+  group, Remove) and three sections: **Overview** (abstract set for reading, collections with create-on-the-spot,
+  tags, note, files), **Evidence** (the snapshot frozen at save: screening decision and criteria with quotes,
+  editor verdict and score, red flags, reviewer summaries; "Update evidence from the newer run" when a newer
+  finished run of the same field exists) and **History** (every change in words). Status changes are instant with
+  Undo. **Export CSV / BibTeX** download exactly the filtered list. **Manage collections** creates and renames
+  (members) and archives/restores (admins).
 - **Papers** (every role): run picker (`field · vN · kind`), counts, filter chips, "Dropped by criterion" and
   "Source" filters, the pipeline strip, the paper table and the paper drawer. The **Criteria** column names the
   criterion that decided ("dropped by incl 1 (0.01)", "dropped by excl 1 (LLM: yes)", "all met"); runs of a
@@ -240,15 +263,33 @@ Screens and who sees them:
   (drag and drop or "Choose a PDF…", with progress; checked in the browser and again by the server); when only
   the abstract was reviewed the section is titled "Upload full text (PDF)".
   The drawer's Raw calls tab (exact prompt and response) is for members and admins only.
+  Checklist answers also say **meets** or **concern** for the paper, from the item's "good answer" in the exact
+  reviewer version that answered (so "✓ yes · ▲ concern" on a negatively phrased item is not mistaken for good).
+  Slice 4: members tick rows (or "select all on this page") and press **Save to library…** (collections, a new
+  collection, tags, team status, note); the rows say "In library · ★ Relevant" at once, the toast offers Undo
+  (removes only the items that save created) and a refusal rolls the rows back. A saved row's badge links to its
+  library item. The drawer's sticky header has **Save to library…** or, once saved, the badge and the status
+  radio group. Active filters show as chips with **Clear all**.
 - **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
   run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
 - **Evals** (every role): summary cards, recall with intervals per strategy, the threshold grid (default
   outlined, recommended starred, pairs that lose an SR-included paper in red and in words).
 - **System map** (every role): every stage with its status in words and a panel explaining it.
 - **Fields** (every role reads; members create, edit, test and start runs; admins archive and restore): the
-  list (version, author, criteria counts, sources, last run, Start run, "Show archived fields") and the editor
-  at `/fields/<id>`: name, topic, inclusion and exclusion lists (add, reorder, remove), sources (only those
-  enabled in Settings), years, change note, **Save as vN+1**. Saving sends the version the editor opened; if
+  list (version, author, criteria and keyword counts, sources, last run, Start run, "Show archived fields") and
+  the editor at `/fields/<id>`, a three-step flow (`?step=1|2|3` in the URL; new fields open on 1, saved ones
+  on 2; every step stays reachable from the stepper and **Save** is on every step):
+  **1 · Describe** (name, a free description, an optional topic line; **Suggest keywords & criteria** runs the
+  `field_assist` job and shows chips per group, synonyms and criteria sentences: nothing is applied until a chip
+  or **Accept all** is clicked; a synonym of a Must-include term goes to At least one of),
+  **2 · Keywords & criteria** (three tag inputs Must include / At least one of / Exclude: Enter or comma adds,
+  Backspace removes the last; inclusion and exclusion lists; sources, only those enabled in Settings; years;
+  the query each source will search, built live in the browser exactly like the server builds it, and an
+  **Advanced: override query** disclosure per source),
+  **3 · Preview & save** (**Preview search** runs `field_preview`: per source the hit count it reports, the first
+  10 titles, the exact query and a failing source's error; **Test criteria**; change note; **Save as vN+1** /
+  **Create field**). A **Field summary** card beside it shows the field as it would be saved and whether there
+  are unsaved changes. "Demo mode" (in the URL as `demo=1`) covers suggestions, preview and the criteria test. Saving sends the version the editor opened; if
   someone saved in between, the editor says "This field changed since you opened it (now vN)" and offers to
   reload (unsaved edits are discarded). **Test criteria** sends the editor's current text (saved or not) to a
   Jev-only test of up to 20 papers; "Demo mode" uses the offline stand-in. The side panel lists versions with
@@ -260,14 +301,15 @@ Screens and who sees them:
   to OpenAlex). The four review tabs share one frame: a plain-language intro, a "Used by next run · vN" badge,
   Reset to default, a change note and one **Save as vN+1** that creates a new settings version (409 → "reload
   the latest version"; 422 shows the pipeline's message); leaving a tab with unsaved edits asks first (tab
-  links and reload/close; the main navigation is not guarded).
+  links, the main navigation, Sign out and reload/close).
   **Reviewers**: a card per reviewer (role, item count, how many items can raise a red flag, model, "In the
   default panel" switch; 1 to 5, the switch explains why when it is locked), the editor's instructions,
-  archived reviewers with Restore, "New reviewer". A reviewer's page (`/settings/reviewers/<key>`) edits the
+  archived reviewers (every role can open the list; Restore is for admins), "New reviewer". A reviewer's page (`/settings/reviewers/<key>`) edits the
   name, perspective, model and checklist (add, reorder, remove; weight 1·low/2·normal/3·high, what a good
   answer is, "red flag if", CLAIM / TRIPOD+AI source) with a live **What the model reads** preview (perspective
   and item key + text only: weights and red-flag rules are applied by code and never shown to the model),
-  Save as vN+1, Reset to default, Archive/Restore and the version history.
+  Save as vN+1, Reset to default, Archive/Restore and the version history, where two versions can be compared
+  (perspective, model, items added / removed / changed).
   **AI models**: a model per role (Plan, Screen, Screen per criterion, Extract, each panel reviewer, Editor),
   limited to models whose provider key the worker accepted, a warning when all reviewers share one provider,
   and the worker's key report below (never a key). A reviewer's model is stored in the reviewer, so changing it
