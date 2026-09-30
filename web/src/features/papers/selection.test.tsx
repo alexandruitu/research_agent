@@ -75,6 +75,15 @@ describe("saving papers to the library", () => {
     await waitFor(() => expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual([`/api/v1/library/${ITEM_ID}`]));
   });
 
+  it("a new collection name that exists already means that collection", async () => {
+    const { calls } = setup("member", { "POST /api/v1/library": { status: 201, body: { created: [ITEM_ID], existing: [], items: [saved(PAPER_ID, ITEM_ID)], collection: null } } });
+    await userEvent.click(await screen.findByRole("checkbox", { name: /Select Diagnostic accuracy/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
+    await userEvent.type(within(screen.getByRole("dialog")).getByLabelText("New collection (optional)"), "plaque READING list");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save to library" }));
+    await waitFor(() => expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ collection_ids: [COLLECTION_ID], new_collection: null }));
+  });
+
   it("a refused save rolls the rows back and says why", async () => {
     setup("member", { "POST /api/v1/library": { status: 422, body: { code: "not_in_run", message: "1 of these papers are not part of this run", request_id: "r" } } });
     await userEvent.click(await screen.findByRole("checkbox", { name: /Select Diagnostic accuracy/ }));

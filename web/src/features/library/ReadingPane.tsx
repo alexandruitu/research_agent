@@ -130,7 +130,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
         </div>
         {data && (
           <div className="pane-tools" ref={statusRef}>
-            <StatusControl value={data.status} disabled={!canEdit} onChange={(to) => void status.change(data.id, data.status, to)} />
+            <StatusControl value={data.status} disabled={!canEdit} onChange={(to) => status.change(data.id, data.status, to)} />
             {data.can_delete && <button type="button" className="danger-quiet" onClick={del}>Remove from library</button>}
           </div>
         )}

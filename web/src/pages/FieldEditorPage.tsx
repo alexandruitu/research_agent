@@ -70,13 +70,21 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
   const [previewJob, setPreviewJob] = useState<string | null>(null);
   const [assistProblem, setAssistProblem] = useState<string | null>(null);
   const [previewProblem, setPreviewProblem] = useState<string | null>(null);
-  const [demo, setDemo] = useState(false);
   const assisted = useAssistResult(assistJob);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   useReportDirty(dirty && canEdit);
   const update = (patch: Partial<FieldForm>) => setForm((f) => ({ ...f, ...patch }));
   const legacy = !!current && current.include.length + current.exclude.length === 0 && current.legacy.length > 0;
   const nextVersion = (field?.current_version ?? 0) + 1;
+  // demo mode lives in the URL, so it survives the remount after "Create field" and a reload
+  const [demo, setDemoState] = useState(() => search.get("demo") === "1");
+  const setDemo = (on: boolean) => {
+    setDemoState(on); // at once: the router applies URL changes in a transition
+    const params = new URLSearchParams(search);
+    if (on) params.set("demo", "1");
+    else params.delete("demo");
+    setSearch(params, { replace: true });
+  };
   const requested = Number(search.get("step"));
   const step: StepNumber = requested === 1 || requested === 2 || requested === 3 ? requested : field ? 2 : 1;
   const goTo = (next: StepNumber) => {
@@ -101,7 +109,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
     try {
       const saved = await save.mutateAsync({ fieldId: field?.id ?? null, baseVersion: field?.current_version ?? null, body: toBody(form) });
       toast.show({ text: field ? `Saved ${saved.name} as v${saved.current_version}` : `Created ${saved.name}` });
-      if (!field) navigate(`/fields/${saved.id}?step=3`, { replace: true });
+      if (!field) navigate(`/fields/${saved.id}?step=3${demo ? "&demo=1" : ""}`, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.code === "stale_version") setStale(error.message);
       else setProblem(errorText(error));
@@ -186,7 +194,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                   <span className="hint tnum counter" aria-live="off">{form.description.length}/2000 characters</span>
                   <details className="disclosure" open={legacy || !!form.topic || undefined}>
                     <summary>Topic line (optional)</summary>
-                    <label className="block">Topic (context for screening; empty uses the description's first sentence)<input value={form.topic} onChange={(e) => update({ topic: e.target.value })} /></label>
+                    <label className="block">Topic (context for screening; leave empty to use the first sentence above)<input value={form.topic} onChange={(e) => update({ topic: e.target.value })} /></label>
                   </details>
                   {canEdit && (
                     <div className="actions">

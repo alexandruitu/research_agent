@@ -38,7 +38,7 @@ export function SnapshotView({ snapshot }: { snapshot: Record<string, unknown> }
         <p><strong>{DECISION[s.screening?.decision ?? ""] ?? s.screening?.decision ?? "no decision"}</strong>{s.screening?.decided_by ? ` · decided by ${criterionLabel(s.screening.decided_by)}` : ""}{s.screening?.tier ? ` · ${s.screening.tier === "llm" ? "LLM" : s.screening.tier === "jev" ? "Jev" : s.screening.tier}` : ""}</p>
         {rows.length > 0 && (
           <ul className="snap-criteria">
-            {rows.map((r) => <li key={r.key}><span className="item-key">{criterionLabel(r.key)}</span> {r.text}{r.decided && <strong> (decided)</strong>}{r.quote ? <blockquote className="quote">“{r.quote}”</blockquote> : null}</li>)}
+            {rows.map((r) => <li key={r.key}><span className="item-key">{criterionLabel(r.key)}:</span> {r.text}{r.decided && <strong> (decided)</strong>}{r.quote ? <blockquote className="quote">“{r.quote}”</blockquote> : null}</li>)}
           </ul>
         )}
         {rows.length === 0 && s.screening?.reason && <p className="sub">{s.screening.reason}</p>}

@@ -22,7 +22,7 @@ export function DrawerLibrary({ runId, drawer }: { runId: string; drawer: Drawer
       {library ? (
         <>
           <LibraryBadge library={library} />
-          {member && !pending && <StatusControl label="Team status" value={library.status} onChange={(to) => void status.change(library.item_id, library.status, to)} />}
+          {member && !pending && <StatusControl label="Team status" value={library.status} onChange={(to) => status.change(library.item_id, library.status, to)} />}
         </>
       ) : member ? (
         <button type="button" className="primary" onClick={() => setOpen(true)} disabled={flow.pending}>Save to library…</button>

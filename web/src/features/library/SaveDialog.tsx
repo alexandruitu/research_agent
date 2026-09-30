@@ -30,8 +30,11 @@ export function SaveDialog({ count, onSave, onClose }: Props) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const name = newName.trim();
+    // a "new" name that already exists means that collection: never fail the save on a name clash
+    const same = (collections.data ?? []).find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const ids = same && !chosen.includes(same.id) ? [...chosen, same.id] : chosen;
     onSave({
-      collection_ids: chosen, new_collection: name ? { name, description: "" } : null, tags, status: status as LibrarySaveRequest["status"], note: note.trim(),
+      collection_ids: ids, new_collection: name && !same ? { name, description: "" } : null, tags, status: status as LibrarySaveRequest["status"], note: note.trim(),
     });
   };
   const toggle = (id: string, on: boolean) => setChosen((list) => (on ? [...list, id] : list.filter((c) => c !== id)));

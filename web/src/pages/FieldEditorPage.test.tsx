@@ -140,6 +140,21 @@ describe("FieldEditorPage", () => {
     expect(screen.getByRole("button", { name: /Preview & save/ })).toHaveAttribute("aria-current", "step");
   });
 
+  it("keeps demo mode on after creating the field", async () => {
+    const created = fieldDetail({ current_version: 1, current: versionOut({ version: 1 }) });
+    setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/fields/new");
+    await form();
+    await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
+    await userEvent.type(screen.getByLabelText("Name"), "ML CT-FFR");
+    await userEvent.type(screen.getByLabelText("Description"), "Deep learning CT-FFR.");
+    await goStep(/Keywords & criteria/);
+    await userEvent.click(screen.getByRole("button", { name: "Add inclusion criterion" }));
+    await userEvent.type(screen.getByLabelText("incl 1"), "Uses deep learning.");
+    await userEvent.click(screen.getByRole("button", { name: "Create field" }));
+    expect(await screen.findByRole("heading", { name: "ML CT-FFR (v1)" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Demo mode/ })).toBeChecked();
+  });
+
   it("offers only enabled sources", async () => {
     setup();
     await form();
