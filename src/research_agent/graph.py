@@ -20,6 +20,7 @@ from .schemas import (
 from .scoring import rank_panel, score_paper
 
 NO_ABSTRACT = "No abstract available; retained in audit, unranked."
+KEYWORD_PLAN = "Queries built in code from the field's keywords; no planning call."
 
 
 def plan_payload(contract):
@@ -85,10 +86,19 @@ def build_graph(
     are given: then screen -> fulltext -> extract -> review_<key> (parallel) -> editor -> score -> rank."""
 
     def plan(s):
-        return {"plan": evaluator.ask("plan", Plan, plan_payload(s["contract"])).model_dump()}
+        source_queries = (s["contract"].get("domain") or {}).get("queries") or {}
+        if source_queries and not getattr(connector, "planned", True):
+            # Every source has a query built from the field's keywords: nothing to plan, no model call.
+            return {"plan": {"queries": [], "rationale": KEYWORD_PLAN, "source_queries": source_queries}}
+        plan = evaluator.ask("plan", Plan, plan_payload(s["contract"])).model_dump()
+        if source_queries:
+            plan["source_queries"] = source_queries
+        return {"plan": plan}
 
     def discover(s):
         papers = []
+        if hasattr(connector, "search_raw"):
+            papers.extend(connector.search_raw())  # sources with a built query: searched once each
         for query in s["plan"]["queries"]:
             papers.extend(connector.search(query, s["contract"]["max_papers"]))
         return {"discovered": [p.model_dump() for p in papers]}

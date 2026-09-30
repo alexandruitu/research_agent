@@ -107,6 +107,10 @@ def write_report(state, directory, manifest):
         "## Query plan",
         "",
         *[f"- {q}" for q in state["plan"]["queries"]],
+        *[
+            f"- {source} (from keywords): {q}"
+            for source, q in (state["plan"].get("source_queries") or {}).items()
+        ],
         "",
     ]
     for i, row in enumerate(state["ranking"], 1):

@@ -74,7 +74,8 @@ def criteria_test(
         search = connector(
             source.name, store, mode=mode, years=spec.years, contact=source.contact, http_client=http_client
         )
-        found.extend(search.search(spec.topic, TEST_LIMIT))
+        query = (spec.queries or {}).get(source.name)  # built from keywords; else the topic, as before
+        found.extend(search.search(query or spec.topic, TEST_LIMIT, raw=bool(query)))
     papers = deduplicate(found)[:TEST_LIMIT]
     jev = JevScreener(store, api_key, client=jev_client) if mode == "live" else None
     rows, versions = [], set()

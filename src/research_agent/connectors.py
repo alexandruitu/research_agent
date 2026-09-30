@@ -374,7 +374,7 @@ def domain_connector(domain, store, mode):
         else:
             connector = ArXiv(store, years=domain.years)
         sources.append((connector, source.max_results))
-    return MultiSource(sources, getattr(domain, "queries", None))
+    return MultiSource(sources, domain.queries)
 
 
 def deduplicate(papers):

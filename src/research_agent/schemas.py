@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_serializer, model_validator
 
 
 class Model(BaseModel):
@@ -79,8 +79,27 @@ class FieldRef(Model):
     version: int = Field(ge=1)
 
 
+Term = Annotated[str, Field(min_length=1, max_length=80)]
+SourceName = Literal["europepmc", "openalex", "arxiv"]
+
+
+class Keywords(Model):
+    """A field's keywords: every `all` term, at least one `any` term, no `none` term (research_agent.querybuild)."""
+
+    all: list[Term] = Field(default_factory=list, max_length=20)
+    any: list[Term] = Field(default_factory=list, max_length=20)
+    none: list[Term] = Field(default_factory=list, max_length=20)
+
+
+OPTIONAL_DOMAIN_KEYS = ("description", "keywords", "queries")
+
+
 class DomainSpec(Model):
-    """domain.json: the frozen contract between the web app and one pipeline run."""
+    """domain.json: the frozen contract between the web app and one pipeline run.
+
+    `queries` ({source: query}, built in code from `keywords`) are searched as they are; a source without one
+    gets the LLM-planned queries. The three optional keys are left out of dumps when null, so older contracts
+    (and their cache keys) are unchanged."""
 
     model_config = ALIASED
     schema_version: Literal[1] = Field(alias="schema")
@@ -90,13 +109,26 @@ class DomainSpec(Model):
     sources: list[SourceSpec] = Field(min_length=1, max_length=3)
     years: Years = Field(default_factory=Years)
     thresholds: Thresholds = Field(default_factory=Thresholds)
+    description: str | None = Field(default=None, max_length=2000)
+    keywords: Keywords | None = None
+    queries: dict[SourceName, Annotated[str, Field(min_length=1, max_length=2000)]] | None = None
 
     @model_validator(mode="after")
     def _unique_sources(self):
         names = [s.name for s in self.sources]
         if len(set(names)) != len(names):
             raise ValueError("each source may be listed once")
+        if self.queries and not set(self.queries) <= set(names):
+            raise ValueError("queries may only name sources of this field")
         return self
+
+    @model_serializer(mode="wrap")
+    def _without_empty_additions(self, handler):
+        data = handler(self)
+        for key in OPTIONAL_DOMAIN_KEYS:
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class DomainError(ValueError):
