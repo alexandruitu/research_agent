@@ -1,30 +1,40 @@
+import type { MouseEvent } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
+import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { StaleBanner } from "./StaleBanner";
 import { ToastProvider } from "./ui/Toast";
 
-export function Layout() {
+const NAV = [
+  { to: "/", label: "Papers", end: true },
+  { to: "/library", label: "Library" },
+  { to: "/runs", label: "Runs" },
+  { to: "/fields", label: "Fields" },
+  { to: "/evals", label: "Evals" },
+  { to: "/system", label: "System map" },
+  { to: "/settings", label: "Settings" },
+];
+
+function Chrome() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
+  const { confirmLeave } = useLeaveGuard();
+  const guard = (event: MouseEvent) => {
+    if (!confirmLeave()) event.preventDefault();
+  };
   return (
-    <ToastProvider>
+    <>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="topbar">
-        <Link to="/" className="brand"><span className="brand-mark" aria-hidden="true">R/A</span> Research Agent</Link>
+        <Link to="/" className="brand" onClick={guard}><span className="brand-mark" aria-hidden="true">R/A</span> Research Agent</Link>
         <nav aria-label="Main">
-          <NavLink to="/" end>Papers</NavLink>
-          <NavLink to="/library">Library</NavLink>
-          <NavLink to="/runs">Runs</NavLink>
-          <NavLink to="/fields">Fields</NavLink>
-          <NavLink to="/evals">Evals</NavLink>
-          <NavLink to="/system">System map</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
+          {NAV.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={guard}>{item.label}</NavLink>)}
         </nav>
         <div className="who">
           <span>{user?.name}</span> <span className="role">{user?.role}</span>
-          <button type="button" onClick={() => void logout()}>Sign out</button>
+          <button type="button" onClick={() => confirmLeave() && void logout()}>Sign out</button>
         </div>
       </header>
       <StaleBanner />
@@ -34,6 +44,16 @@ export function Layout() {
           <Outlet />
         </ErrorBoundary>
       </main>
+    </>
+  );
+}
+
+export function Layout() {
+  return (
+    <ToastProvider>
+      <DirtyGuardProvider>
+        <Chrome />
+      </DirtyGuardProvider>
     </ToastProvider>
   );
 }

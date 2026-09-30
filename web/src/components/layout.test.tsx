@@ -13,6 +13,7 @@ import { renderWithProviders } from "../test/render";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Layout } from "./Layout";
 import { StaleBanner } from "./StaleBanner";
+import { useReportDirty } from "../features/settings/dirtyGuard";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -122,6 +123,43 @@ describe("Layout", () => {
       window.removeEventListener("error", swallow);
       consoleError.mockRestore();
     }
+  });
+});
+
+describe("unsaved-changes guard", () => {
+  function Editing() {
+    useReportDirty(true);
+    return <p>editing</p>;
+  }
+  const renderEditing = () =>
+    renderWithProviders(
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Editing />} />
+          <Route path="/runs" element={<p>runs page</p>} />
+        </Route>
+      </Routes>,
+    );
+
+  it("asks before the main navigation leaves unsaved edits, and stays when refused", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    renderEditing();
+    await userEvent.click(await screen.findByRole("link", { name: "Runs" }));
+    expect(confirm).toHaveBeenCalledWith("You have unsaved changes on this page. Discard them?");
+    expect(screen.getByText("editing")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("editing")).toBeInTheDocument();
+  });
+
+  it("leaves when the user agrees", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    renderEditing();
+    await userEvent.click(await screen.findByRole("link", { name: "Runs" }));
+    expect(await screen.findByText("runs page")).toBeInTheDocument();
   });
 });
 

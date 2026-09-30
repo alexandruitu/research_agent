@@ -1,15 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 
-export const LEAVE_QUESTION = "You have unsaved changes on this tab. Discard them?";
+export const LEAVE_QUESTION = "You have unsaved changes on this page. Discard them?";
 
-type Guard = { setDirty: (dirty: boolean) => void; confirmLeave: () => boolean };
-const GuardContext = createContext<Guard>({ setDirty: () => undefined, confirmLeave: () => true });
+type Guard = { setDirty: (dirty: boolean) => void; confirmLeave: () => boolean; mounted: boolean };
+const GuardContext = createContext<Guard>({ setDirty: () => undefined, confirmLeave: () => true, mounted: false });
 
 /**
- * One flag for the visible settings tab. BrowserRouter has no navigation blocker, so the tab links ask
- * `confirmLeave()` and a beforeunload listener covers reloads and closing the window.
+ * One app-wide flag for the page being edited (a settings tab, the field editor, a reviewer). BrowserRouter
+ * has no navigation blocker, so the main navigation, the settings tabs and Sign out ask `confirmLeave()`,
+ * and a beforeunload listener covers reloads and closing the window. A provider inside another one is
+ * transparent: everything shares the outermost flag.
  */
 export function DirtyGuardProvider({ children }: { children: ReactNode }) {
+  const outer = useContext(GuardContext);
+  return outer.mounted ? <>{children}</> : <RootGuard>{children}</RootGuard>;
+}
+
+function RootGuard({ children }: { children: ReactNode }) {
   const dirty = useRef(false);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -30,7 +37,7 @@ export function DirtyGuardProvider({ children }: { children: ReactNode }) {
     }
     return false;
   }, []);
-  const guard = useMemo(() => ({ setDirty, confirmLeave }), [setDirty, confirmLeave]);
+  const guard = useMemo(() => ({ setDirty, confirmLeave, mounted: true }), [setDirty, confirmLeave]);
   return <GuardContext.Provider value={guard}>{children}</GuardContext.Provider>;
 }
 
