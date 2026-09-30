@@ -468,7 +468,7 @@ class RankCell(Model):
 
 class PaperRow(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["sources", "score", "coverage", "red_flag_count", "text_source", "library"]
+        ["sources", "score", "coverage", "red_flag_count", "text_source", "text_licence", "library"]
     )
     paper: PaperRef
     found_by: str
@@ -482,7 +482,8 @@ class PaperRow(Model):
     score: float | None = None  # 0-100, computed in code from the checklist answers
     coverage: float | None = None  # 0-1: share of checklist items answered yes or no
     red_flag_count: int | None = None
-    text_source: str | None = None  # pmc_oa | unpaywall | upload | abstract
+    text_source: str | None = None  # a full-text resolver name, or abstract
+    text_licence: str | None = None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
 
 
@@ -611,7 +612,10 @@ class RedFlagOut(Model):
 
 
 class PanelOut(Model):
-    text_source: str  # pmc_oa | unpaywall | upload | abstract
+    ADDED: ClassVar[frozenset] = frozenset(["text_licence"])
+
+    text_source: str  # a full-text resolver name, or abstract
+    text_licence: str | None = None  # null: a report from before licences were recorded
     text_reason: str | None  # why full text was not used, source by source
     text_origin: str | None  # URL, or "upload:<sha256>"
     text_sections: list[str]

@@ -83,6 +83,9 @@ def reviews_cell(verdicts, adjudication_expected, expected):
     return {"a": a, "b": b, "adjudicated": adjudicated, "adjudicator": adjudicator}
 
 
+PANEL_COLUMNS = ("score", "coverage", "red_flag_count", "text_source", "text_licence")
+
+
 def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label, panel=None):
     expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
     if quotes:
@@ -114,7 +117,7 @@ def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expec
         "reviews": reviews,
         "rank": {"score": rank[0], "position": rank[1]} if rank[0] is not None else None,
         **dict(
-            zip(("score", "coverage", "red_flag_count", "text_source"), panel or (None,) * 4, strict=True)
+            zip(PANEL_COLUMNS, panel or (None,) * len(PANEL_COLUMNS), strict=True)
         ),
     }
 
@@ -156,6 +159,7 @@ def paper_table(db, run, q):
             PaperReview.coverage,
             PaperReview.red_flag_count,
             PaperReview.text_source,
+            PaperReview.text_licence,
         )
         .join(Paper, Paper.id == Screening.paper_id)
         .outerjoin(ra, review_join(ra, "a"))
@@ -409,6 +413,7 @@ def panel_drawer(db, run, paper):
     flags = db.scalars(select(RedFlag).where(RedFlag.paper_review_id == review.id).order_by(RedFlag.position))
     return {
         "text_source": review.text_source,
+        "text_licence": review.text_licence,
         "text_reason": review.text_reason,
         "text_origin": review.text_origin,
         "text_sections": review.text_sections,

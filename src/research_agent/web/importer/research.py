@@ -242,6 +242,7 @@ def _import_panel(db, run, state, papers, calls, warnings, created_by):
             run_id=run.id,
             paper_id=papers[pid].id,
             text_source=result["text_source"],
+            text_licence=result.get("text_licence"),  # absent in reports before slice 5
             text_reason=result.get("text_reason"),
             text_origin=result.get("text_origin"),
             text_sections=list(result.get("text_sections") or []),

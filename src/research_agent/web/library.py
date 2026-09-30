@@ -105,6 +105,7 @@ def build_snapshot(db, run, paper):
             "coverage": panel["coverage"],
             "red_flag_count": panel["red_flag_count"],
             "text_source": panel["text_source"],
+            "text_licence": panel["text_licence"],
             "editor": {"verdict": panel["editor"]["verdict"], "reason": panel["editor"]["reason"]},
             "red_flags": [{"text": f["text"], "source": f["source"]} for f in panel["red_flags"]],
             "reviewers": [
@@ -508,9 +509,36 @@ def _cell(value):
     return "'" + text if text.startswith(FORMULA) else text
 
 
+# What an export may read of an item: metadata only. Never text, quotes or sections, whatever their licence
+# (publisher_licensed text is reviewed under an entitlement, never redistributed).
+EXPORT_KEYS = frozenset(
+    {
+        "paper",
+        "status",
+        "score",
+        "red_flag_count",
+        "collections",
+        "tags",
+        "note",
+        "field",
+        "added_by_name",
+        "added_at",
+    }
+)
+PAPER_EXPORT_KEYS = ("title", "year", "doi", "source_id")
+
+
+def export_view(item):
+    view = {k: item[k] for k in EXPORT_KEYS if k in item}
+    view["paper"] = {k: item["paper"].get(k) for k in PAPER_EXPORT_KEYS}
+    return view
+
+
 def to_csv(items):
     import csv
     import io
+
+    items = [export_view(i) for i in items]
 
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\r\n")
@@ -558,6 +586,7 @@ def bibtex_escape(value):
 
 
 def to_bibtex(items):
+    items = [export_view(i) for i in items]
     entries, used = [], set()
     for i in items:
         paper = i["paper"]

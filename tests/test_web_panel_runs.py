@@ -204,7 +204,7 @@ def test_a_panel_run_through_the_worker_imports_its_reviews(world):
         reviews, reports, flags = counts(db, run_id)
         assert len(reviews) == 3 and len(reports) == 9 and flags == []
         first = max(reviews, key=lambda r: r.score or 0)
-        assert first.text_source == "abstract" and first.editor_verdict and first.editor_call_key
+        assert first.text_source == first.text_licence == "abstract" and first.editor_verdict and first.editor_call_key
         assert all(r.call_key and r.reviewer_version_id for r in reports)
         assert {r.reviewer_key for r in reports} == {"methodologist", "clinician", "statistician"}
         from research_agent.web.db.models import ReviewerVersion, SettingsVersion
@@ -264,7 +264,7 @@ def test_paper_table_and_drawer_show_the_panel(db, tmp_path, sign_in, settings):
     assert page["total"] == 3
     scores = [r["score"] for r in rows]
     assert scores == sorted(scores, reverse=True) and all(s is not None for s in scores)
-    assert all(r["text_source"] == "abstract" and 0 <= r["coverage"] <= 1 for r in rows)
+    assert all(r["text_source"] == r["text_licence"] == "abstract" and 0 <= r["coverage"] <= 1 for r in rows)
     assert sorted(r["red_flag_count"] for r in rows) == [0, 0, 1]
     flagged = viewer.get(f"{API}/runs/{run_id}/papers?has_red_flags=true").json()["items"]
     assert [r["paper"]["source_id"] for r in flagged] == ["demo:2"]
@@ -277,7 +277,7 @@ def test_paper_table_and_drawer_show_the_panel(db, tmp_path, sign_in, settings):
     assert upload.status_code == 201
     drawer = viewer.get(f"{API}/runs/{run_id}/papers/{paper_id}").json()
     panel = drawer["panel"]
-    assert panel["text_source"] == "abstract" and panel["red_flag_count"] == 1
+    assert panel["text_source"] == panel["text_licence"] == "abstract" and panel["red_flag_count"] == 1
     assert panel["text_reason"] == "pmc_oa: no PMCID; upload: no uploaded PDF"
     assert panel["editor"]["verdict"] and panel["editor"]["call_key"]
     assert [r["key"] for r in panel["reviews"]] == ["methodologist", "clinician", "statistician"]

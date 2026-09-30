@@ -37,7 +37,8 @@ def test_demo_panel_run_reviews_scores_and_ranks(tmp_path):
     result, store = run_panel(tmp_path, panel_contract())
     review = result["review"]
     assert sorted(review) == ["demo:1", "demo:2", "demo:3"]
-    assert review["demo:1"]["text_source"] == "abstract"
+    assert review["demo:1"]["text_source"] == "abstract" and review["demo:1"]["text_licence"] == "abstract"
+    assert review["demo:2"]["text_licence"] == "user_upload"
     assert review["demo:1"]["text_reason"] == "pmc_oa: no PMCID; upload: no uploaded PDF"
     assert review["demo:2"]["text_source"] == "upload" and review["demo:2"]["text_sections"] == [
         "",

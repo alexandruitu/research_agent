@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from research_agent.web.db.models import Paper
-from research_agent.web.library import bibtex_escape, to_bibtex, to_csv
+from research_agent.web.library import EXPORT_KEYS, bibtex_escape, to_bibtex, to_csv
 
 API = "/api/v1"
 
@@ -63,3 +63,31 @@ def test_export_endpoint_honours_filters(sign_in, imported, db):
     assert bib.headers["content-type"].startswith("application/x-bibtex")
     assert bib.text.count("@article{") == 2 and "keywords = {x}" in bib.text
     assert viewer.get(f"{API}/library/export", params={"format": "ris"}).status_code == 422
+
+
+def test_exports_hold_metadata_only_even_for_publisher_licensed_text():
+    """Text under a publisher licence (ScienceDirect) may be reviewed, never redistributed: whatever an item
+    carries besides its metadata (panel quotes, sections, snapshot) never reaches CSV or BibTeX."""
+    secret = "LICENSED-SENTINEL full-text sentence"
+    leaky = item(title="Paper") | {
+        "text_source": "sciencedirect",
+        "text_licence": "publisher_licensed",
+        "panel": {"text_licence": "publisher_licensed", "quote": secret, "text_sections": [secret]},
+        "snapshot": {"panel": {"red_flags": [{"text": secret}]}},
+    }
+    for out in (to_csv([leaky]), to_bibtex([leaky])):
+        assert secret not in out and "publisher_licensed" not in out
+    assert EXPORT_KEYS == frozenset(
+        {
+            "paper",
+            "status",
+            "score",
+            "red_flag_count",
+            "collections",
+            "tags",
+            "note",
+            "field",
+            "added_by_name",
+            "added_at",
+        }
+    )

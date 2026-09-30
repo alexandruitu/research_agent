@@ -321,6 +321,7 @@ def build_graph(
             text = s["texts"][pid]
             review[pid] = {
                 "text_source": text["text_source"],
+                "text_licence": text.get("text_licence"),
                 "text_reason": text["reason"],
                 "text_origin": text["origin"],
                 "text_sections": text["sections"],
