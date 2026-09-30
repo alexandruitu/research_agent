@@ -482,3 +482,95 @@ def load_run(db, run_id):
     if run is None:
         raise LibraryError(404, "not_found", "No such run")
     return run
+
+
+CSV_COLUMNS = (
+    "title",
+    "year",
+    "doi",
+    "source_id",
+    "status",
+    "score",
+    "red_flags",
+    "collections",
+    "tags",
+    "note",
+    "field",
+    "added_by",
+    "added_at",
+)
+FORMULA = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(value):
+    """A spreadsheet never evaluates a cell we write: text starting like a formula gets a leading quote."""
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(FORMULA) else text
+
+
+def to_csv(items):
+    import csv
+    import io
+
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\r\n")
+    writer.writerow(CSV_COLUMNS)
+    for i in items:
+        writer.writerow(
+            _cell(v)
+            for v in (
+                i["paper"]["title"],
+                i["paper"]["year"],
+                i["paper"]["doi"],
+                i["paper"]["source_id"],
+                i["status"],
+                i["score"],
+                i["red_flag_count"],
+                "; ".join(c["name"] for c in i["collections"]),
+                "; ".join(i["tags"]),
+                i["note"],
+                (i["field"] or {}).get("name"),
+                i["added_by_name"],
+                i["added_at"].isoformat() if hasattr(i["added_at"], "isoformat") else i["added_at"],
+            )
+        )
+    return out.getvalue()
+
+
+BIBTEX_SPECIAL = {
+    "\\": r"\textbackslash{}",
+    "{": r"\{",
+    "}": r"\}",
+    "&": r"\&",
+    "%": r"\%",
+    "$": r"\$",
+    "#": r"\#",
+    "_": r"\_",
+    "~": r"\textasciitilde{}",
+    "^": r"\textasciicircum{}",
+}
+CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
+
+
+def bibtex_escape(value):
+    text = CONTROL.sub(" ", "" if value is None else str(value))
+    return "".join(BIBTEX_SPECIAL.get(c, c) for c in text).strip()
+
+
+def to_bibtex(items):
+    entries, used = [], set()
+    for i in items:
+        paper = i["paper"]
+        base = "ra_" + (re.sub(r"[^A-Za-z0-9]", "", paper["source_id"]) or "paper")
+        key, n = base, 1
+        while key in used:
+            n += 1
+            key = f"{base}_{n}"
+        used.add(key)
+        fields = [("title", paper["title"]), ("year", paper["year"]), ("doi", paper["doi"])]
+        if paper["source_id"].startswith("arxiv:"):
+            fields.append(("eprint", paper["source_id"].split(":", 1)[1]))
+        fields += [("keywords", ", ".join(i["tags"])), ("note", i["note"])]
+        body = ",\n".join(f"  {name} = {{{bibtex_escape(v)}}}" for name, v in fields if v not in (None, ""))
+        entries.append(f"@article{{{key},\n{body}\n}}\n")
+    return "\n".join(entries)

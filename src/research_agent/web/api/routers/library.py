@@ -166,6 +166,34 @@ def list_library(
     )
 
 
+@router.get(
+    "/export",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}, "application/x-bibtex": {}}}},
+)
+def export_library(
+    format: Literal["csv", "bibtex"] = "csv",
+    query: svc.LibraryQuery = Depends(library_query),
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+):
+    """Every item matching the list filters (at most 5000), as CSV or BibTeX, downloaded as a file."""
+    try:
+        rows, _total = svc.search(db, query, limit=svc.EXPORT_MAX)
+    except svc.LibraryError as exc:
+        raise error(exc) from None
+    items = svc.item_dicts(db, rows, user)
+    if format == "csv":
+        body, media, name = svc.to_csv(items), "text/csv; charset=utf-8", "library.csv"
+    else:
+        body, media, name = svc.to_bibtex(items), "application/x-bibtex; charset=utf-8", "library.bib"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
 @router.post("", response_model=LibrarySaveOut, status_code=201)
 def save_to_library(
     body: LibrarySaveRequest, response: Response, user=Depends(require_role("member")), db=Depends(get_db)
