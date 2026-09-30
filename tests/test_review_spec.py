@@ -88,3 +88,21 @@ def test_contract_carries_the_review():
     contract = Contract(topic="deep learning CT-FFR", review=ReviewSpec.model_validate(REVIEW))
     assert contract.model_dump()["review"]["panel"][0]["key"] == "methodologist"
     assert Contract(topic="deep learning CT-FFR").review is None
+
+
+def test_fulltext_accepts_every_resolver_in_any_order():
+    from research_agent.schemas import FULLTEXT_SOURCES, FulltextSpec
+
+    order = list(reversed(FULLTEXT_SOURCES))
+    assert FulltextSpec(sources=order, contact="a@b.org").sources == order
+    assert FulltextSpec().sources == ["pmc_oa", "upload"]
+
+
+@pytest.mark.parametrize("sources", [["core", "core"], ["scholar"]])
+def test_fulltext_rejects_duplicates_and_unknown(sources):
+    from pydantic import ValidationError
+
+    from research_agent.schemas import FulltextSpec
+
+    with pytest.raises(ValidationError):
+        FulltextSpec(sources=sources)

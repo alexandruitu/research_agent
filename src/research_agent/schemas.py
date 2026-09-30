@@ -40,8 +40,62 @@ class Criteria(Model):
 EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
+# Search sources a field may use (research_agent.sources.REGISTRY describes each one).
+SEARCH_SOURCES = (
+    "europepmc",
+    "openalex",
+    "arxiv",
+    "semantic_scholar",
+    "crossref",
+    "pubmed",
+    "medrxiv",
+    "biorxiv",
+    "core",
+    "ieee",
+    "springer",
+    "scopus",
+)
+SourceName = Literal[
+    "europepmc",
+    "openalex",
+    "arxiv",
+    "semantic_scholar",
+    "crossref",
+    "pubmed",
+    "medrxiv",
+    "biorxiv",
+    "core",
+    "ieee",
+    "springer",
+    "scopus",
+]
+# Full-text resolvers, in the default resolution order (a review may enable any subset, in any order).
+FULLTEXT_SOURCES = (
+    "pmc_oa",
+    "europepmc",
+    "core",
+    "springer_oa",
+    "semantic_scholar_oa",
+    "unpaywall",
+    "ieee",
+    "sciencedirect",
+    "upload",
+)
+FulltextSource = Literal[
+    "pmc_oa",
+    "europepmc",
+    "core",
+    "springer_oa",
+    "semantic_scholar_oa",
+    "unpaywall",
+    "ieee",
+    "sciencedirect",
+    "upload",
+]
+
+
 class SourceSpec(Model):
-    name: Literal["europepmc", "openalex", "arxiv"]
+    name: SourceName
     max_results: int = Field(default=100, ge=1, le=200)
     contact: str | None = Field(default=None, max_length=200, pattern=EMAIL)
 
@@ -80,7 +134,6 @@ class FieldRef(Model):
 
 
 Term = Annotated[str, Field(min_length=1, max_length=80)]
-SourceName = Literal["europepmc", "openalex", "arxiv"]
 
 
 class Keywords(Model):
@@ -106,7 +159,7 @@ class DomainSpec(Model):
     field: FieldRef | None = None
     topic: str = Field(min_length=3, max_length=500)
     criteria: Criteria
-    sources: list[SourceSpec] = Field(min_length=1, max_length=3)
+    sources: list[SourceSpec] = Field(min_length=1, max_length=len(SEARCH_SOURCES))
     years: Years = Field(default_factory=Years)
     thresholds: Thresholds = Field(default_factory=Thresholds)
     description: str | None = Field(default=None, max_length=2000)
@@ -197,8 +250,8 @@ class RoleModels(Model):
 
 
 class FulltextSpec(Model):
-    sources: list[Literal["pmc_oa", "unpaywall", "upload"]] = Field(
-        default_factory=lambda: ["pmc_oa", "upload"], max_length=3
+    sources: list[FulltextSource] = Field(
+        default_factory=lambda: ["pmc_oa", "upload"], max_length=len(FULLTEXT_SOURCES)
     )
     contact: str | None = Field(default=None, max_length=200, pattern=EMAIL)
     max_chars: int = Field(default=60000, ge=2000, le=200000)
@@ -305,6 +358,21 @@ class Paper(Model):
     pmcid: str = ""  # PMC Open Access id (full text); provenance-like, never sent to a model
     sources: list[str] = Field(default_factory=list)  # connectors that found it (after dedup: all of them)
     provenance: list[Source] = Field(min_length=1)
+    # Cross-source identifiers (dedup); left out of dumps when empty so older dumps and cache keys are unchanged.
+    pmid: str = ""
+    arxiv: str = ""
+    s2: str = ""
+
+    @model_serializer(mode="wrap")
+    def _without_empty_ids(self, handler):
+        data = handler(self)
+        for key in PAPER_OPTIONAL_IDS:
+            if not data.get(key):
+                data.pop(key, None)
+        return data
+
+
+PAPER_OPTIONAL_IDS = ("pmid", "arxiv", "s2")
 
 
 class Screen(Model):

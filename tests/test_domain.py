@@ -147,3 +147,27 @@ def test_paper_sources_default_to_empty_for_old_reports():
     }
     assert Paper.model_validate(paper).sources == []
     assert Paper.model_validate({**paper, "sources": ["openalex"]}).sources == ["openalex"]
+
+
+def test_every_search_source_is_a_valid_domain_source_and_a_field_may_list_all():
+    from research_agent.schemas import SEARCH_SOURCES
+
+    spec = DomainSpec.model_validate(domain(sources=[{"name": n} for n in SEARCH_SOURCES]))
+    assert [s.name for s in spec.sources] == list(SEARCH_SOURCES) and len(SEARCH_SOURCES) == 12
+
+
+def test_queries_may_name_new_sources():
+    spec = DomainSpec.model_validate(domain(sources=[{"name": "pubmed"}], queries={"pubmed": '"ct"[tiab]'}))
+    assert spec.queries == {"pubmed": '"ct"[tiab]'}
+
+
+def test_paper_dump_omits_empty_new_ids_and_keeps_set_ones():
+    from research_agent.schemas import Paper, Source
+
+    prov = Source(connector="x", record_id="x", url="u", query="q", retrieved_at="t", raw_sha256="h")
+    paper = Paper(id="a", title="t", abstract="a", provenance=[prov])
+    assert not {"pmid", "arxiv", "s2"} & set(paper.model_dump())
+    paper = Paper(id="a", title="t", abstract="a", provenance=[prov], pmid="1", s2="abc")
+    dumped = paper.model_dump()
+    assert dumped["pmid"] == "1" and dumped["s2"] == "abc" and "arxiv" not in dumped
+    assert Paper.model_validate(dumped) == paper
