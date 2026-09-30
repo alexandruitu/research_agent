@@ -838,3 +838,134 @@ class AvailableModelOut(Model):
 class ModelsAvailableOut(Model):
     models: list[AvailableModelOut]
     providers: list[ProviderOut]
+
+
+# --- Team library -------------------------------------------------------------------------------------------
+
+LibraryStatus = Literal["to_read", "read", "relevant", "rejected"]
+
+
+class CollectionRef(Model):
+    id: uuid.UUID
+    name: str
+
+
+class LibraryRef(Model):
+    """A paper's place in the team library (on paper rows and the drawer); null when it is not saved."""
+
+    item_id: uuid.UUID
+    status: str  # to_read | read | relevant | rejected
+    collections: list[CollectionRef]
+
+
+class CollectionOut(Model):
+    id: uuid.UUID
+    name: str
+    description: str
+    archived_at: datetime | None
+    item_count: int
+    created_by_name: str | None
+    created_at: datetime
+
+
+class CollectionCreate(Model):
+    name: str = Field(min_length=1, max_length=100, pattern=PLAIN)
+    description: str = Field(default="", max_length=500, pattern=PLAIN)
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return _stripped(value)
+
+
+class CollectionPatch(Model):
+    name: str | None = Field(default=None, min_length=1, max_length=100, pattern=PLAIN)
+    description: str | None = Field(default=None, max_length=500, pattern=PLAIN)
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return _stripped(value)
+
+
+class LibraryPaperOut(Model):
+    id: uuid.UUID
+    source_id: str
+    title: str
+    year: int | None
+    doi: str
+
+
+class LibraryFieldOut(Model):
+    id: uuid.UUID
+    name: str
+    version: int | None
+
+
+class LibraryItemOut(Model):
+    id: uuid.UUID
+    paper: LibraryPaperOut
+    status: str  # to_read | read | relevant | rejected
+    note: str
+    tags: list[str]  # lower-case, sorted
+    collections: list[CollectionRef]
+    field: LibraryFieldOut | None  # the field of the run it was saved (or last snapshotted) from
+    run_id: uuid.UUID | None
+    score: float | None  # panel score (0-100), else the ranking score, at snapshot time
+    red_flag_count: int | None  # null: not a panel run
+    text_source: str | None
+    editor_verdict: str | None
+    added_by_name: str | None
+    added_at: datetime
+    updated_at: datetime
+    can_delete: bool  # the signed-in user added it, or is an admin
+
+
+class LibraryEventOut(Model):
+    id: uuid.UUID
+    kind: str  # added | resaved | status | note | tags | collections | snapshot
+    detail: dict[str, Any]
+    user_name: str | None
+    created_at: datetime
+
+
+class LibraryItemDetail(LibraryItemOut):
+    abstract: str
+    snapshot: dict[str, Any]  # frozen evidence at save time (schema 1, see docs/web-app.md)
+    events: list[LibraryEventOut]  # oldest first
+    files: list[PaperFileOut]  # the paper's uploaded PDFs now
+
+
+class LibraryPage(Model):
+    items: list[LibraryItemOut]
+    total: int
+    page: int
+    page_size: int
+
+
+class LibrarySaveRequest(Model):
+    run_id: uuid.UUID
+    paper_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    collection_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    new_collection: CollectionCreate | None = None
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    note: str = Field(default="", max_length=5000, pattern=TEXT)
+    status: LibraryStatus = "to_read"
+
+
+class LibrarySaveOut(Model):
+    created: list[uuid.UUID]  # item ids of papers saved now
+    existing: list[uuid.UUID]  # item ids of papers already saved (collections and tags merged)
+    items: list[LibraryItemOut]  # created then existing, in request order
+    collection: CollectionOut | None  # the new collection, when one was asked for
+
+
+class LibraryPatch(Model):
+    status: LibraryStatus | None = None
+    note: str | None = Field(default=None, max_length=5000, pattern=TEXT)
+    tags: list[str] | None = Field(default=None, max_length=20)  # replaces the tags
+    collection_ids: list[uuid.UUID] | None = Field(default=None, max_length=20)  # replaces the collections
+
+
+class SnapshotRequest(Model):
+    run_id: uuid.UUID
