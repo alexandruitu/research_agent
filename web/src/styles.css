@@ -581,3 +581,23 @@ button.danger-quiet:hover:not(:disabled) { background: var(--bad-bg); }
 .collection-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); padding: 6px 0; border-bottom: 1px solid var(--rule); }
 .collection-name { font-weight: 600; }
 .row-tools { margin-left: auto; display: flex; gap: 6px; }
+/* papers: selection, library badges, drawer header */
+.select-col { width: 36px; text-align: center; }
+.select-col input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+table.papers tr.is-checked td { background: color-mix(in srgb, var(--accent-wash) 60%, transparent); }
+table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.lib-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-wash); text-decoration: none; }
+.lib-badge:hover { text-decoration: underline; }
+.lib-badge.is-pending { border-style: dashed; color: var(--ink-2); background: none; border-color: var(--rule-2); }
+.selection-bar { position: sticky; top: 60px; z-index: 5; display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; padding: var(--s2) var(--s4); margin-bottom: var(--s3); background: var(--ink); color: var(--paper); border-radius: var(--r3); box-shadow: var(--shadow-lift); animation: rise 160ms ease both; }
+.selection-bar button:not(.primary) { background: transparent; color: inherit; border-color: color-mix(in srgb, var(--paper) 40%, transparent); }
+.selection-bar button:not(.primary):hover:not(:disabled) { background: color-mix(in srgb, var(--paper) 15%, transparent); }
+.selection-bar :focus-visible { outline-color: var(--paper); }
+.selection-bar button.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.side-panel.drawer { padding-top: 0; }
+.drawer-head { position: sticky; top: 0; z-index: 2; margin: 0 calc(-1 * var(--s4)); padding: var(--s4) var(--s4) var(--s2); background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--rule); display: grid; gap: var(--s2); }
+.drawer-library { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.drawer-library .lib-badge { margin-top: 0; }
+.save-form { display: grid; gap: var(--s3); }
+.save-form h2 { margin: 0; }
+.save-form .status-control legend, .drawer-library .status-control legend { position: static; width: auto; height: auto; overflow: visible; clip: auto; display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; float: left; width: 100%; }

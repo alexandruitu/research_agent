@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
+import { hasRole } from "../api/types";
+import { useAuth } from "../auth/AuthProvider";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
 import { isPanelRun, screenKeys } from "../features/papers/cells";
@@ -9,11 +12,18 @@ import { FilterBar, type CriterionOption } from "../features/papers/FilterBar";
 import { PaperTable } from "../features/papers/PaperTable";
 import { parseView, patchView } from "../features/papers/papersState";
 import { PapersSidePanel } from "../features/papers/PapersSidePanel";
+import { SaveDialog } from "../features/library/SaveDialog";
+import { useSaveFlow } from "../features/library/saveFlow";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
 
 export function PapersPage() {
+  const { user } = useAuth();
+  const member = hasRole(user, "member");
   const [search, setSearch] = useSearchParams();
+  const [picked, setPicked] = useState<{ runId: string | null; ids: Set<string> }>({ runId: null, ids: new Set() });
+  const [saving, setSaving] = useState(false);
+  const saveFlow = useSaveFlow();
   const view = parseView(search);
   const runs = useRuns();
   const runId = view.runId ?? runs.data?.find((run) => run.paper_count > 0)?.id ?? null;
@@ -42,6 +52,26 @@ export function PapersPage() {
   if (runs.isError) return <p role="alert">{errorText(runs.error)}</p>;
   if (!runId) return <section><h1>Papers</h1><p>No runs yet. Import a run or start one from the Runs page.</p></section>;
 
+  // a selection belongs to one run: switching runs starts empty
+  const selectedIds = picked.runId === runId ? picked.ids : new Set<string>();
+  const setSelected = (ids: Set<string>) => setPicked({ runId, ids });
+  const toggle = (paperId: string, on: boolean) => {
+    const next = new Set(selectedIds);
+    if (on) next.add(paperId);
+    else next.delete(paperId);
+    setSelected(next);
+  };
+  const toggleAll = (on: boolean) => {
+    const next = new Set(selectedIds);
+    for (const row of papers.data?.items ?? []) if (on) next.add(row.paper.id); else next.delete(row.paper.id);
+    setSelected(next);
+  };
+  const doSave = async (choice: Parameters<typeof saveFlow.save>[2]) => {
+    setSaving(false);
+    const ok = await saveFlow.save(runId, [...selectedIds], choice);
+    if (ok) setSelected(new Set());
+  };
+
   const counts = run.data?.counts;
   const total = papers.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / view.params.page_size));
@@ -65,6 +95,14 @@ export function PapersPage() {
           </p>
         )}
       </div>
+      {member && selectedIds.size > 0 && (
+        <div className="selection-bar" role="region" aria-label="Selection">
+          <strong>{selectedIds.size} selected</strong>
+          <button type="button" className="primary" onClick={() => setSaving(true)} disabled={saveFlow.pending}>Save to library…</button>
+          <button type="button" onClick={() => setSelected(new Set())}>Clear selection</button>
+        </div>
+      )}
+      {saving && <SaveDialog count={selectedIds.size} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
       <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(papers.data?.items ?? [])} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
@@ -82,6 +120,7 @@ export function PapersPage() {
                 onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
                 selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
                 selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
+                selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll: toggleAll } : null}
               />
             </ErrorBoundary>
           )}

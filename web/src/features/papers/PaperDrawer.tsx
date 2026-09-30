@@ -5,6 +5,7 @@ import { usePaper } from "../../api/hooks";
 import { hasRole, type CriterionRowOut, type DrawerOut, type ReviewOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
+import { DrawerLibrary } from "./DrawerLibrary";
 import { PaperFiles } from "./PaperFiles";
 import { PeerReview } from "./PeerReview";
 import { RawCalls } from "./RawCalls";
@@ -132,10 +133,13 @@ export function PaperDrawer({ runId, paperId, onClose }: { runId: string; paperI
   }, [paper.data?.paper.id]);
 
   return (
-    <aside aria-label="Paper details" className="side-panel" onKeyDown={(event) => event.key === "Escape" && onClose()}>
-      <div className="panel-head">
-        {paper.data ? <h2 ref={heading} tabIndex={-1}>{paper.data.paper.title}</h2> : <h2 ref={heading} tabIndex={-1}>Loading…</h2>}
-        <button type="button" onClick={onClose} aria-label="Close paper details">×</button>
+    <aside aria-label="Paper details" className="side-panel drawer" onKeyDown={(event) => event.key === "Escape" && !(event.target as HTMLElement).closest?.("dialog") && onClose()}>
+      <div className="drawer-head">
+        <div className="panel-head">
+          {paper.data ? <h2 ref={heading} tabIndex={-1}>{paper.data.paper.title}</h2> : <h2 ref={heading} tabIndex={-1}>Loading…</h2>}
+          <button type="button" onClick={onClose} aria-label="Close paper details">×</button>
+        </div>
+        {paper.data && <DrawerLibrary runId={runId} drawer={paper.data} />}
       </div>
       {paper.isError && <p role="alert" className="form-error">{paper.error instanceof ApiError ? `${paper.error.message} (request ${paper.error.requestId})` : "Could not load this paper."}</p>}
       {paper.data && (

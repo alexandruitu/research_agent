@@ -12,10 +12,11 @@ export function statusText(stage: StageOut) {
 }
 
 /** The first header row: the pipeline as column groups. Each stage button says what the stage is and whether it is measured. */
-export function PipelineStrip({ stages, selectedId, onSelect }: { stages: StageOut[]; selectedId: string | null; onSelect: (id: string) => void }) {
+export function PipelineStrip({ stages, selectedId, onSelect, leading = 0 }: { stages: StageOut[]; selectedId: string | null; onSelect: (id: string) => void; leading?: number }) {
   const byId = new Map(stages.map((stage) => [stage.id, stage]));
   return (
     <tr className="strip">
+      {leading > 0 && <td colSpan={leading} className="strip-plain" />}
       {STRIP.map(({ id, span }) => {
         const stage = byId.get(id);
         if (!stage) {
