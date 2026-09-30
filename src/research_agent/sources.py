@@ -26,6 +26,7 @@ from .connectors import (
     fetch,
     normalize_doi,
     plain,
+    scrub,
 )
 from .querybuild import PLAIN, matches
 from .schemas import Paper, Source
@@ -163,21 +164,6 @@ REGISTRY = {
 }
 
 
-def scrub(value, secret):
-    """The payload with every occurrence of `secret` (a key) replaced, and fields named like keys dropped."""
-    if isinstance(value, dict):
-        return {
-            k: scrub(v, secret)
-            for k, v in value.items()
-            if k.lower().replace("_", "") not in ("apikey", "insttoken")
-        }
-    if isinstance(value, list):
-        return [scrub(v, secret) for v in value]
-    if isinstance(value, str) and secret and secret in value:
-        return value.replace(secret, "[redacted]")
-    return value
-
-
 class Keyed:
     """Shared plumbing of the new connectors."""
 
@@ -293,9 +279,10 @@ class SemanticScholar(Keyed):
                 papers.extend(self._paper(row, query, retrieved, raw_hash) for row in rows)
             except (KeyError, TypeError, ValueError, AttributeError) as exc:
                 _malformed(self.name, exc)
-            if not rows or payload.get("next") is None:
-                break
-            offset = payload["next"]
+            following = payload.get("next")
+            if not rows or not isinstance(following, int) or following <= offset:
+                break  # last page, or a cursor that does not advance
+            offset = following
         note = PLAIN_NOTE.format(label="Semantic Scholar") if raw and self.keywords else None
         sent = query + (f" [year {params['year']}]" if "year" in params else "")
         return SearchResult(self.filtered(papers[:limit], raw), total, sent, note)

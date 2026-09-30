@@ -33,6 +33,7 @@ flowchart LR
 | Module | Path | Role |
 |---|---|---|
 | Pipeline | `src/research_agent/{graph,agents,connectors,storage,report,cli}.py` | runs a research run |
+| Sources | `src/research_agent/{sources,ratelimit,querybuild,fulltext}.py` | official-API search, full text, identity |
 | Jev tier | `src/research_agent/jev.py` | cheap confident screening, escalates to the LLM |
 | Eval harness | `src/research_agent/eval/` | recall, threshold sweep, reviewer agreement |
 | Web backend | `src/research_agent/web/` | DB, importers, auth, API, worker |
@@ -84,6 +85,30 @@ flowchart LR
   coverage = answered / items; red flags = answers matching an item's `red_flag_if`. Rank by score, then
   editor verdict. `report.json` → `state.review[paper id]`.
 - Without `review.json` the pipeline is unchanged (review_a/review_b/adjudicate).
+
+### Sources (`sources.py`, `ratelimit.py`, slice 5)
+
+Search sources (official APIs only; Google Scholar is not integrated): Europe PMC, PubMed (E-utilities), arXiv,
+medRxiv and bioRxiv (through Europe PMC's preprint index: their own API has no search), OpenAlex, Semantic
+Scholar (relevance search, plain query filtered locally by the keywords), CORE, Crossref (plain query, local
+filter; also DOI enrichment), IEEE Xplore, Springer Nature, Scopus. `sources.REGISTRY` describes each one
+(group, auth, key variables, rate, capabilities).
+
+- Keys only from the worker environment, read per request: `S2_API_KEY`, `NCBI_API_KEY`, `OPENALEX_API_KEY`
+  (optional); `CORE_API_KEY`, `IEEE_API_KEY`, `SPRINGER_API_KEY`, `ELSEVIER_API_KEY` (required by their
+  sources; `ELSEVIER_INSTTOKEN` optional); `RESEARCH_AGENT_CONTACT` (email in the User-Agent). A required key that
+  is missing raises `SourceKeyMissing` before any request ("core: set CORE_API_KEY in the worker environment").
+  Keys never reach provenance, the Raw Layer (payloads are scrubbed), caches or exception chains.
+- Every request: shared token bucket per source (`ratelimit.RATES`, higher with an optional key where the API
+  documents it), `User-Agent: research-agent/0.1 (+mailto:…)`, 30 s timeout, 3 attempts with `Retry-After`
+  (≤ 60 s, else fail closed) or 1 s/2 s backoff.
+- Identity: DOIs normalized; dedup merges on id, DOI, PMID, PMCID, arXiv id or S2 id (never across different
+  DOIs), then normalized title+year. With the `crossref` source in a live field run, papers without a DOI get a
+  Crossref lookup (exact normalized title and year; ≤ 50 per run; cached in the `lookups` table).
+- Full text, in the configured order (`fulltext.DEFAULT_ORDER`): `pmc_oa, europepmc, core, springer_oa,
+  semantic_scholar_oa, unpaywall, ieee, sciencedirect, upload`; each result carries `text_licence`
+  (`cc-*`, `open_access`, `publisher_licensed`, `user_upload`, `abstract`). ScienceDirect text is used only when
+  the Entitlement API says the institution is entitled; IEEE only for open-access articles.
 
 ## 3. Screening cascade (`jev.py`)
 

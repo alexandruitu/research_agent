@@ -63,6 +63,21 @@ def env_key(name):
     return value or None
 
 
+def scrub(value, secret):
+    """The payload with every occurrence of `secret` (a key) replaced, and fields named like keys dropped."""
+    if isinstance(value, dict):
+        return {
+            k: scrub(v, secret)
+            for k, v in value.items()
+            if k.lower().replace("_", "") not in ("apikey", "insttoken")
+        }
+    if isinstance(value, list):
+        return [scrub(v, secret) for v in value]
+    if isinstance(value, str) and secret and secret in value:
+        return value.replace(secret, "[redacted]")
+    return value
+
+
 def user_agent(contact=None):
     contact = contact or env_key("RESEARCH_AGENT_CONTACT")
     return f"research-agent/{VERSION} (+mailto:{contact})" if contact else f"research-agent/{VERSION}"
@@ -245,7 +260,7 @@ class OpenAlex:
             contact=self.contact,
             keyed=key is not None,
         )
-        raw_hash = self.store.raw(payload)
+        raw_hash = self.store.raw(scrub(payload, key) if key else payload)
         retrieved = datetime.now(UTC).isoformat()
         try:
             papers = [self._paper(row, query, retrieved, raw_hash) for row in payload["results"]]

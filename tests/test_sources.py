@@ -445,3 +445,9 @@ def test_openalex_key_is_an_optional_param_never_recorded(tmp_path, monkeypatch)
     result = OpenAlex(Store(tmp_path), client).search_with_total("x", 2)
     assert client.requests[0].url.params["api_key"] == "k-oa"
     assert "k-oa" not in result.query and all("k-oa" not in p.provenance[0].url for p in result.papers)
+
+
+def test_s2_stops_when_the_cursor_does_not_advance(tmp_path):
+    client = recording(load("s2_search.json") | {"next": 0})
+    SemanticScholar(Store(tmp_path), client).search("q", 50)
+    assert len(client.requests) == 1

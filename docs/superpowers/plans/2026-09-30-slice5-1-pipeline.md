@@ -52,7 +52,7 @@ missing DOIs (≤ 50 lookups per run, cached in a new `lookups` table).
    | elsevier (scopus, sciencedirect) | 5 | – | Elsevier: 9 rps Scopus Search, 10 rps article |
    | unpaywall | 5 | – | 100 000/day |
 
-   `max_results` default 100 (le=200) for every source, as today. Page size caps: S2 100, CORE 100, Springer 50,
+   `max_results` default 100 (le=200) for every source, as today. Page size caps: S2 100, CORE 100, Springer 25,
    Scopus 25 (paged up to max_results); PubMed esearch retmax = max_results; Crossref rows = max_results.
 4. **Retry policy** (all sources): 3 attempts; retry on transport errors and 429/500/502/503/504; wait =
    `Retry-After` (seconds or HTTP date) when present, else 1 s then 2 s; a `Retry-After` above 60 s fails closed
