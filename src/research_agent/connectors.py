@@ -7,7 +7,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 import httpx
 
@@ -68,8 +68,21 @@ def fetch(client, url, params, source, decode):
         return attempts(http)
 
 
+class SearchResult(NamedTuple):
+    papers: list  # [Paper]
+    total: int | None  # hits the source reports for the query (None: it did not say)
+    query: str  # the query the source received (years included)
+
+
 class Connector(Protocol):
     def search(self, query: str, limit: int) -> list[Paper]: ...
+
+
+def _total(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class EuropePMC:
@@ -86,7 +99,11 @@ class EuropePMC:
             return query
         return f"({query}) AND (PUB_YEAR:[{self.years.start or 1900} TO {self.years.end or 9999}])"
 
-    def search(self, query, limit):
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def search_with_total(self, query, limit, raw=False):
+        """`raw` changes nothing here: a planned query and a built one are both Europe PMC syntax."""
         query = self.full_query(query)
         params = {"query": query, "format": "json", "resultType": "core", "pageSize": limit}
         # A single bounded page per query; raw payload retained before parsing.
@@ -94,9 +111,10 @@ class EuropePMC:
         raw_hash = self.store.raw(payload)
         retrieved = datetime.now(UTC).isoformat()
         try:
-            return [self._paper(row, query, retrieved, raw_hash) for row in payload["resultList"]["result"]]
+            papers = [self._paper(row, query, retrieved, raw_hash) for row in payload["resultList"]["result"]]
         except (KeyError, TypeError, ValueError) as exc:
             raise SourceUnavailable(self.name) from exc
+        return SearchResult(papers, _total(payload.get("hitCount")), query)
 
     def _paper(self, row, query, retrieved, raw_hash):
         source, rid = row["source"], row["id"]
@@ -141,9 +159,17 @@ class OpenAlex:
         self.years = years
         self.contact = contact  # polite pool; never recorded in provenance
 
-    def search(self, query, limit):
-        params = {"search": query, "per-page": min(limit, 200), "select": self.select}
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def search_with_total(self, query, limit, raw=False):
+        """`raw`: a query built from keywords, searched in title and abstract (a filter, not `search`)."""
+        params = {"per-page": min(limit, 200), "select": self.select}
         filters = []
+        if raw:
+            filters.append(f"title_and_abstract.search:{query}")
+        else:
+            params["search"] = query
         if self.years is not None and self.years.start is not None:
             filters.append(f"from_publication_date:{self.years.start}-01-01")
         if self.years is not None and self.years.end is not None:
@@ -156,9 +182,11 @@ class OpenAlex:
         raw_hash = self.store.raw(payload)
         retrieved = datetime.now(UTC).isoformat()
         try:
-            return [self._paper(row, query, retrieved, raw_hash) for row in payload["results"]]
+            papers = [self._paper(row, query, retrieved, raw_hash) for row in payload["results"]]
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise SourceUnavailable(self.name) from exc
+        sent = params.get("search") or params["filter"]
+        return SearchResult(papers, _total((payload.get("meta") or {}).get("count")), sent)
 
     def _paper(self, row, query, retrieved, raw_hash):
         work = row["id"].rsplit("/", 1)[-1]
@@ -183,7 +211,11 @@ class OpenAlex:
 
 
 ARXIV_CATEGORIES = ("cs.CV", "eess.IV", "physics.med-ph")
-ATOM = {"a": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+ATOM = {
+    "a": "http://www.w3.org/2005/Atom",
+    "arxiv": "http://arxiv.org/schemas/atom",
+    "opensearch": "http://a9.com/-/spec/opensearch/1.1/",
+}
 OPERATORS = {"AND", "OR", "NOT", "ANDNOT"}
 
 
@@ -200,30 +232,40 @@ class ArXiv:
         self.sleep = sleep
         self.requested = False
 
-    def search_query(self, query):
-        words = [w for w in re.findall(r"\w[\w.\-]*", query) if w.upper() not in OPERATORS][:8]
-        parts = [" AND ".join(f"all:{w}" for w in words)] if words else []
-        parts.append("(" + " OR ".join(f"cat:{c}" for c in ARXIV_CATEGORIES) + ")")
+    def search_query(self, query, raw=False):
+        if raw:  # built from keywords: categories included; only the years are added
+            parts = [query]
+        else:
+            words = [w for w in re.findall(r"\w[\w.\-]*", query) if w.upper() not in OPERATORS][:8]
+            parts = [" AND ".join(f"all:{w}" for w in words)] if words else []
+            parts.append("(" + " OR ".join(f"cat:{c}" for c in ARXIV_CATEGORIES) + ")")
         if self.years is not None and (self.years.start is not None or self.years.end is not None):
             parts.append(
                 f"submittedDate:[{self.years.start or 1900}01010000 TO {self.years.end or 3000}12312359]"
             )
         return " AND ".join(parts)
 
-    def search(self, query, limit):
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def search_with_total(self, query, limit, raw=False):
         if self.requested:
             self.sleep(3)  # arXiv API terms: no more than one request every three seconds
         self.requested = True
-        search_query = self.search_query(query)
+        search_query = self.search_query(query, raw)
         params = {"search_query": search_query, "start": 0, "max_results": min(limit, 200)}
         text = fetch(self.client, self.endpoint, params, self.name, lambda response: response.text)
         raw_hash = self.store.raw({"atom": text})
         retrieved = datetime.now(UTC).isoformat()
         try:
-            entries = ET.fromstring(text).findall("a:entry", ATOM)
-            return [self._paper(entry, search_query, retrieved, raw_hash) for entry in entries]
+            root = ET.fromstring(text)
+            entries = root.findall("a:entry", ATOM)
+            papers = [self._paper(entry, search_query, retrieved, raw_hash) for entry in entries]
         except (ET.ParseError, AttributeError, ValueError) as exc:
             raise SourceUnavailable(self.name) from exc
+        return SearchResult(
+            papers, _total(root.findtext("opensearch:totalResults", namespaces=ATOM)), search_query
+        )
 
     def _paper(self, entry, query, retrieved, raw_hash):
         link = entry.findtext("a:id", namespaces=ATOM).strip()
@@ -256,8 +298,12 @@ class DemoConnector:
     def __init__(self, store, source="demo"):
         self.store = store
         self.source = source
+        self.name = source
 
-    def search(self, query, limit):
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def search_with_total(self, query, limit, raw=False):
         papers = []
         for i in range(1, min(limit, 12) + 1):
             row = {
@@ -285,21 +331,35 @@ class DemoConnector:
                     ],
                 )
             )
-        return papers
+        return SearchResult(papers, len(papers), query)
 
 
 class MultiSource:
     """A field's sources: every planned query goes to every source, each with its own max_results.
     The graph's per-query `limit` bounds legacy single-source runs only and is ignored here."""
 
-    def __init__(self, sources):
+    def __init__(self, sources, raw=None):
         self.sources = list(sources)  # [(connector, max_results)]
+        self.raw = dict(raw or {})  # {source name: query built from keywords}: searched once, never planned
 
     def search(self, query, limit):
         papers = []
         for connector, max_results in self.sources:
-            papers.extend(connector.search(query, max_results))
+            if connector.name not in self.raw:
+                papers.extend(connector.search(query, max_results))
         return papers
+
+    def search_raw(self):
+        papers = []
+        for connector, max_results in self.sources:
+            if connector.name in self.raw:
+                papers.extend(connector.search(self.raw[connector.name], max_results, raw=True))
+        return papers
+
+    @property
+    def planned(self):
+        """True when some source still needs planned queries."""
+        return any(connector.name not in self.raw for connector, _ in self.sources)
 
 
 def domain_connector(domain, store, mode):
@@ -314,7 +374,7 @@ def domain_connector(domain, store, mode):
         else:
             connector = ArXiv(store, years=domain.years)
         sources.append((connector, source.max_results))
-    return MultiSource(sources)
+    return MultiSource(sources, getattr(domain, "queries", None))
 
 
 def deduplicate(papers):

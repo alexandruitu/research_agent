@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/OyBFCGE2VDFYTIO5eyE+y+9XO4w</id>
+  <title>arXiv Query: search_query=abs:"coronary angiography" AND abs:"deep learning" AND (cat:cs.CV OR cat:eess.IV OR cat:physics.med-ph)&amp;id_list=&amp;start=0&amp;max_results=2</title>
+  <updated>2026-09-30T06:39:04Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=abs:%22coronary+angiography%22+AND+(abs:%22deep+learning%22+AND+(cat:cs.CV+OR+(cat:eess.IV+OR+cat:physics.med-ph)))&amp;start=0&amp;max_results=2&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>2</opensearch:itemsPerPage>
+  <opensearch:totalResults>26</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2006.00781v1</id>
+    <title>Reducing the X-ray radiation exposure frequency in cardio-angiography via deep-learning based video interpolation</title>
+    <updated>2020-06-01T08:14:10Z</updated>
+    <link href="https://arxiv.org/abs/2006.00781v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2006.00781v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Cardiac coronary angiography is a major technology to assist doctors during cardiac interventional surgeries. Under the exposure of X-ray radiation, doctors inject contrast agents through catheters to determine the position and status of coronary vessels in real time. To get a coronary angiography video with a high frame rate, the doctor needs to increase the exposure frequency and intensity of the X-ray. This will inevitably increase the X-ray harm to both patients and surgeons. In this work, we innovatively utilize a deep-learning based video interpolation algorithm to interpolate coronary angiography videos. Moreover, we establish a new coronary angiography image dataset ,which contains 95,039 triplets images to retrain the video interpolation network model. Using the retrained network we synthesize high frame rate coronary angiography video from the low frame rate coronary angiography video. The average peak signal to noise ratio(PSNR) of those synthesized video frames reaches 34dB. Extensive experiment results demonstrate the feasibility of using the video frame interpolation algorithm to synthesize continuous and clear high frame rate coronary angiography video. With the help of this technology, doctors can significantly reduce exposure frequency and intensity of the X-ray during coronary angiography.</summary>
+    <category term="eess.IV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2020-06-01T08:14:10Z</published>
+    <arxiv:primary_category term="eess.IV"/>
+    <author>
+      <name>Xiao-Lei Yin</name>
+    </author>
+    <author>
+      <name>Dong-Xue Liang</name>
+    </author>
+    <author>
+      <name>Lu Wang</name>
+    </author>
+    <author>
+      <name>Jing Qiu</name>
+    </author>
+    <author>
+      <name>Zhi-Yun Yang</name>
+    </author>
+    <author>
+      <name>Jun-Hui Xing</name>
+    </author>
+    <author>
+      <name>Jian-Zeng Dong</name>
+    </author>
+    <author>
+      <name>Zhao-Yuan Ma</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/1807.10597v1</id>
+    <title>Automated Characterization of Stenosis in Invasive Coronary Angiography Images with Convolutional Neural Networks</title>
+    <updated>2018-07-19T17:57:06Z</updated>
+    <link href="https://arxiv.org/abs/1807.10597v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/1807.10597v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The determination of a coronary stenosis and its severity in current clinical workflow is typically accomplished manually via physician visual assessment (PVA) during invasive coronary angiography. While PVA has shown large inter-rater variability, the more reliable and accurate alternative of Quantitative Coronary Angiography (QCA) is challenging to perform in real-time due to the busy workflow in cardiac catheterization laboratories. We propose a deep learning approach based on Convolutional Neural Networks (CNN) that automatically characterizes and analyzes coronary stenoses in real-time by automating clinical tasks performed during QCA. Our deep learning methods for localization, segmentation and classification of stenosis in still-frame invasive coronary angiography (ICA) images of the right coronary artery (RCA) achieve performance of 72.7% localization accuracy, 0.704 dice coefficient and 0.825 C-statistic in each respective task. Integrated in an end-to-end approach, our model's performance shows statistically significant improvement in false discovery rate over the current standard in real-time clinical stenosis assessment, PVA. To the best of the authors' knowledge, this is the first time an automated machine learning system has been developed that can implement tasks performed in QCA, and the first time an automated machine learning system has demonstrated significant improvement over the current clinical standard for rapid RCA stenosis analysis.</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2018-07-19T17:57:06Z</published>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Benjamin Au</name>
+    </author>
+    <author>
+      <name>Uri Shaham</name>
+    </author>
+    <author>
+      <name>Sanket Dhruva</name>
+    </author>
+    <author>
+      <name>Georgios Bouras</name>
+    </author>
+    <author>
+      <name>Ecaterina Cristea</name>
+    </author>
+    <author>
+      <name>Alexandra Lansky MD</name>
+    </author>
+    <author>
+      <name>Andreas Coppi</name>
+    </author>
+    <author>
+      <name>Fred Warner</name>
+    </author>
+    <author>
+      <name>Shu-Xia Li</name>
+    </author>
+    <author>
+      <name>Harlan Krumholz</name>
+    </author>
+  </entry>
+</feed>
