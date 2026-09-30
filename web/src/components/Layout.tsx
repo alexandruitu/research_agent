@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -11,9 +11,10 @@ export function Layout() {
     <>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="topbar">
-        <strong className="brand">Research Agent</strong>
+        <Link to="/" className="brand"><span className="brand-mark" aria-hidden="true">R/A</span> Research Agent</Link>
         <nav aria-label="Main">
           <NavLink to="/" end>Papers</NavLink>
+          <NavLink to="/library">Library</NavLink>
           <NavLink to="/runs">Runs</NavLink>
           <NavLink to="/fields">Fields</NavLink>
           <NavLink to="/evals">Evals</NavLink>
