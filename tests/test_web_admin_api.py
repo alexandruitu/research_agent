@@ -5,15 +5,18 @@ from research_agent.web.db.models import WorkerStatus
 API = "/api/v1"
 
 
-def test_everyone_lists_the_three_sources(sign_in):
+def test_everyone_lists_every_registry_source(sign_in):
+    from research_agent.sources import REGISTRY
+
     viewer, _ = sign_in("viewer")
     rows = viewer.get(f"{API}/sources").json()
-    assert [(r["name"], r["label"], r["enabled"], r["max_results"]) for r in rows] == [
-        ("europepmc", "Europe PMC", True, 100),
-        ("openalex", "OpenAlex", False, 100),
-        ("arxiv", "arXiv", False, 100),
-    ]
-    assert rows[0]["last_check_at"] is None and rows[0]["last_check_ok"] is None
+    assert [r["name"] for r in rows] == list(REGISTRY)
+    first = rows[0]
+    assert (first["name"], first["label"], first["enabled"], first["max_results"]) == (
+        "europepmc", "Europe PMC", True, 100
+    )
+    assert [r["name"] for r in rows if r["enabled"]] == ["europepmc"]
+    assert first["last_check_at"] is None and first["last_check_ok"] is None
 
 
 def test_only_admins_change_sources(sign_in):
@@ -26,7 +29,7 @@ def test_only_admins_change_sources(sign_in):
     assert admin.patch(f"{API}/sources/arxiv", json={"max_results": 20}, headers=admin_csrf).json()["enabled"]
     for bad in ({"max_results": 0}, {"max_results": 201}, {"enabled": "maybe"}, {"other": 1}):
         assert admin.patch(f"{API}/sources/arxiv", json=bad, headers=admin_csrf).status_code == 422
-    assert admin.patch(f"{API}/sources/pubmed", json={}, headers=admin_csrf).status_code == 404
+    assert admin.patch(f"{API}/sources/scholar", json={}, headers=admin_csrf).status_code == 404
 
 
 def test_contact_email_setting(sign_in):

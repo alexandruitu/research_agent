@@ -281,6 +281,18 @@ class PreviewRequest(Model):
 class SourceOut(Model):
     name: str
     label: str
+    group: Literal["biomedical", "preprints", "multidisciplinary", "publishers", "identity"]
+    covers: str
+    auth: Literal["none", "optional", "required"]
+    env: list[str]  # key variable names (never values); the required one first
+    capabilities: list[Literal["search", "fulltext"]]
+    rps: float  # requests per second without a key (0: the connector paces itself)
+    rps_keyed: float
+    rps_in_use: float  # rps_keyed when the worker reported the key present, else rps
+    key_present: bool  # worker report; true for sources that need no key once the worker has reported
+    key_accepted: bool | None  # null: not checked, or the check failed
+    key_detail: str
+    key_checked_at: datetime | None
     enabled: bool
     max_results: int
     last_check_at: datetime | None
