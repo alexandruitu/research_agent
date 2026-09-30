@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -429,3 +430,85 @@ class RedFlag(Base):
     text: Mapped[str] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
     raised_by: Mapped[list] = mapped_column(JSONB, default=list)
+
+
+class Collection(Base):
+    """A team collection of library items. Names are unique case-insensitively; archived ones stay readable."""
+
+    __tablename__ = "collections"
+    __table_args__ = (Index("ux_collections_lower_name", text("lower(name)"), unique=True),)
+    id: Mapped[uuid.UUID] = pk()
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class LibraryItem(Base):
+    """A paper the team saved, once per paper. `snapshot` freezes the evidence of the run it was saved from;
+    field_id, run_id, score and red_flag_count mirror the snapshot for filtering and sorting."""
+
+    __tablename__ = "library_items"
+    id: Mapped[uuid.UUID] = pk()
+    paper_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("papers.id", ondelete="CASCADE"), unique=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="to_read")  # to_read | read | relevant | rejected
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    field_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("fields.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    red_flag_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    added_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    added_at: Mapped[datetime] = created()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class LibraryItemCollection(Base):
+    __tablename__ = "library_item_collections"
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("library_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+
+
+class LibraryTag(Base):
+    """A free-text tag, stored lower-case."""
+
+    __tablename__ = "library_tags"
+    id: Mapped[uuid.UUID] = pk()
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+
+
+class LibraryItemTag(Base):
+    __tablename__ = "library_item_tags"
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("library_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("library_tags.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+
+
+class LibraryEvent(Base):
+    """History of a library item: added | resaved | status | note | tags | collections | snapshot."""
+
+    __tablename__ = "library_events"
+    id: Mapped[uuid.UUID] = pk()
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("library_items.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = created()
