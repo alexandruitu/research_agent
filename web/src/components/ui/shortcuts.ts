@@ -20,7 +20,7 @@ export function useShortcuts(map: ShortcutMap, enabled = true) {
     if (!enabled) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key !== "Escape" && isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target)) return;
       const handler = current.current[event.key];
       if (!handler) return;
       event.preventDefault();

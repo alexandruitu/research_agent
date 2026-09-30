@@ -1,4 +1,4 @@
-import type { PanelOut, PaperFileOut, ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
+import type { CollectionOut, LibraryItemDetail, LibraryItemOut, PanelOut, PaperFileOut, ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -263,4 +263,44 @@ export const panelOut = (over: Partial<PanelOut> = {}): PanelOut => ({
 
 export const paperFile = (over: Partial<PaperFileOut> = {}): PaperFileOut => ({
   id: "12121212-1212-4212-8212-121212121212", filename: "paper.pdf", size: 245_760, sha256: "a".repeat(64), uploaded_by_name: "Mia Member", created_at: "2026-09-29T11:00:00Z", can_delete: true, ...over,
+});
+
+export const COLLECTION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+export const ITEM_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+export const ITEM_ID_2 = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+export const collectionOut = (over: Partial<CollectionOut> = {}): CollectionOut => ({
+  id: COLLECTION_ID, name: "Plaque reading list", description: "", archived_at: null, item_count: 2, created_by_name: "Member", created_at: "2026-09-30T08:00:00Z", ...over,
+});
+
+export const libraryItem = (over: Partial<LibraryItemOut> = {}): LibraryItemOut => ({
+  id: ITEM_ID,
+  paper: { id: PAPER_ID, source_id: "MED:1", title: "Diagnostic accuracy of a deep learning approach to calculate FFR", year: 2019, doi: "10.1000/x" },
+  status: "to_read", note: "", tags: ["ffr"], collections: [{ id: COLLECTION_ID, name: "Plaque reading list" }],
+  field: { id: FIELD_ID, name: "ML CT-FFR", version: 2 }, run_id: RUN_ID, score: 74, red_flag_count: 1, text_source: "abstract", editor_verdict: "include",
+  added_by_name: "Member", added_at: "2026-09-30T09:00:00Z", updated_at: "2026-09-30T09:00:00Z", can_delete: true,
+  ...over,
+});
+
+export const libraryDetail = (over: Partial<LibraryItemDetail> = {}): LibraryItemDetail => ({
+  ...libraryItem(),
+  abstract: "We trained a CNN to estimate FFR from coronary CT angiography.",
+  snapshot: {
+    schema: 1, taken_at: "2026-09-30T09:00:00Z", run: { id: RUN_ID, kind: "research", created_at: "2026-09-26T08:00:00Z" },
+    field: { id: FIELD_ID, name: "ML CT-FFR", version: 2 },
+    screening: { decision: "include", tier: "jev", reason: "all met", decided_by: null, criteria_table: [{ key: "i1", text: "Uses deep learning.", decided: false, quote: "We trained a CNN" }] },
+    rank: null,
+    panel: {
+      score: 74, coverage: 0.8, red_flag_count: 1, text_source: "abstract", editor: { verdict: "include", reason: "Solid validation." },
+      red_flags: [{ text: "No external validation", source: "TRIPOD+AI 12" }],
+      reviewers: [{ key: "methodologist", name: "Methodologist", version: 2, verdict: "include", score: 70, summary: "Adequate." }],
+    },
+    files: [],
+  },
+  events: [
+    { id: "e1", kind: "added", detail: { run_id: RUN_ID, status: "to_read", collections: ["Plaque reading list"], tags: ["ffr"] }, user_name: "Member", created_at: "2026-09-30T09:00:00Z" },
+    { id: "e2", kind: "status", detail: { from: "to_read", to: "read" }, user_name: "Admin", created_at: "2026-09-30T10:00:00Z" },
+  ],
+  files: [],
+  ...over,
 });
