@@ -58,7 +58,7 @@ describe("RunsPage list", () => {
 
   it("says so when there are no runs", async () => {
     setup("viewer", { "GET /api/v1/runs": { body: [] } });
-    expect(await screen.findByText("No runs yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No runs yet")).toBeInTheDocument();
   });
 });
 

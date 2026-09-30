@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import { useFields, useResumeRun, useRuns } from "../api/hooks";
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Skeleton } from "../components/ui/Skeleton";
 import { JobProgress } from "../features/runs/JobProgress";
 import { RunList } from "../features/runs/RunList";
 import { StartRunForm } from "../features/runs/StartRunForm";
@@ -30,7 +31,7 @@ export function RunsPage() {
     }
   };
 
-  if (status === "loading" || runs.isLoading || (canRun && fields.isPending)) return <p role="status">Loading…</p>;
+  if (status === "loading" || runs.isLoading || (canRun && fields.isPending)) return <section><h1>Runs</h1><Skeleton label="the runs" rows={5} /></section>;
   if (runs.isError) return <p role="alert">Could not load the runs.</p>;
   const failed = runs.data?.filter((run) => run.status === "failed") ?? [];
 

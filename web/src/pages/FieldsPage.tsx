@@ -5,12 +5,16 @@ import { ApiError } from "../api/client";
 import { useFields } from "../api/hooks";
 import { hasRole, type FieldOut } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { EmptyState } from "../components/ui/EmptyState";
+import { Skeleton } from "../components/ui/Skeleton";
 import { shortDate, sourceLabel } from "../features/fields/labels";
 
 const criteriaText = (field: FieldOut) => {
   const current = field.current;
   if (!current || current.include.length + current.exclude.length === 0) return "topic match (legacy)";
-  return `${current.include.length} incl · ${current.exclude.length} excl`;
+  const k = current.keywords;
+  const terms = k ? (k.all?.length ?? 0) + (k.any?.length ?? 0) + (k.none?.length ?? 0) : 0;
+  return `${current.include.length} incl · ${current.exclude.length} excl${terms ? ` · ${terms} keyword${terms === 1 ? "" : "s"}` : ""}`;
 };
 
 const versionText = (field: FieldOut) => {
@@ -34,16 +38,21 @@ export function FieldsPage() {
   return (
     <section>
       <div className="page-head">
-        <h1>Fields</h1>
+        <div>
+          <h1>Fields</h1>
+          <p className="lede">Each field is a research question the agent searches and screens for. Every save is a new version; runs record the version they used.</p>
+        </div>
         {canEdit && <Link className="button-link" to="/fields/new">New field</Link>}
       </div>
       <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived fields</label>
       {fields.isLoading ? (
-        <p role="status">Loading…</p>
+        <Skeleton label="the fields" rows={4} />
       ) : fields.isError ? (
         <p role="alert" className="form-error">{fields.error instanceof ApiError ? fields.error.message : "Could not load the fields."}</p>
       ) : rows.length === 0 ? (
-        <p>No fields yet.</p>
+        <EmptyState title={archived ? "No fields here" : "No fields yet"} action={canEdit && !archived ? <Link className="button-link" to="/fields/new">Create your first field</Link> : undefined}>
+          {archived ? "No field has been archived." : "A field is a research question: a description, keywords for the search and criteria for the screen."}
+        </EmptyState>
       ) : (
         <table className="runs">
           <thead>

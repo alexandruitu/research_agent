@@ -601,3 +601,14 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .save-form { display: grid; gap: var(--s3); }
 .save-form h2 { margin: 0; }
 .save-form .status-control legend, .drawer-library .status-control legend { position: static; width: auto; height: auto; overflow: visible; clip: auto; display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; float: left; width: 100%; }
+/* home onboarding */
+.home-empty { max-width: 980px; margin: var(--s5) auto; }
+.kicker { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.home-empty h1 { font-size: 36px; margin-bottom: var(--s3); }
+.home-steps { list-style: none; margin: var(--s5) 0; padding: 0; display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); counter-reset: step; }
+.home-steps li { position: relative; padding: var(--s5) var(--s4) var(--s4); background: var(--card); border: 1px solid var(--rule); border-radius: var(--r3); box-shadow: var(--shadow); }
+.home-steps li:nth-child(2) { animation-delay: 60ms; } .home-steps li:nth-child(3) { animation-delay: 120ms; }
+.rise { animation: rise 320ms ease both; }
+.home-num { position: absolute; top: -18px; left: var(--s4); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 600 18px/1 var(--serif); box-shadow: 0 0 0 5px var(--paper); }
+.home-steps h2 { margin: var(--s2) 0 4px; font-size: 18px; }
+.home-steps p { margin: 0; color: var(--ink-2); }

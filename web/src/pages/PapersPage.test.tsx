@@ -133,8 +133,37 @@ describe("PapersPage", () => {
   });
 
   it("says so when nothing matches", async () => {
-    setup({ "GET /api/v1/runs/:id/papers": { body: page([], 0) } });
-    expect(await screen.findByText("No papers match these filters.")).toBeInTheDocument();
+    setup({ "GET /api/v1/runs/:id/papers": { body: page([], 0) } }, "/?decision=exclude");
+    expect(await screen.findByText("No papers match these filters")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear all filters" })).toBeInTheDocument();
+  });
+
+  it("shows active filters as chips; one removes its filter, Clear all removes them all", async () => {
+    setup({}, "/?decision=exclude&escalated=true&src=openalex");
+    const chips = await screen.findByRole("group", { name: "Active filters" });
+    expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Dropped × (remove filter)", "Only escalated × (remove filter)", "Source: OpenAlex × (remove filter)", "Clear all",
+    ]);
+    await userEvent.click(within(chips).getByRole("button", { name: /Only escalated/ }));
+    expect(screen.getByLabelText("location")).not.toHaveTextContent("escalated");
+    await userEvent.click(within(screen.getByRole("group", { name: "Active filters" })).getByRole("button", { name: "Clear all" }));
+    expect(screen.queryByRole("group", { name: "Active filters" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("location")).toHaveTextContent("");
+  });
+
+  it("keyboard: j moves to a paper, o opens it, x selects it, ? lists the shortcuts", async () => {
+    setup({ "GET /api/v1/runs/:id/papers/:id": { status: 404, body: { code: "not_found", message: "x", request_id: "r" } } });
+    await screen.findByText(/Diagnostic accuracy/);
+    await userEvent.keyboard("j");
+    expect(screen.getByRole("button", { name: /Diagnostic accuracy/ })).toHaveFocus();
+    await userEvent.keyboard("j");
+    expect(screen.getByRole("button", { name: /Change in CT-Derived/ })).toHaveFocus();
+    await userEvent.keyboard("x");
+    expect(screen.getByRole("region", { name: "Selection" })).toHaveTextContent("1 selected");
+    await userEvent.keyboard("o");
+    expect(screen.getByLabelText("location")).toHaveTextContent("paper=55555555");
+    await userEvent.keyboard("?");
+    expect(screen.getByRole("dialog", { name: "Papers shortcuts" })).toBeInTheDocument();
   });
 
   it("shows the request id when the table cannot be loaded", async () => {
@@ -144,7 +173,8 @@ describe("PapersPage", () => {
 
   it("asks for a run when there is none", async () => {
     setup({ "GET /api/v1/runs": { body: [] } });
-    expect(await screen.findByText(/No runs yet/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Create your first field in 3 steps" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create your first field" })).toHaveAttribute("href", "/fields/new");
   });
 
   it("filters by the deciding criterion and by source, naming criteria from the run's field version", async () => {

@@ -1,9 +1,18 @@
 import { Link } from "react-router-dom";
 
 import type { RunOut } from "../../api/types";
+import { EmptyState } from "../../components/ui/EmptyState";
+
+const RUN_ICON: Record<string, string> = { done: "✓", failed: "!", running: "↻", queued: "…" };
 
 export function RunList({ runs }: { runs: RunOut[] }) {
-  if (runs.length === 0) return <p>No runs yet.</p>;
+  if (runs.length === 0) {
+    return (
+      <EmptyState title="No runs yet">
+        A run searches a field's sources, screens what it finds and reviews what it keeps. Choose a field above and start one; demo mode runs offline.
+      </EmptyState>
+    );
+  }
   return (
     <table className="runs">
       <thead>
@@ -14,7 +23,7 @@ export function RunList({ runs }: { runs: RunOut[] }) {
           <tr key={run.id}>
             <td>{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</td>
             <td>{run.kind}</td>
-            <td><span className={`pill pill--run-${run.status}`}>{run.status}</span></td>
+            <td><span className={`pill pill--run-${run.status}`}><span aria-hidden="true">{RUN_ICON[run.status] ?? "·"}</span> {run.status}</span></td>
             <td>{run.gold_set_name ?? "–"}</td>
             <td>{run.paper_count}</td>
             <td>{new Date(run.created_at).toLocaleString()}</td>
