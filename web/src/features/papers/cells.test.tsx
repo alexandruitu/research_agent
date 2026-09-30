@@ -88,6 +88,8 @@ describe("criteria cell for a field with criteria", () => {
   it("lists the sources a paper was found in", () => {
     const { rerender } = render(<FoundByCell foundBy="query" sources={["europepmc", "openalex"]} />);
     expect(screen.getByText("Europe PMC, OpenAlex")).toBeInTheDocument();
+    rerender(<FoundByCell foundBy="query" sources={["semantic_scholar", "pubmed", "ieee", "crossref"]} />);
+    expect(screen.getByText("Semantic Scholar, PubMed, IEEE Xplore, Crossref")).toBeInTheDocument();
     rerender(<FoundByCell foundBy="lookup" sources={[]} />);
     expect(screen.getByText("lookup")).toBeInTheDocument();
   });

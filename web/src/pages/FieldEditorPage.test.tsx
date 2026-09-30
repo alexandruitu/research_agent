@@ -160,6 +160,10 @@ describe("FieldEditorPage", () => {
     await form();
     expect(screen.getByRole("checkbox", { name: "Europe PMC" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "OpenAlex (disabled in Settings)" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "IEEE Xplore (needs a key)" })).toBeDisabled();
+    const biomedical = screen.getByRole("group", { name: "Biomedical" });
+    expect(within(biomedical).getAllByRole("checkbox").map((c) => c.closest("label")?.textContent)).toEqual(["Europe PMC", "PubMed (disabled in Settings)"]);
+    expect(screen.queryByRole("checkbox", { name: /Unpaywall/ })).not.toBeInTheDocument();
   });
 
   it("is read-only for viewers", async () => {

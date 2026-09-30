@@ -1,6 +1,6 @@
 import { sourceLabel } from "../fields/labels";
 import type { FieldForm } from "../fields/fieldForm";
-import { draftQueries, QUERY_SOURCES } from "./querybuild";
+import { draftQueries, PLAIN_SOURCES, QUERY_SOURCES } from "./querybuild";
 
 type Props = { form: FieldForm; onChange: (patch: Partial<FieldForm>) => void; disabled?: boolean };
 
@@ -23,7 +23,10 @@ export function QueryPanel({ form, onChange, disabled = false }: Props) {
                 {row.error ? (
                   <span className="form-error-inline">{row.error}</span>
                 ) : row.query ? (
-                  <output className="query-text" aria-label={`Query for ${sourceLabel(row.source)}`}>{row.query}</output>
+                  <>
+                    <output className="query-text" aria-label={`Query for ${sourceLabel(row.source)}`}>{row.query}</output>
+                    {PLAIN_SOURCES.has(row.source) && !row.overridden && <span className="sub">No boolean search here: these words are sent as they are, and results are kept only if they match your keywords.</span>}
+                  </>
                 ) : (
                   <span className="sub">No keywords yet: at run time a model plans this query from the topic.</span>
                 )}
@@ -35,7 +38,7 @@ export function QueryPanel({ form, onChange, disabled = false }: Props) {
       <details className="disclosure" open={overridden > 0 || undefined}>
         <summary>Advanced: override query{overridden ? ` (${overridden} set)` : ""}</summary>
         <p className="hint">An override replaces the built query for that source, word for word. Leave empty to use the built one.</p>
-        {QUERY_SOURCES.map((source) => (
+        {QUERY_SOURCES.filter((s) => form.sources.includes(s) || form.overrides[s].trim()).map((source) => (
           <label key={source} className="block">Override for {sourceLabel(source)}
             <textarea rows={2} value={form.overrides[source]} disabled={disabled} spellCheck={false} className="mono"
               onChange={(e) => onChange({ overrides: { ...form.overrides, [source]: e.target.value } })} />

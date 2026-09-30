@@ -13,7 +13,8 @@ import { FieldSidePanel } from "../features/fields/FieldSidePanel";
 import {
   draftKeywords, draftOverrides, emptyForm, formFromVersion, hasKeywords, toBody, toDraft, validate, yearsOf, type FieldForm,
 } from "../features/fields/fieldForm";
-import { SOURCE_NAMES, sourceLabel } from "../features/fields/labels";
+import { SOURCE_NAMES } from "../features/fields/labels";
+import { SourcePicker } from "../features/fields/SourcePicker";
 import { PreviewPanel } from "../features/fieldflow/PreviewPanel";
 import { QueryPanel } from "../features/fieldflow/QueryPanel";
 import { Stepper, type StepNumber } from "../features/fieldflow/Stepper";
@@ -226,20 +227,8 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                   </div>
                   <CriteriaList kind="include" items={form.include} onChange={(include) => update({ include })} />
                   <CriteriaList kind="exclude" items={form.exclude} onChange={(exclude) => update({ exclude })} />
+                  <SourcePicker sources={sources} chosen={form.sources} disabled={!canEdit} onToggle={toggleSource} />
                   <div className="two-up">
-                    <fieldset>
-                      <legend>Sources</legend>
-                      {SOURCE_NAMES.map((name) => {
-                        const on = enabled.has(name);
-                        const checked = form.sources.includes(name);
-                        return (
-                          <label key={name} className="check source-choice">
-                            <input type="checkbox" checked={checked} disabled={!on && !checked} onChange={(e) => toggleSource(name, e.target.checked)} />
-                            {sourceLabel(name)}{on ? "" : " (disabled in Settings)"}
-                          </label>
-                        );
-                      })}
-                    </fieldset>
                     <fieldset>
                       <legend>Years</legend>
                       <div className="actions">

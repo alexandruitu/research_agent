@@ -644,3 +644,8 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .resolver-licence { display: block; font-style: italic; }
 .resolver-move { display: inline-flex; gap: 4px; }
 .resolver-move button { min-width: 32px; min-height: 32px; }
+
+/* Field editor: source picker grouped like Settings → Sources */
+.source-picker { display: grid; gap: 6px; }
+.source-picker-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; }
+.source-picker-title { font: 600 13px/1.4 var(--serif); min-width: 150px; color: var(--ink-2); }

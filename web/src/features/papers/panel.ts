@@ -1,4 +1,5 @@
 import type { PanelOut } from "../../api/types";
+import { licenceLabel } from "../fields/labels";
 import { textSourceLabel } from "./cells";
 
 const ANSWER: Record<string, { icon: string; word: string }> = {
@@ -34,7 +35,8 @@ export function textSentence(panel: PanelOut): string {
     panel.text_sections.length ? panel.text_sections.map((s) => s[0]!.toUpperCase() + s.slice(1)).join(", ") : null,
     panel.text_chars != null ? `${thousands(panel.text_chars)} characters${panel.text_truncated ? ", cut to the length limit" : ""}` : null,
   ].filter(Boolean);
-  return `Reviewed on the ${textSourceLabel(panel.text_source).replace("full text · ", "full text from ")}${details.length ? ` (${details.join("; ")})` : ""}.`;
+  const licence = licenceLabel(panel.text_licence);
+  return `Reviewed on the ${textSourceLabel(panel.text_source).replace("full text · ", "full text from ")}${details.length ? ` (${details.join("; ")})` : ""}.${licence ? ` Licence: ${licence}.` : ""}`;
 }
 
 /** Key → display name for every reviewer in the panel. */
