@@ -13,12 +13,13 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..sources import REGISTRY
 from ..storage import Store
 from .assist import assist_model, field_assist
-from .checks import check_keys, criteria_test, source_check
+from .checks import check_keys, check_source_keys, criteria_test, source_check
 from .db.models import Job, Run, SourceRow, WorkerStatus
 from .db.session import make_engine, make_session_factory
-from .fields import SOURCE_NAMES, settings_row
+from .fields import settings_row
 from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
@@ -118,9 +119,33 @@ class Worker:
                     status.checked_at, status.worker_id = datetime.now(UTC), self.worker_id
                     db.add(status)
                 db.commit()
-            return rows
         except Exception as exc:  # noqa: BLE001 -- the queue must not depend on this check
             log.warning("key check failed: %s", redact(f"{type(exc).__name__}: {exc}"))
+            return None
+        self.check_source_keys()
+        return rows
+
+    def check_source_keys(self):
+        """Record, per source, whether its key is present and accepted (never a value). Never fatal."""
+        try:
+            with self.factory() as db:
+                contact = settings_row(db).contact_email
+            with tempfile.TemporaryDirectory() as scratch:  # the raw responses are not kept
+                rows = check_source_keys(
+                    os.environ, Store(scratch), contact=contact, http_client=self.http_client
+                )
+            with self.factory() as db:
+                now = datetime.now(UTC)
+                for row in rows:
+                    source = db.get(SourceRow, row["name"])
+                    if source is None:
+                        continue
+                    source.key_present, source.key_accepted = row["key_present"], row["key_accepted"]
+                    source.key_detail, source.key_checked_at = row["detail"], now
+                db.commit()
+            return rows
+        except Exception as exc:  # noqa: BLE001 -- the queue must not depend on this check
+            log.warning("source key check failed: %s", redact(f"{type(exc).__name__}: {exc}"))
             return None
 
     def run_forever(self, stop=lambda: False):
@@ -323,9 +348,9 @@ class Worker:
 
     def _source_check(self, db, job):
         name = (job.payload or {}).get("name")
-        if name not in SOURCE_NAMES:
-            raise ValueError("not a known source")
-        contact = settings_row(db).contact_email if name == "openalex" else None
+        if name not in REGISTRY or "search" not in REGISTRY[name].capabilities:
+            raise ValueError("not a known search source")
+        contact = settings_row(db).contact_email
         with tempfile.TemporaryDirectory() as scratch:  # the raw response is not kept
             result = source_check(name, Store(scratch), contact=contact, http_client=self.http_client)
         row = db.get(SourceRow, name)

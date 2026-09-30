@@ -6,15 +6,17 @@ results go into the job's progress, the `sources` row, or `worker_status` (never
 
 import hashlib
 import time
+from types import SimpleNamespace
 
 import httpx
 
 from ..agents import INSTRUCTIONS
-from ..connectors import ArXiv, DemoConnector, EuropePMC, OpenAlex, SourceUnavailable, deduplicate
+from ..connectors import SourceKeyMissing, SourceUnavailable, deduplicate
 from ..criteria import decide_jev
 from ..jev import DEFAULT_MODEL as JEV_MODEL
 from ..jev import JevScreener
 from ..schemas import DomainSpec
+from ..sources import REGISTRY, make_connector
 from .runner import sanitize_error
 
 CHECK_QUERY = "deep learning"
@@ -23,22 +25,21 @@ DEMO_JEV = "demo-jev"
 
 
 def connector(name, store, *, mode="live", years=None, contact=None, http_client=None):
-    if mode == "demo":
-        return DemoConnector(store, source=name)
-    if name == "europepmc":
-        return EuropePMC(store, client=http_client, years=years)
-    if name == "openalex":
-        return OpenAlex(store, client=http_client, years=years, contact=contact)
-    if name == "arxiv":
-        return ArXiv(store, client=http_client, years=years)
-    raise ValueError(f"unknown source {name!r}")
+    """The pipeline's own connector for one search source (demo: synthetic records, no network)."""
+    if name not in REGISTRY or "search" not in REGISTRY[name].capabilities:
+        raise ValueError(f"unknown source {name!r}")
+    source = SimpleNamespace(name=name, contact=contact)
+    return make_connector(source, SimpleNamespace(years=years, keywords=None), store, mode, http_client)
 
 
 def source_check(name, store, *, contact=None, http_client=None, clock=time.monotonic):
-    """One search for one result. {"ok", "ms", "count", "error"}; the error is safe to show."""
+    """One search for one result. {"ok", "ms", "count", "error"}; the error is safe to show (a missing key
+    names its variable, never a value)."""
     start = clock()
     try:
         papers = connector(name, store, contact=contact, http_client=http_client).search(CHECK_QUERY, 1)
+    except SourceKeyMissing as exc:
+        return {"ok": False, "ms": round((clock() - start) * 1000), "count": 0, "error": str(exc)}
     except SourceUnavailable as exc:
         return {
             "ok": False,
@@ -71,9 +72,7 @@ def criteria_test(
         raise ValueError("TYPESAFE_API_KEY is not set in the worker")
     found = []
     for source in spec.sources:
-        search = connector(
-            source.name, store, mode=mode, years=spec.years, contact=source.contact, http_client=http_client
-        )
+        search = make_connector(source, spec, store, mode, http_client)
         query = (spec.queries or {}).get(source.name)  # built from keywords; else the topic, as before
         found.extend(search.search(query or spec.topic, TEST_LIMIT, raw=bool(query)))
     papers = deduplicate(found)[:TEST_LIMIT]
@@ -200,4 +199,43 @@ def check_keys(env, http_client=None):
             results[provider] = _validate(provider, key, http_client)
         accepted, detail = results[provider]
         rows.append(row | {"key_present": True, "key_accepted": accepted, "detail": detail})
+    return rows
+
+
+def source_key_present(info, env):
+    """No key needed: True. Required: every variable set. Optional: its variable set."""
+    if info.auth == "none":
+        return True
+    names = info.env if info.auth == "required" else info.env[:1]
+    return all((env.get(name) or "").strip() for name in names)
+
+
+def check_source_keys(env, store, *, contact=None, http_client=None):
+    """One row per registry source: key present, accepted (None: not checked, or the check failed) and a short
+    detail. A present key is validated by one search for one result through the pipeline's connector (the
+    connector hides the HTTP cause when a key is sent, so a failure is never called a rejection). Never a value.
+    """
+    rows = []
+    for info in REGISTRY.values():
+        row = {"name": info.name, "key_present": source_key_present(info, env), "key_accepted": None}
+        if info.auth == "none":
+            rows.append(row | {"detail": "no key needed"})
+        elif not row["key_present"]:
+            missing = next(v for v in info.env if not (env.get(v) or "").strip())
+            rows.append(
+                row
+                | {"detail": f"{missing} not set" + ("" if info.auth == "required" else "; lower rate limit")}
+            )
+        elif "search" not in info.capabilities:
+            rows.append(row | {"detail": "not checked"})
+        else:
+            result = source_check(info.name, store, contact=contact, http_client=http_client)
+            rows.append(
+                row
+                | (
+                    {"key_accepted": True, "detail": "accepted"}
+                    if result["ok"]
+                    else {"detail": "check failed"}
+                )
+            )
     return rows

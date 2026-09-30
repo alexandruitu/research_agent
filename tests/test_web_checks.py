@@ -46,7 +46,7 @@ def test_a_source_check_job_updates_the_source_row(world, no_backoff):
     admin, csrf = sign_in("admin")
     member, member_csrf = sign_in("member")
     assert member.post(f"{API}/sources/europepmc/check", headers=member_csrf).status_code == 403
-    assert admin.post(f"{API}/sources/pubmed/check", headers=csrf).status_code == 404
+    assert admin.post(f"{API}/sources/scholar/check", headers=csrf).status_code == 404
     r = admin.post(f"{API}/sources/europepmc/check", headers=csrf)
     assert r.status_code == 202 and r.json()["kind"] == "source_check" and r.json()["run_id"] is None
     Worker(settings, factory, sleep=lambda s: None, http_client=europepmc_client([row(1)])).tick()
