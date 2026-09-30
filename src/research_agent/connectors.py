@@ -404,9 +404,13 @@ class MultiSource:
     """A field's sources: every planned query goes to every source, each with its own max_results.
     The graph's per-query `limit` bounds legacy single-source runs only and is ignored here."""
 
-    def __init__(self, sources, raw=None):
+    def __init__(self, sources, raw=None, enricher=None):
         self.sources = list(sources)  # [(connector, max_results)]
         self.raw = dict(raw or {})  # {source name: query built from keywords}: searched once, never planned
+        self.enricher = enricher  # CrossrefEnricher: DOIs for papers without one (live runs with crossref)
+
+    def enrich(self, papers):
+        return self.enricher.enrich(papers) if self.enricher is not None else papers
 
     def search(self, query, limit):
         papers = []
@@ -429,30 +433,58 @@ class MultiSource:
 
 
 def domain_connector(domain, store, mode):
-    from .sources import make_connector  # sources imports this module
+    from .sources import (
+        CrossrefEnricher,
+        make_connector,  # sources imports this module
+    )
 
     sources = [(make_connector(source, domain, store, mode), source.max_results) for source in domain.sources]
-    return MultiSource(sources, domain.queries)
+    crossref = next((s for s in domain.sources if s.name == "crossref"), None)
+    enricher = CrossrefEnricher(store, contact=crossref.contact) if crossref and mode == "live" else None
+    return MultiSource(sources, domain.queries, enricher)
+
+
+ID_PREFIXES = {  # Paper.id prefix -> cross-source identifier it carries
+    "MED:": "pmid",
+    "pubmed:": "pmid",
+    "PMC:": "pmcid",
+    "arxiv:": "arxiv",
+    "semantic_scholar:": "s2",
+}
+CROSS_IDS = ("pmid", "pmcid", "arxiv", "s2")
+
+
+def paper_ids(paper):
+    """{(kind, value)} of a paper's cross-source identifiers: its fields plus what its id implies."""
+    ids = {
+        (kind, getattr(paper, kind).strip().casefold()) for kind in CROSS_IDS if getattr(paper, kind).strip()
+    }
+    for prefix, kind in ID_PREFIXES.items():
+        if paper.id.startswith(prefix) and paper.id[len(prefix) :]:
+            ids.add((kind, paper.id[len(prefix) :].strip().casefold()))
+    return ids
+
+
+def _title(paper):
+    return re.sub(r"\W+", " ", paper.title.casefold()).strip()
 
 
 def deduplicate(papers):
-    # Resolve known identifiers first; ambiguous title-only records stay separate.
+    """One record per work. Two records merge when they share an id, a DOI, or a cross-source id (PMID, PMCID,
+    arXiv, S2) without conflicting DOIs; else when their normalized title and year are equal (and their DOIs do
+    not conflict). A record that would join groups with different DOIs only joins its own id's group."""
     groups = []
     for paper in sorted(papers, key=lambda p: (not bool(p.doi), p.id)):
         paper = paper.model_copy(deep=True)
         paper.doi = normalize_doi(paper.doi)
-        title = re.sub(r"\W+", " ", paper.title.casefold()).strip()
+        title, ids = _title(paper), paper_ids(paper)
         matches = []
         for group in groups:
             if any(
                 p.id == paper.id
                 or (paper.doi and p.doi == paper.doi)
-                or (
-                    title
-                    and title == re.sub(r"\W+", " ", p.title.casefold()).strip()
-                    and p.year == paper.year
-                    and not (p.doi and paper.doi and p.doi != paper.doi)
-                )
+                or (not (p.doi and paper.doi and p.doi != paper.doi))
+                and ((ids & paper_ids(p)) or (title and title == _title(p) and p.year == paper.year))
                 for p in group
             ):
                 matches.append(group)
@@ -468,7 +500,8 @@ def deduplicate(papers):
     for group in groups:
         primary = min(group, key=lambda p: (-len(p.abstract), p.id)).model_copy(deep=True)
         primary.doi = next((p.doi for p in group if p.doi), "")
-        primary.pmcid = next((p.pmcid for p in group if p.pmcid), "")
+        for kind in CROSS_IDS:
+            setattr(primary, kind, next((getattr(p, kind) for p in group if getattr(p, kind)), ""))
         primary.sources = sorted({s for p in group for s in p.sources})
         sources = {canonical_json(s.model_dump()): s for p in group for s in p.provenance}
         primary.provenance = [sources[k] for k in sorted(sources)]

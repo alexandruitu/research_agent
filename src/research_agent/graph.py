@@ -104,7 +104,10 @@ def build_graph(
         return {"discovered": [p.model_dump() for p in papers]}
 
     def normalize(s):
-        papers = deduplicate([Paper.model_validate(p) for p in s["discovered"]])
+        papers = [Paper.model_validate(p) for p in s["discovered"]]
+        if hasattr(connector, "enrich"):
+            papers = connector.enrich(papers)  # identity: Crossref DOIs before dedup (bounded, cached)
+        papers = deduplicate(papers)
         # Bound expensive model work, deterministically in query/rank discovery order.
         order = {p["id"]: i for i, p in reversed(list(enumerate(s["discovered"])))}
         papers.sort(key=lambda p: min(order.get(src.record_id, 10**9) for src in p.provenance))
