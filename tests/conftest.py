@@ -58,6 +58,7 @@ def settings(tmp_path, pg_url):
             "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
             "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
             "RESEARCH_UPLOADS_DIR": str(tmp_path / "uploads"),
+            "RESEARCH_CACHE_DIR": str(tmp_path / "cache"),
             "RESEARCH_WEB_COOKIE_SECURE": "false",
             "RESEARCH_WEB_ALLOW_DEMO": "true",
         }
@@ -157,6 +158,7 @@ def world(fresh_db_url, tmp_path):
             "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
             "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
             "RESEARCH_UPLOADS_DIR": str(tmp_path / "uploads"),
+            "RESEARCH_CACHE_DIR": str(tmp_path / "cache"),
             "RESEARCH_WEB_COOKIE_SECURE": "false",
             "RESEARCH_WEB_ALLOW_DEMO": "true",
             "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.01",

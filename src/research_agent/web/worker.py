@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..storage import Store
+from .assist import assist_model, field_assist
 from .checks import check_keys, criteria_test, source_check
 from .db.models import Job, Run, SourceRow, WorkerStatus
 from .db.session import make_engine, make_session_factory
@@ -151,6 +152,10 @@ class Worker:
                     return self._source_check(db, job)
                 if job.kind == "criteria_test":
                     return self._criteria_test(db, job)
+                if job.kind == "field_assist":
+                    return self._field_assist(db, job)
+                if job.kind == "field_preview":
+                    return self._field_preview(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -351,4 +356,24 @@ class Worker:
                 progress=progress,
             )
         result["field_id"], result["version"] = payload.get("field_id"), payload.get("version")
+        return self._finish(db, job, result)
+
+    def _field_assist(self, db, job):
+        payload = job.payload or {}
+        store = Store(self.settings.cache_dir / "assist")  # kept: the same draft never costs twice
+        with self._heartbeat_while(job.id):
+            result = field_assist(
+                payload.get("draft") or {},
+                store,
+                mode=payload.get("mode", "live"),
+                model=assist_model(os.environ),
+            )
+        return self._finish(db, job, result)
+
+    def _field_preview(self, db, job):
+        from .preview import field_preview
+
+        payload = job.payload or {}
+        with tempfile.TemporaryDirectory() as scratch, self._heartbeat_while(job.id):
+            result = field_preview(payload, Store(scratch), http_client=self.http_client)
         return self._finish(db, job, result)

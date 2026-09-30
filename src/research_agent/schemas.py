@@ -264,6 +264,24 @@ class Contract(Model):
         return self
 
 
+class KeywordSuggestion(Model):
+    term: Term
+    synonyms: list[Term] = Field(default_factory=list, max_length=6)
+
+
+class FieldSuggestions(Model):
+    """The field assist's answer: keywords per group (with synonyms) and draft criteria sentences.
+    Suggestions only; the user accepts each one."""
+
+    all: list[KeywordSuggestion] = Field(default_factory=list, max_length=10)
+    any: list[KeywordSuggestion] = Field(default_factory=list, max_length=15)
+    none: list[KeywordSuggestion] = Field(default_factory=list, max_length=10)
+    include: list[Annotated[str, Field(min_length=3, max_length=500)]] = Field(min_length=2, max_length=6)
+    exclude: list[Annotated[str, Field(min_length=3, max_length=500)]] = Field(
+        default_factory=list, max_length=4
+    )
+
+
 class Plan(Model):
     queries: list[str] = Field(min_length=1, max_length=3)
     rationale: str

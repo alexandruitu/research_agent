@@ -10,6 +10,7 @@ from ...jobs import enqueue
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
 from ..schemas import (
+    AssistRequest,
     CriteriaTestRequest,
     CriterionOut,
     CriterionText,
@@ -152,6 +153,27 @@ def list_fields(
     if not archived:
         stmt = stmt.where(Field.archived_at.is_(None))
     return [field_out(db, f) for f in db.scalars(stmt)]
+
+
+@router.post("/assist", response_model=JobOut, status_code=202)
+def assist(
+    body: AssistRequest,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Queue one model call that suggests keywords (per group, with synonyms) and criteria for a draft.
+    The result arrives in the job's `progress.result`; nothing is applied to the field."""
+    keywords = body.keywords.model_dump() if body.keywords else {}
+    if not (body.description or body.topic or any(keywords.values())):
+        raise ApiError(422, "nothing_to_assist", "Describe the field or add a keyword first")
+    if body.mode == "demo" and not settings.allow_demo:
+        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    check_active_cap(db, user, settings)
+    draft = {"description": body.description, "topic": body.topic, "keywords": keywords}
+    job, _ = enqueue(db, "field_assist", {"mode": body.mode, "draft": draft}, user.id)
+    db.commit()
+    return job_out(job)
 
 
 @router.get("/{field_id}", response_model=FieldOut)

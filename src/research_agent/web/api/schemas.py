@@ -245,6 +245,20 @@ class CriteriaTestRequest(Model):
     mode: Literal["live", "demo"] = "live"
 
 
+class AssistRequest(Model):
+    """A draft to get suggestions for: a description and/or a topic and/or keywords."""
+
+    description: str = Field(default="", max_length=2000, pattern=TEXT)
+    topic: str = Field(default="", max_length=500, pattern=PLAIN)
+    keywords: KeywordsIO | None = None
+    mode: Literal["live", "demo"] = "live"
+
+    @field_validator("description", "topic", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
 class SourceOut(Model):
     name: str
     label: str

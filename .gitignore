@@ -8,6 +8,7 @@ runs/
 evals/
 gold/
 uploads/
+cache/
 .DS_Store
 .superpowers/
 .web-dev/
