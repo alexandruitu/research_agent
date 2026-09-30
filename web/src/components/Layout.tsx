@@ -3,12 +3,13 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { StaleBanner } from "./StaleBanner";
+import { ToastProvider } from "./ui/Toast";
 
 export function Layout() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   return (
-    <>
+    <ToastProvider>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="topbar">
         <Link to="/" className="brand"><span className="brand-mark" aria-hidden="true">R/A</span> Research Agent</Link>
@@ -33,6 +34,6 @@ export function Layout() {
           <Outlet />
         </ErrorBoundary>
       </main>
-    </>
+    </ToastProvider>
   );
 }

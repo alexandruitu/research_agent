@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { MemoryRouter, type InitialEntry } from "react-router-dom";
 
 import { AuthProvider } from "../auth/AuthProvider";
+import { ToastProvider } from "../components/ui/Toast";
 
 export const testQueryClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
@@ -15,7 +16,7 @@ export function renderWithProviders(ui: ReactElement, { route = "/", client = te
     ...render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={[route]}>
-          <AuthProvider>{ui}</AuthProvider>
+          <AuthProvider><ToastProvider>{ui}</ToastProvider></AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>,
     ),
