@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
     func,
     text,
 )
@@ -257,9 +258,14 @@ class Job(Base):
 
 class SourceRow(Base):
     __tablename__ = "sources"
-    name: Mapped[str] = mapped_column(String(32), primary_key=True)  # europepmc | openalex | arxiv
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)  # a research_agent.sources.REGISTRY name
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     max_results: Mapped[int] = mapped_column(Integer, default=100)
+    # the worker's report on this source's key (never a value): present, accepted (None: not checked / failed)
+    key_present: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    key_accepted: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    key_detail: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    key_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_check_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     last_check_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -377,7 +383,9 @@ class PaperReview(Base):
     id: Mapped[uuid.UUID] = pk()
     run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("runs.id", ondelete="CASCADE"), index=True)
     paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), index=True)
-    text_source: Mapped[str] = mapped_column(String(16))  # pmc_oa | unpaywall | upload | abstract
+    text_source: Mapped[str] = mapped_column(String(24))  # a fulltext resolver name, or abstract
+    # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract; None: older reports
+    text_licence: Mapped[str | None] = mapped_column(String(24), nullable=True)
     text_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     text_origin: Mapped[str | None] = mapped_column(Text, nullable=True)
     text_sections: Mapped[list] = mapped_column(JSONB, default=list)
