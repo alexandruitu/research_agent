@@ -5,13 +5,8 @@ import { ApiError } from "../../api/client";
 import { keys, useCheckSource, useJob, usePatchSettings, usePatchSource, useSettings, useSources } from "../../api/hooks";
 import { hasRole, type SourceCheckResult, type SourceOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
-import { sourceLabel } from "../fields/labels";
+import { authWords, enableBlocked, groupSources, keyStatusWords, keyTone, rateWords, searchable } from "./sources";
 
-const COVERS: Record<string, string> = {
-  europepmc: "PubMed, PMC and biomedical preprints",
-  openalex: "Anything with a DOI, including MICCAI, IEEE and SPIE",
-  arxiv: "Preprints in cs.CV, eess.IV and physics.med-ph",
-};
 const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
 const seconds = (ms: number | null) => (ms === null ? "" : ` · ${(ms / 1000).toFixed(1)} s`);
 
@@ -41,7 +36,7 @@ function CheckStatus({ source, jobId }: { source: SourceOut; jobId: string | nul
 type RowProps = { source: SourceOut; admin: boolean; jobId: string | null; onPatch: (body: { enabled?: boolean; max_results?: number }) => void; onCheck: () => void };
 
 function SourceRow({ source, admin, jobId, onPatch, onCheck }: RowProps) {
-  const label = sourceLabel(source.name);
+  const label = source.label;
   const [max, setMax] = useState(String(source.max_results));
   const [problem, setProblem] = useState<string | null>(null);
   const saveMax = (event: FormEvent) => {
@@ -52,20 +47,35 @@ function SourceRow({ source, admin, jobId, onPatch, onCheck }: RowProps) {
     onPatch({ max_results: value });
   };
   const state = source.enabled ? "enabled" : "disabled";
+  const blocked = enableBlocked(source);
+  const keyStatus = keyStatusWords(source);
+  const canSearch = searchable(source);
+  const why = `why-${source.name}`;
   return (
-    <tr>
-      <th scope="row">{label}</th>
-      <td>{COVERS[source.name] ?? "–"}</td>
+    <tr className={source.enabled ? "source-row source-row--on" : "source-row"}>
+      <th scope="row">
+        <span className="source-name">{label}</span>
+        <span className="sub">{source.covers}</span>
+        {!canSearch && <span className="sub">Full text only: its place in the order is set in Settings → Full text.</span>}
+      </th>
       <td>
-        {admin ? (
-          <label className="check">
-            <input type="checkbox" checked={source.enabled} onChange={(e) => onPatch({ enabled: e.target.checked })} /> {state}
-            {" "}<span className="sr-only">({label})</span>
-          </label>
+        <span className="source-auth">{authWords(source)}</span>
+        {keyStatus && <span className={`key-status key-status--${keyTone(source)}`}>{keyStatus}</span>}
+      </td>
+      <td>
+        {!canSearch ? <span className="na">not a search source</span> : admin ? (
+          <>
+            <label className="switch">
+              <input type="checkbox" role="switch" checked={source.enabled} disabled={blocked !== null} aria-describedby={blocked ? why : undefined} onChange={(e) => onPatch({ enabled: e.target.checked })} />
+              <span className="switch-state">{state}</span>
+              <span className="sr-only"> ({label})</span>
+            </label>
+            {blocked && <span id={why} className="hint">{blocked}</span>}
+          </>
         ) : state}
       </td>
       <td>
-        {admin ? (
+        {!canSearch ? <span className="na">–</span> : admin ? (
           <form className="inline" onSubmit={saveMax} noValidate>
             <label><span className="sr-only">Max results per run for {label}</span>
               <input type="number" min={1} max={200} value={max} onChange={(e) => setMax(e.target.value)} />
@@ -75,8 +85,9 @@ function SourceRow({ source, admin, jobId, onPatch, onCheck }: RowProps) {
           </form>
         ) : source.max_results}
       </td>
-      <td><CheckStatus source={source} jobId={jobId} /></td>
-      <td>{admin && <button type="button" onClick={onCheck}>Test{" "}<span className="sr-only">{label}</span></button>}</td>
+      <td>{rateWords(source)}</td>
+      <td>{canSearch ? <CheckStatus source={source} jobId={jobId} /> : <span className="na">–</span>}</td>
+      <td>{admin && canSearch && <button type="button" onClick={onCheck}>Test{" "}<span className="sr-only">{label}</span></button>}</td>
     </tr>
   );
 }
@@ -133,25 +144,37 @@ export function SourcesTab() {
   return (
     <section aria-labelledby="sources-heading">
       <h2 id="sources-heading">Sources</h2>
+      <p className="intro">Where a field can search. A field picks among the enabled sources. Keys live only in the worker’s environment and are never shown here; this page says whether the worker has them.</p>
       {problem && <p role="alert" className="form-error">{problem}</p>}
-      <table className="runs">
-        <thead>
-          <tr><th scope="col">Source</th><th scope="col">Covers</th><th scope="col">Status</th><th scope="col">Max results per run</th><th scope="col">Last check</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
-        </thead>
-        <tbody>
-          {sources.data?.map((source) => (
-            <SourceRow
-              key={`${source.name}:${source.max_results}`} source={source} admin={admin} jobId={jobs[source.name] ?? null}
-              onPatch={(body) => void act(() => patch.mutateAsync({ name: source.name, ...body }))}
-              onCheck={() => void act(async () => {
-                const job = await check.mutateAsync(source.name);
-                setJobs((current) => ({ ...current, [source.name]: job.id }));
-              })}
-            />
-          ))}
-        </tbody>
-      </table>
-      <p className="legend">Test runs one real search for one result. No keys are needed; OpenAlex receives the contact address below, as it recommends. A field can only pick enabled sources.</p>
+      {groupSources(sources.data ?? []).map((group) => (
+        <section key={group.key} className="source-group" aria-labelledby={`group-${group.key}`}>
+          <h3 id={`group-${group.key}`}>{group.title}</h3>
+          <p className="intro">{group.intro}</p>
+          <div className="table-scroll">
+            <table className="runs sources-table" aria-labelledby={`group-${group.key}`}>
+              <thead>
+                <tr><th scope="col">Source</th><th scope="col">Access</th><th scope="col">Status</th><th scope="col">Max results per run</th><th scope="col">Rate limit</th><th scope="col">Last check</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+              </thead>
+              <tbody>
+                {group.sources.map((source) => (
+                  <SourceRow
+                    key={`${source.name}:${source.max_results}`} source={source} admin={admin} jobId={jobs[source.name] ?? null}
+                    onPatch={(body) => void act(() => patch.mutateAsync({ name: source.name, ...body }))}
+                    onCheck={() => void act(async () => {
+                      const job = await check.mutateAsync(source.name);
+                      setJobs((current) => ({ ...current, [source.name]: job.id }));
+                    })}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+      <aside className="banner scholar-note" aria-label="Google Scholar">
+        <strong>Google Scholar is not supported, on purpose.</strong> It has no official API; scraping it breaks its terms and could not be audited. The sources above reach what it indexes for medical imaging through official APIs.
+      </aside>
+      <p className="legend">Test runs one real search for one result with the worker’s keys. After adding or changing a key in the worker environment, restart the worker: it checks every key when it starts. Public APIs receive the contact address below, as they ask.</p>
       {settings.isLoading ? <p role="status">Loading…</p> : settings.isError ? <p role="alert" className="form-error">{errorText(settings.error)}</p> : <ContactForm admin={admin} value={settings.data?.contact_email ?? null} />}
     </section>
   );

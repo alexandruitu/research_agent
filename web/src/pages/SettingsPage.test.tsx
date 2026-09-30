@@ -61,16 +61,41 @@ describe("Settings tabs", () => {
 describe("Settings → Sources", () => {
   it("lists every source with its status and last check in words", async () => {
     setup("admin", "/settings/sources");
-    const table = await screen.findByRole("table");
-    const europe = within(table).getByRole("row", { name: /Europe PMC/ });
-    expect(europe).toHaveTextContent("✓ OK · 0.8 s");
-    expect(within(table).getByRole("row", { name: /OpenAlex/ })).toHaveTextContent("never checked");
-    expect(within(table).getByRole("row", { name: /arXiv/ })).toHaveTextContent("✗ failed: SourceUnavailable: arxiv");
+    await screen.findByRole("heading", { name: "Biomedical" });
+    const rows = screen.getAllByRole("row");
+    const row = (name: RegExp) => rows.find((r) => within(r).queryByRole("rowheader", { name }))!;
+    expect(row(/Europe PMC/)).toHaveTextContent("✓ OK · 0.8 s");
+    expect(row(/OpenAlex/)).toHaveTextContent("never checked");
+    expect(row(/arXiv/)).toHaveTextContent("✗ failed: SourceUnavailable: arxiv");
+  });
+
+  it("groups sources with an intro each, says what keys they need, and explains Google Scholar", async () => {
+    setup("viewer", "/settings/sources");
+    const headings = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
+    expect(headings).toEqual(["Biomedical", "Preprints", "Multidisciplinary", "Publishers (licensed)", "Identity"]);
+    const publishers = screen.getByRole("table", { name: "Publishers (licensed)" });
+    expect(within(publishers).getByRole("row", { name: /IEEE Xplore/ })).toHaveTextContent("Key required: set IEEE_API_KEYKey not set in the worker");
+    const multi = screen.getByRole("table", { name: "Multidisciplinary" });
+    expect(within(multi).getByRole("row", { name: /CORE/ })).toHaveTextContent("Key set · accepted");
+    expect(within(multi).getByRole("row", { name: /OpenAlex/ })).toHaveTextContent("Optional key: set OPENALEX_API_KEY for higher limits");
+    expect(screen.getByRole("table", { name: "Biomedical" })).toHaveTextContent("No key needed");
+    expect(screen.getByRole("complementary", { name: "Google Scholar" })).toHaveTextContent("no official API");
+  });
+
+  it("a source whose required key is missing cannot be enabled, and says why", async () => {
+    setup("admin", "/settings/sources");
+    const toggle = await screen.findByRole("switch", { name: /IEEE Xplore/ });
+    expect(toggle).toBeDisabled();
+    expect(toggle).toHaveAccessibleDescription("Set IEEE_API_KEY in the worker environment first, then restart the worker.");
+    expect(screen.getByRole("switch", { name: /CORE/ })).toBeEnabled();
+    expect(screen.queryByRole("switch", { name: /Unpaywall/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Test Unpaywall" })).not.toBeInTheDocument();
   });
 
   it("admins enable a source", async () => {
-    const { calls } = setup("admin", "/settings/sources", { "PATCH /api/v1/sources/openalex": { body: { ...sourceRows()[1], enabled: true } } });
-    await userEvent.click(await screen.findByRole("checkbox", { name: /OpenAlex/ }));
+    const openalex = sourceRows().find((s) => s.name === "openalex")!;
+    const { calls } = setup("admin", "/settings/sources", { "PATCH /api/v1/sources/openalex": { body: { ...openalex, enabled: true } } });
+    await userEvent.click(await screen.findByRole("switch", { name: /OpenAlex/ }));
     await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ enabled: true }));
   });
 
@@ -109,9 +134,9 @@ describe("Settings → Sources", () => {
 
   it("is read-only for members and viewers", async () => {
     setup("member", "/settings/sources");
-    await screen.findByRole("table");
+    await screen.findByRole("table", { name: "Biomedical" });
     expect(screen.getByText(/Read-only/)).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Test/ })).not.toBeInTheDocument();
     expect(screen.getByText(/lab@example.org/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();

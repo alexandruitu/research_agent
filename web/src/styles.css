@@ -618,3 +618,18 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .judgement--concern { color: var(--warn-fg); }
 .diff-tag--changed { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); }
 .archived-box { margin-top: var(--s3); }
+
+/* Settings → Sources: a catalogue, one drawer per group */
+.source-group { margin: 20px 0 8px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.source-group h3 { font: 600 17px/1.2 var(--serif); margin: 0 0 4px; letter-spacing: -0.01em; }
+.source-group .intro { font-size: 13px; }
+.sources-table th[scope="row"] { font-weight: 400; min-width: 200px; }
+.source-name { font-weight: 600; }
+.source-row--on .source-name::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+.source-auth { display: block; }
+.key-status { display: inline-block; margin-top: 2px; font-size: 11px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; }
+.key-status--ok { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-line); }
+.key-status--warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); }
+.key-status--bad { background: var(--bad-bg); color: var(--bad-fg); border-color: var(--bad-line); }
+.key-status--neutral { background: var(--neutral-bg); color: var(--neutral-fg); }
+.scholar-note { max-width: 72ch; background: var(--sunk); }
