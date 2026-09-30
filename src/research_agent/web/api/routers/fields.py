@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
+from ....querybuild import QueryError, build_queries
 from ... import fields as svc
 from ...db.models import Field, FieldVersion, Run, User
 from ...jobs import enqueue
@@ -57,7 +58,22 @@ def version_out(db, version):
         created_by_name=_author(db, version.created_by),
         created_at=version.created_at,
         run_count=_run_count(db, version),
+        description=version.description or "",
+        keywords=version.keywords,
+        query_override=version.query_override,
+        queries=version_queries(version),
     )
+
+
+def version_queries(version):
+    """The queries a run of this version would search (every source it names; null: all planned)."""
+    try:
+        queries = build_queries(
+            version.keywords, (version.sources or {}).get("names", []), version.query_override
+        )
+    except QueryError:
+        return None
+    return queries or None
 
 
 def _last_run(db, field):
@@ -216,6 +232,7 @@ def test_criteria(
                 exclude=[c.text for c in draft.exclude],
                 names=list(draft.sources),
                 years={"from": draft.years.start, "to": draft.years.end},
+                **svc.body_keywords(draft),
             )
         elif version is None or svc.is_legacy(db, version):
             raise ApiError(422, "no_criteria", "This field has no inclusion or exclusion criteria to test")

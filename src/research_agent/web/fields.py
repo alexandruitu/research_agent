@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 
 from ..jev import default_criteria
+from ..querybuild import QueryError, build_queries, normalize_keywords
 from ..schemas import DomainSpec
 from .db.models import AppSettings, Criterion, Field, FieldVersion, SourceRow
 
@@ -57,7 +58,22 @@ def _next_number(db, field):
     ) + 1
 
 
-def add_version(db, field, *, name, topic, include, exclude, sources, note, created_by, legacy=()):
+def add_version(
+    db,
+    field,
+    *,
+    name,
+    topic,
+    include,
+    exclude,
+    sources,
+    note,
+    created_by,
+    legacy=(),
+    description="",
+    keywords=None,
+    query_override=None,
+):
     """A new version with criteria keyed i1.., e1.. by position. `include`/`exclude` are lists of texts;
     `legacy` a list of (key, question). Returns the version; does not touch `current_version`."""
     version = FieldVersion(
@@ -67,6 +83,9 @@ def add_version(db, field, *, name, topic, include, exclude, sources, note, crea
         topic=topic,
         sources=sources,
         note=note,
+        description=description or "",
+        keywords=normalize_keywords(keywords),
+        query_override={k: v for k, v in (query_override or {}).items() if v} or None,
         created_by=created_by,
     )
     db.add(version)
@@ -111,6 +130,15 @@ def _body_sources(body):
     return {"names": list(body.sources), "years": {"from": body.years.start, "to": body.years.end}}
 
 
+def body_keywords(body):
+    """description, keywords and query_override of an editor body, as add_version takes them."""
+    return {
+        "description": body.description,
+        "keywords": body.keywords.model_dump() if body.keywords else None,
+        "query_override": body.query_override.model_dump() if body.query_override else None,
+    }
+
+
 def create_field(db, body, user_id):
     field = Field(name=body.name, topic=body.topic, created_by=user_id, current_version=1)
     db.add(field)
@@ -125,6 +153,7 @@ def create_field(db, body, user_id):
         sources=_body_sources(body),
         note=body.note,
         created_by=user_id,
+        **body_keywords(body),
     )
     _make_current(field, version)
     db.flush()
@@ -150,6 +179,7 @@ def save_version(db, field, body, base_version, user_id):
         sources=_body_sources(body),
         note=body.note,
         created_by=user_id,
+        **body_keywords(body),
     )
     _make_current(field, version)
     db.flush()
@@ -189,7 +219,7 @@ def legacy_version(db, topic, created_by=None):
     return field, version
 
 
-def version_content(topic, include, exclude, names, years):
+def version_content(topic, include, exclude, names, years, keywords=None):
     """What makes two versions the same field definition (for linking imported runs)."""
     return {
         "topic": topic,
@@ -197,6 +227,7 @@ def version_content(topic, include, exclude, names, years):
         "exclude": list(exclude),
         "sources": sorted(names),
         "years": {"from": years.get("from"), "to": years.get("to")},
+        "keywords": normalize_keywords(keywords),
     }
 
 
@@ -208,6 +239,7 @@ def stored_content(db, version):
         [c.question for c in grouped["exclude"]],
         (version.sources or {}).get("names", []),
         (version.sources or {}).get("years") or NO_YEARS,
+        version.keywords,
     )
 
 
@@ -218,6 +250,7 @@ def domain_content(domain):
         [c["text"] for c in domain["criteria"]["exclude"]],
         [s["name"] for s in domain["sources"]],
         domain.get("years") or NO_YEARS,
+        domain.get("keywords"),
     )
 
 
@@ -272,6 +305,8 @@ def version_for_domain(db, domain, created_by=None):
         sources={"names": wanted["sources"], "years": wanted["years"]},
         note="imported",
         created_by=created_by,
+        description=domain.get("description") or "",
+        keywords=wanted["keywords"],
     )
     if first:
         _make_current(field, version)
@@ -291,10 +326,24 @@ def enabled_sources(db):
     return {row.name: row for row in db.scalars(select(SourceRow).where(SourceRow.enabled.is_(True)))}
 
 
-def build_domain(db, field, version, *, topic, include, exclude, names, years):
+def build_domain(
+    db,
+    field,
+    version,
+    *,
+    topic,
+    include,
+    exclude,
+    names,
+    years,
+    description="",
+    keywords=None,
+    query_override=None,
+):
     """domain.json for a run or a criteria test: the version's criteria, its sources that are enabled (with
-    their limits and the contact email) and the default thresholds. Raises FieldConflict(422) when none of
-    its sources is enabled. Validated by the pipeline's own DomainSpec."""
+    their limits and the contact email) and the default thresholds, plus the per-source queries built from
+    the keywords (research_agent.querybuild; an override wins). Raises FieldConflict(422) when none of its
+    sources is enabled or the keywords make no query. Validated by the pipeline's own DomainSpec."""
     enabled = enabled_sources(db)
     contact = settings_row(db).contact_email
     sources = []
@@ -323,6 +372,17 @@ def build_domain(db, field, version, *, topic, include, exclude, names, years):
         "sources": sources,
         "years": {"from": years.get("from"), "to": years.get("to")},
     }
+    keywords = normalize_keywords(keywords)
+    try:
+        queries = build_queries(keywords, [s["name"] for s in sources], query_override)
+    except QueryError as exc:
+        raise FieldConflict(422, "no_keywords", str(exc)) from None
+    if description:
+        domain["description"] = description
+    if keywords:
+        domain["keywords"] = keywords
+    if queries:
+        domain["queries"] = queries
     return DomainSpec.model_validate(domain).model_dump(mode="json")
 
 
@@ -338,4 +398,7 @@ def domain_for_version(db, field, version):
         exclude=[c.question for c in grouped["exclude"]],
         names=stored.get("names", []),
         years=stored.get("years") or NO_YEARS,
+        description=version.description,
+        keywords=version.keywords,
+        query_override=version.query_override,
     )

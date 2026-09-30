@@ -66,6 +66,7 @@ class CriterionOut(Model):
 
 
 PLAIN = r"^[^\x00-\x1f\x7f]*$"  # plain text: no control characters (line breaks included)
+TEXT = r"^[^\x00-\x08\x0b\x0c\x0e-\x1f\x7f]*$"  # like PLAIN, but line breaks and tabs are allowed
 SourceName = Literal["europepmc", "openalex", "arxiv"]
 
 
@@ -96,6 +97,51 @@ class CriterionIn(Model):
         return value.strip() if isinstance(value, str) else value
 
 
+def _terms(value):
+    return [t.strip() if isinstance(t, str) else t for t in value] if isinstance(value, list) else value
+
+
+class KeywordsIO(Model):
+    """Keyword groups: every `all` term, at least one `any` term, none of the `none` terms."""
+
+    all: list[str] = Field(default_factory=list, max_length=20)
+    any: list[str] = Field(default_factory=list, max_length=20)
+    none: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("all", "any", "none", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return _terms(value)
+
+    @field_validator("all", "any", "none")
+    @classmethod
+    def _each(cls, value):
+        for term in value:
+            if not 1 <= len(term) <= 80 or not re.fullmatch(PLAIN, term):
+                raise ValueError("each keyword is 1-80 characters of plain text")
+        return value
+
+
+class QueryOverrideIO(Model):
+    """A hand-written query per source; it replaces the query built from the keywords."""
+
+    europepmc: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    openalex: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+    arxiv: str | None = Field(default=None, max_length=2000, pattern=PLAIN)
+
+    @field_validator("openalex")
+    @classmethod
+    def _no_comma(cls, value):
+        if value and "," in value:
+            raise ValueError("the OpenAlex query cannot contain a comma")
+        return value
+
+
+def _keyword_rule(keywords):
+    if keywords and keywords.none and not (keywords.all or keywords.any):
+        raise ValueError("add at least one keyword to 'all' or 'any'")
+
+
 class FieldDraft(Model):
     """A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save."""
 
@@ -105,8 +151,11 @@ class FieldDraft(Model):
     exclude: list[CriterionIn] = Field(default_factory=list, max_length=10)
     sources: list[SourceName] = Field(min_length=1, max_length=3)
     years: Years = Field(default_factory=Years)
+    description: str = Field(default="", max_length=2000, pattern=TEXT)
+    keywords: KeywordsIO | None = None
+    query_override: QueryOverrideIO | None = None
 
-    @field_validator("name", "topic", mode="before")
+    @field_validator("name", "topic", "description", mode="before")
     @classmethod
     def _strip(cls, value):
         return value.strip() if isinstance(value, str) else value
@@ -117,6 +166,7 @@ class FieldDraft(Model):
             raise ValueError("at least one inclusion or exclusion criterion is required")
         if len(set(self.sources)) != len(self.sources):
             raise ValueError("each source may be listed once")
+        _keyword_rule(self.keywords)
         return self
 
 
@@ -134,6 +184,7 @@ class CriterionText(Model):
 
 
 class FieldVersionOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override", "queries"])
     version: int
     name: str
     topic: str
@@ -147,6 +198,10 @@ class FieldVersionOut(Model):
     created_by_name: str | None
     created_at: datetime
     run_count: int
+    description: str = ""
+    keywords: KeywordsIO | None = None  # null: a field defined by its topic only
+    query_override: QueryOverrideIO | None = None
+    queries: dict[str, str] | None = None  # per source, as a run of this version would search (null: planned)
 
 
 class FieldVersionSummary(Model):
@@ -563,7 +618,6 @@ class ImportRequest(Model):
     name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$", max_length=200)
 
 
-TEXT = r"^[^\x00-\x08\x0b\x0c\x0e-\x1f\x7f]*$"  # like PLAIN, but line breaks and tabs are allowed
 ModelId = Field(default=None, min_length=1, max_length=200, pattern=PLAIN)
 
 
