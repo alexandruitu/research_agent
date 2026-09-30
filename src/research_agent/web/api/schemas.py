@@ -259,6 +259,23 @@ class AssistRequest(Model):
         return value.strip() if isinstance(value, str) else value
 
 
+class PreviewRequest(Model):
+    """A draft's search to preview: keywords and/or overrides, sources and years (no criteria needed)."""
+
+    keywords: KeywordsIO | None = None
+    query_override: QueryOverrideIO | None = None
+    sources: list[SourceName] = Field(min_length=1, max_length=3)
+    years: Years = Field(default_factory=Years)
+    mode: Literal["live", "demo"] = "live"
+
+    @model_validator(mode="after")
+    def _rules(self):
+        if len(set(self.sources)) != len(self.sources):
+            raise ValueError("each source may be listed once")
+        _keyword_rule(self.keywords)
+        return self
+
+
 class SourceOut(Model):
     name: str
     label: str

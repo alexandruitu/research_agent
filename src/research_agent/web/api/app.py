@@ -22,6 +22,7 @@ from .routers import (
 )
 
 API_PREFIX = "/api/v1"
+PREVIEWS_PER_MINUTE = 10
 
 
 def create_app(settings=None, session_factory=None):
@@ -34,6 +35,7 @@ def create_app(settings=None, session_factory=None):
     app.state.session_factory = session_factory
     app.state.rate_limiter = RateLimiter(settings.login_max_attempts, settings.login_window_seconds)
     app.state.auth_provider = SessionCookieProvider(settings)
+    app.state.preview_limiter = RateLimiter(PREVIEWS_PER_MINUTE, 60)  # per user, in-process
     install_error_handlers(app)
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(users.router, prefix=API_PREFIX)

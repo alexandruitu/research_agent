@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 
 from ....querybuild import QueryError, build_queries
@@ -21,6 +21,7 @@ from ..schemas import (
     FieldVersionOut,
     FieldVersionSummary,
     JobOut,
+    PreviewRequest,
     Years,
 )
 from .runs import check_active_cap, job_out
@@ -172,6 +173,51 @@ def assist(
     check_active_cap(db, user, settings)
     draft = {"description": body.description, "topic": body.topic, "keywords": keywords}
     job, _ = enqueue(db, "field_assist", {"mode": body.mode, "draft": draft}, user.id)
+    db.commit()
+    return job_out(job)
+
+
+@router.post("/preview", response_model=JobOut, status_code=202)
+def preview(
+    body: PreviewRequest,
+    request: Request,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Queue a preview of a draft's search: per enabled source the query, the source's own hit count and
+    the first 10 papers. No model is called. At most 10 previews per user per minute."""
+    if body.mode == "demo" and not settings.allow_demo:
+        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    enabled = svc.enabled_sources(db)
+    names = [name for name in body.sources if name in enabled]
+    if not names:
+        raise ApiError(422, "no_enabled_source", "None of these sources is enabled")
+    keywords = body.keywords.model_dump() if body.keywords else None
+    overrides = body.query_override.model_dump() if body.query_override else None
+    try:
+        queries = build_queries(keywords, names, overrides)
+    except QueryError as exc:
+        raise ApiError(422, "no_keywords", str(exc)) from None
+    if not queries:
+        raise ApiError(422, "no_keywords", "Add at least one keyword to 'All of' or 'Any of'")
+    limiter, key = request.app.state.preview_limiter, f"preview:{user.id}"
+    if not limiter.allowed(key):
+        raise ApiError(429, "rate_limited", "Too many previews; try again in a minute")
+    check_active_cap(db, user, settings)
+    limiter.record_failure(key)  # counts every accepted preview
+    contact = svc.settings_row(db).contact_email
+    payload = {
+        "mode": body.mode,
+        "years": {"from": body.years.start, "to": body.years.end},
+        "sources": [
+            {"name": n, **({"contact": contact} if n == "openalex" and contact else {})}
+            for n in names
+            if n in queries
+        ],
+        "queries": queries,
+    }
+    job, _ = enqueue(db, "field_preview", payload, user.id)
     db.commit()
     return job_out(job)
 
