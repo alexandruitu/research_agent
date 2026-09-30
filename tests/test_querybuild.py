@@ -96,7 +96,7 @@ def test_too_long_is_an_error():
 
 def test_unknown_source():
     with pytest.raises(ValueError):
-        build("pubmed", {"all": ["x"]})
+        build("scholar", {"all": ["x"]})
 
 
 def test_normalize_keywords():
@@ -131,3 +131,64 @@ def test_check_override():
         check_override("arxiv", "x" * 2001)
     with pytest.raises(QueryError):
         check_override("arxiv", "a\nb")
+
+
+KW = {"all": ["deep learning"], "any": ["CT", "MRI*"], "none": ["mouse"]}
+NEW = [
+    ("pubmed", '"deep learning"[tiab] AND (CT[tiab] OR MRI*[tiab]) NOT mouse[tiab]'),
+    ("medrxiv", 'TITLE_ABS:"deep learning" AND (TITLE_ABS:CT OR TITLE_ABS:MRI*) NOT TITLE_ABS:mouse'),
+    ("biorxiv", 'TITLE_ABS:"deep learning" AND (TITLE_ABS:CT OR TITLE_ABS:MRI*) NOT TITLE_ABS:mouse'),
+    ("semantic_scholar", "deep learning CT MRI"),
+    ("crossref", "deep learning CT MRI"),
+    ("core", '"deep learning" AND (CT OR MRI) AND NOT mouse'),
+    ("ieee", '"deep learning" AND (CT OR MRI) NOT mouse'),
+    ("springer", '"deep learning" AND (CT OR MRI) NOT mouse'),
+    (
+        "scopus",
+        (
+            'TITLE-ABS-KEY("deep learning") AND (TITLE-ABS-KEY(CT) OR TITLE-ABS-KEY(MRI*)) '
+            "AND NOT TITLE-ABS-KEY(mouse)"
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize("source,expected", NEW)
+def test_build_new_sources(source, expected):
+    assert build(source, KW) == expected
+
+
+def test_plain_sources_need_all_or_any_terms():
+    with pytest.raises(QueryError):
+        build("semantic_scholar", {"none": ["x"]})
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Deep  learning for CT of the chest", True),
+        ("deep learning for MRIs", True),  # MRI* is a prefix
+        ("deep learning for PET", False),  # no `any` term
+        ("CT without the method", False),  # no `all` term
+        ("deep learning CT in a mouse model", False),  # a `none` term
+        ("deeplearning for CT", False),  # whole words only
+    ],
+)
+def test_matches_requires_all_any_and_no_none(text, expected):
+    from research_agent.querybuild import matches
+
+    assert matches(KW, text) is expected
+
+
+def test_matches_without_any_group_and_with_syntax_characters():
+    from research_agent.querybuild import matches
+
+    assert matches({"all": ["U-Net"]}, "a u net model")
+    assert matches({}, "anything")
+
+
+def test_overrides_work_for_new_sources():
+    assert build_queries(KW, ["pubmed", "scopus"], {"scopus": "TITLE(x)"}) == {
+        "pubmed": NEW[0][1],
+        "scopus": "TITLE(x)",
+    }
