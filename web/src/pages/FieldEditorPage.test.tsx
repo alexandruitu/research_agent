@@ -36,16 +36,38 @@ function setup(role: "viewer" | "member" | "admin" = "member", extra: Parameters
 }
 
 const form = () => screen.findByRole("form", { name: "Field editor" });
+/** Changing step moves focus to the step heading on the next frame; wait for it before typing. */
+const settle = () => waitFor(() => expect(document.activeElement?.tagName).toBe("H2"));
+const goStep = async (name: RegExp) => {
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Steps" })).getByRole("button", { name }));
+  await settle();
+};
+const assistResult = () => ({
+  mode: "demo", model: null,
+  suggestions: {
+    all: [{ term: "plaque", synonyms: ["atheroma"] }], any: [{ term: "deep learning", synonyms: [] }, { term: "CNN", synonyms: [] }], none: [{ term: "review", synonyms: [] }],
+    include: ["The study is about plaque.", "The study reports results on patient images."], exclude: ["The paper is a review."],
+  },
+});
+const previewResult = () => ({
+  mode: "demo", years: { from: 2018, to: null },
+  sources: [
+    { source: "europepmc", query: "TITLE_ABS:plaque", effective_query: "TITLE_ABS:plaque AND PUB_YEAR:[2018 TO 3000]", count: 1234, papers: [{ id: "MED:1", title: "Plaque detection with CNNs", year: 2021 }], error: null },
+    { source: "openalex", query: "plaque", effective_query: null, count: null, papers: [], error: "SourceUnavailable: openalex" },
+  ],
+});
 
 describe("FieldEditorPage", () => {
   it("loads the current version into the form", async () => {
     setup();
     expect(await screen.findByRole("heading", { name: "ML CT-FFR (v2)" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toHaveValue("ML CT-FFR");
+    expect(within(screen.getByRole("navigation", { name: "Steps" })).getByRole("button", { name: /Keywords & criteria/ })).toHaveAttribute("aria-current", "step");
     expect(screen.getByLabelText("incl 1")).toHaveValue("The study uses machine learning or deep learning.");
     expect(screen.getByLabelText("excl 1")).toHaveValue("The paper is a review or an editorial.");
     expect(screen.getByLabelText("From year")).toHaveValue("2018");
     expect(screen.getByRole("button", { name: "Save as v3" })).toBeInTheDocument();
+    await goStep(/Describe/);
+    expect(screen.getByLabelText("Name")).toHaveValue("ML CT-FFR");
   });
 
   it("adds, reorders and removes criteria", async () => {
@@ -64,6 +86,7 @@ describe("FieldEditorPage", () => {
   it("validates before saving and does not call the server", async () => {
     const { calls } = setup();
     await form();
+    await goStep(/Describe/);
     await userEvent.clear(screen.getByLabelText("Name"));
     await userEvent.click(screen.getByRole("button", { name: "Save as v3" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Give the field a name.");
@@ -99,15 +122,22 @@ describe("FieldEditorPage", () => {
   it("creates a new field and opens it", async () => {
     const created = fieldDetail({ current_version: 1, current: versionOut({ version: 1 }) });
     const { calls } = setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/fields/new");
-    expect(await screen.findByRole("heading", { name: "New field" })).toBeInTheDocument();
-    expect(screen.getByText(/Save the field first/)).toBeInTheDocument();
+    await form();
+    expect(screen.getByRole("heading", { name: "New field" })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Name"), "ML CT-FFR");
-    await userEvent.type(screen.getByLabelText(/^Topic/), "deep learning CT-FFR");
+    await userEvent.type(screen.getByLabelText("Description"), "Deep learning CT-FFR. Validated on patients.");
+    await userEvent.click(screen.getByRole("button", { name: "Next →" }));
+    await settle();
+    await userEvent.type(screen.getByLabelText("Must include"), "CT-FFR{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Add inclusion criterion" }));
     await userEvent.type(screen.getByLabelText("incl 1"), "Uses deep learning.");
     await userEvent.click(screen.getByRole("button", { name: "Create field" }));
     expect(await screen.findByRole("heading", { name: "ML CT-FFR (v1)" })).toBeInTheDocument();
-    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ name: "ML CT-FFR", include: [{ text: "Uses deep learning." }], sources: ["europepmc"] });
+    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
+      name: "ML CT-FFR", topic: "Deep learning CT-FFR.", description: "Deep learning CT-FFR. Validated on patients.",
+      keywords: { all: ["CT-FFR"], any: [], none: [] }, include: [{ text: "Uses deep learning." }], sources: ["europepmc"],
+    });
+    expect(screen.getByRole("button", { name: /Preview & save/ })).toHaveAttribute("aria-current", "step");
   });
 
   it("offers only enabled sources", async () => {
@@ -120,7 +150,9 @@ describe("FieldEditorPage", () => {
   it("is read-only for viewers", async () => {
     setup("viewer");
     await form();
+    await goStep(/Describe/);
     expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Suggest keywords/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save as/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
   });
@@ -131,7 +163,7 @@ describe("FieldEditorPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
     expect(await screen.findByRole("button", { name: "Restore" })).toBeInTheDocument();
     expect(screen.getByText(/This field is archived/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("incl 1")).toBeDisabled();
     expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/archive"))).toBe(true);
   });
 
@@ -170,6 +202,7 @@ describe("FieldEditorPage", () => {
     await userEvent.clear(screen.getByLabelText("excl 1"));
     await userEvent.type(screen.getByLabelText("excl 1"), "The paper is a review.");
     await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
+    await goStep(/Preview & save/);
     await userEvent.click(screen.getByRole("button", { name: "Test criteria" }));
     expect(await screen.findByRole("region", { name: "Criteria test" })).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
@@ -181,7 +214,98 @@ describe("FieldEditorPage", () => {
   it("shows why the server refused a test", async () => {
     setup("member", { "POST /api/v1/fields/:id/test": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } });
     await form();
+    await goStep(/Preview & save/);
     await userEvent.click(screen.getByRole("button", { name: "Test criteria" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("None of this field's sources is enabled");
+  });
+
+  it("suggests keywords and criteria from the description; nothing is applied until accepted", async () => {
+    const { calls } = setup("member", {
+      "POST /api/v1/fields/assist": { status: 202, body: jobOut({ kind: "field_assist", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "field_assist", run_id: null, status: "done", progress: { status: "done", result: assistResult() } }) },
+    }, "/fields/new");
+    await form();
+    await userEvent.type(screen.getByLabelText("Description"), "AI for coronary plaque on CT");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Suggest keywords & criteria" }));
+    const panel = await screen.findByRole("region", { name: /Suggestions/ });
+    expect(calls.find((c) => c.path.endsWith("/assist"))?.body).toEqual({ description: "AI for coronary plaque on CT", topic: "", keywords: null, mode: "demo" });
+    const summary = screen.getByRole("complementary", { name: "Field summary" });
+    expect(summary).toHaveTextContent(/Must include\s*–/);
+    await userEvent.click(within(panel).getByRole("button", { name: /plaque \(Must include\)/ }));
+    expect(within(panel).getByRole("button", { name: /plaque \(Must include\)/ })).toHaveAttribute("aria-pressed", "true");
+    expect(summary).toHaveTextContent(/Must include\s*plaque/);
+    expect(summary).not.toHaveTextContent("CNN");
+    await userEvent.click(within(panel).getByRole("button", { name: /atheroma/ }));
+    await userEvent.click(within(panel).getByRole("button", { name: "Accept all" }));
+    await goStep(/Keywords & criteria/);
+    expect(within(screen.getByRole("list", { name: "At least one of keywords" })).getByText("atheroma")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Exclude keywords" })).getByText("review")).toBeInTheDocument();
+    expect(screen.getByLabelText("incl 2")).toHaveValue("The study reports results on patient images.");
+    expect(screen.getByLabelText("excl 1")).toHaveValue("The paper is a review.");
+  });
+
+  it("says what to do when there is nothing to suggest from", async () => {
+    setup("member", { "POST /api/v1/fields/assist": { status: 422, body: { code: "nothing_to_assist", message: "Describe the field or add a keyword first", request_id: "r" } } }, "/fields/new");
+    await form();
+    await userEvent.click(screen.getByRole("button", { name: "Suggest keywords & criteria" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Describe the field or add a keyword first");
+  });
+
+  it("builds the query per source live, and an override replaces it", async () => {
+    setup();
+    await form();
+    await userEvent.type(screen.getByLabelText("Must include"), "plaque{Enter}");
+    await userEvent.type(screen.getByLabelText("At least one of"), "deep learning, CNN,");
+    expect(screen.getByRole("status", { name: "Query for Europe PMC" })).toHaveTextContent('TITLE_ABS:plaque AND (TITLE_ABS:"deep learning" OR TITLE_ABS:CNN)');
+    await userEvent.click(screen.getByRole("button", { name: "Remove CNN from At least one of" }));
+    expect(screen.getByRole("status", { name: "Query for Europe PMC" })).toHaveTextContent('TITLE_ABS:plaque AND TITLE_ABS:"deep learning"');
+    await userEvent.click(screen.getByText(/Advanced: override query/));
+    await userEvent.type(screen.getByLabelText("Override for Europe PMC"), "my own query");
+    expect(screen.getByRole("status", { name: "Query for Europe PMC" })).toHaveTextContent("my own query");
+    expect(screen.getByText("your override")).toBeInTheDocument();
+  });
+
+  it("Backspace in an empty keyword box removes the last keyword", async () => {
+    setup();
+    await form();
+    const input = screen.getByLabelText("Exclude");
+    await userEvent.type(input, "review{Enter}editorial{Enter}");
+    await userEvent.type(input, "{Backspace}");
+    const group = screen.getByRole("list", { name: "Exclude keywords" });
+    expect(within(group).getByText("review")).toBeInTheDocument();
+    expect(within(group).queryByText("editorial")).not.toBeInTheDocument();
+  });
+
+  it("previews the search per source: counts, titles and a failing source", async () => {
+    const { calls } = setup("member", {
+      "POST /api/v1/fields/preview": { status: 202, body: jobOut({ kind: "field_preview", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "field_preview", run_id: null, status: "done", progress: { status: "done", result: previewResult() } }) },
+    });
+    await form();
+    await userEvent.type(screen.getByLabelText("Must include"), "plaque{Enter}");
+    await goStep(/Preview & save/);
+    await userEvent.click(screen.getByRole("button", { name: "Preview search" }));
+    const panel = await screen.findByRole("region", { name: "Search preview" });
+    expect(await within(panel).findByText("1,234 papers")).toBeInTheDocument();
+    expect(within(panel).getByText("Plaque detection with CNNs")).toBeInTheDocument();
+    expect(within(panel).getByText("SourceUnavailable: openalex")).toBeInTheDocument();
+    expect(calls.find((c) => c.path.endsWith("/preview"))?.body).toEqual({
+      keywords: { all: ["plaque"], any: [], none: [] }, query_override: null, sources: ["europepmc"], years: { from: 2018, to: null }, mode: "live",
+    });
+  });
+
+  it("explains the preview rate limit", async () => {
+    setup("member", { "POST /api/v1/fields/preview": { status: 429, body: { code: "rate_limited", message: "Too many previews; try again in a minute", request_id: "r" } } });
+    await form();
+    await userEvent.type(screen.getByLabelText("Must include"), "plaque{Enter}");
+    await goStep(/Preview & save/);
+    await userEvent.click(screen.getByRole("button", { name: "Preview search" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too many previews in a minute");
+  });
+
+  it("the step survives a reload through the URL", async () => {
+    setup("member", {}, `/fields/${FIELD_ID}?step=3`);
+    expect(await screen.findByRole("heading", { name: /3 · Preview & save/ })).toBeInTheDocument();
   });
 });
