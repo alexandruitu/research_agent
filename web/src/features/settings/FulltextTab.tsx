@@ -3,7 +3,9 @@ import { useState } from "react";
 import { hasRole, type FulltextIO, type ReviewSettingsOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { useReportDirty } from "./dirtyGuard";
-import { FULLTEXT_SOURCES, orderedSources, validateFulltext, type FulltextSource } from "./fulltext";
+import { useSources } from "../../api/hooks";
+import { enabledOrder, moveResolver, resolverInfo, resolverList, validateFulltext, type ResolverEntry } from "./fulltext";
+import { keyStatusWords } from "./sources";
 import { SettingsFrame } from "./SettingsFrame";
 import { errorText, useSettingsSave } from "./useSettingsSave";
 
@@ -12,15 +14,20 @@ const pages = (chars: number) => Math.max(1, Math.round(chars / 3000));
 function FulltextForm({ data, admin, saver }: { data: ReviewSettingsOut; admin: boolean; saver: ReturnType<typeof useSettingsSave> }) {
   const saved = data.current.fulltext;
   const [values, setValues] = useState<FulltextIO>(saved);
+  const [list, setList] = useState<ResolverEntry[]>(() => resolverList(saved.sources));
+  const sourceRows = useSources().data ?? [];
   const [errors, setErrors] = useState<string[]>([]);
   const dirty = JSON.stringify(values) !== JSON.stringify(saved);
   useReportDirty(dirty);
   const set = (patch: Partial<FulltextIO>) => setValues((v) => ({ ...v, ...patch }));
-  const toggle = (key: FulltextSource, on: boolean) => {
-    const next = new Set(values.sources);
-    if (on) next.add(key);
-    else next.delete(key);
-    set({ sources: orderedSources(next) });
+  const update = (next: ResolverEntry[]) => {
+    setList(next);
+    set({ sources: enabledOrder(next) });
+  };
+  const toggle = (index: number, on: boolean) => update(list.map((e, i) => (i === index ? { ...e, on } : e)));
+  const reset = () => {
+    setValues(data.defaults.fulltext);
+    setList(resolverList(data.defaults.fulltext.sources));
   };
   const onSave = async (note: string) => {
     const clean = { ...values, contact: (values.contact ?? "").trim() || null };
@@ -33,25 +40,37 @@ function FulltextForm({ data, admin, saver }: { data: ReviewSettingsOut; admin: 
     <SettingsFrame
       id="fulltext" title="Full text" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving}
       intro="Reviewers read the full paper when one of these sources has it, in this order; otherwise they read the abstract, and items the abstract cannot answer count as “not reported”, never as “no”."
-      onSave={onSave} onReset={() => setValues(data.defaults.fulltext)} stale={saver.stale} onReload={saver.reload} problem={saver.problem} message={saver.message} errors={errors}
+      onSave={onSave} onReset={reset} stale={saver.stale} onReload={saver.reload} problem={saver.problem} message={saver.message} errors={errors}
     >
       <fieldset>
-        <legend>Where full text comes from (tried in this order)</legend>
-        <ul className="toggle-list">
-          {FULLTEXT_SOURCES.map((source) => {
-            const on = values.sources.includes(source.key);
+        <legend>Where full text comes from (tried top to bottom; the first that has the paper wins)</legend>
+        <ol className="resolver-list">
+          {list.map((entry, index) => {
+            const info = resolverInfo(entry.key);
+            const row = info.source ? sourceRows.find((r) => r.name === info.source) : undefined;
+            const key = row ? keyStatusWords(row) : null;
+            const position = entry.on ? `${enabledOrder(list.slice(0, index + 1)).length}.` : "–";
             return (
-              <li key={source.key}>
-                <label className="switch">
-                  <input type="checkbox" role="switch" checked={on} aria-describedby={`ft-${source.key}`} onChange={(e) => toggle(source.key, e.target.checked)} />
-                  <span className="switch-label">{source.label}</span>{" "}
-                  <span className="switch-state">{on ? "on" : "off"}</span>
-                </label>
-                <p id={`ft-${source.key}`} className="hint">{source.explain}</p>
+              <li key={entry.key} className={entry.on ? "resolver resolver--on" : "resolver"}>
+                <span className="resolver-rank" aria-hidden="true">{position}</span>
+                <div className="resolver-body">
+                  <label className="switch">
+                    <input type="checkbox" role="switch" checked={entry.on} disabled={!admin} aria-describedby={`ft-${entry.key}`} onChange={(e) => toggle(index, e.target.checked)} />
+                    <span className="switch-label">{info.label}</span>{" "}
+                    <span className="switch-state">{entry.on ? "on" : "off"}</span>
+                  </label>
+                  <p id={`ft-${entry.key}`} className="hint">{info.explain} <span className="resolver-licence">Licence: {info.licence}</span>{key ? ` ${key}.` : ""}</p>
+                </div>
+                {admin && (
+                  <span className="resolver-move">
+                    <button type="button" disabled={index === 0} onClick={() => update(moveResolver(list, index, -1))}><span aria-hidden="true">↑</span><span className="sr-only">Move {info.label} up</span></button>
+                    <button type="button" disabled={index === list.length - 1} onClick={() => update(moveResolver(list, index, 1))}><span aria-hidden="true">↓</span><span className="sr-only">Move {info.label} down</span></button>
+                  </span>
+                )}
               </li>
             );
           })}
-        </ul>
+        </ol>
         {values.sources.length === 0 && <p className="banner banner--warn">No full-text source: every paper is reviewed on its abstract only.</p>}
       </fieldset>
       <label className="block">Contact email for Unpaywall
@@ -70,7 +89,7 @@ function FulltextForm({ data, admin, saver }: { data: ReviewSettingsOut; admin: 
           <span id="ft-upload" className="hint">Largest PDF a member can upload, 1 to 30 MB. Only PDFs are accepted.</span>
         </label>
       </div>
-      <p className="hint">Only open-access or uploaded text is sent to the AI providers. Uploaded PDFs are stored by content hash and shown only to members.</p>
+      <p className="hint">Open-access, uploaded or institution-entitled text is sent to the AI providers for review only. Text under a publisher licence is never exported. Uploaded PDFs are stored by content hash and shown only to members.</p>
     </SettingsFrame>
   );
 }

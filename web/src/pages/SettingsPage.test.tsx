@@ -247,6 +247,20 @@ describe("Settings → Full text", () => {
     await waitFor(() => expect(posted(calls)?.fulltext).toEqual({ sources: ["pmc_oa", "unpaywall"], contact: "lab@example.org", max_chars: 60000, upload_max_mb: 30 }));
   });
 
+  it("orders the resolvers with up/down buttons and explains each licence", async () => {
+    const { calls } = setup("admin", "/settings/fulltext", { "POST /api/v1/settings/review": savedEcho });
+    const up = await screen.findByRole("button", { name: "Move PDFs uploaded by your team up" });
+    expect(screen.getByRole("button", { name: "Move PubMed Central Open Access up" })).toBeDisabled();
+    await userEvent.click(up);
+    const core = screen.getByRole("switch", { name: /^CORE/ });
+    expect(core).toHaveAccessibleDescription(/Needs CORE_API_KEY in the worker\. Licence: Open-access copies only/);
+    expect(core).toHaveAccessibleDescription(/Key set · accepted/);
+    await userEvent.click(core);
+    expect(screen.getByRole("switch", { name: /ScienceDirect/ })).toHaveAccessibleDescription(/never exported/);
+    await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
+    await waitFor(() => expect((posted(calls)?.fulltext as { sources?: string[] } | undefined)?.sources).toEqual(["pmc_oa", "upload", "unpaywall", "core"]));
+  });
+
   it("needs a contact email while Unpaywall is on, and limits the upload size", async () => {
     const { calls } = setup("admin", "/settings/fulltext");
     await userEvent.clear(await screen.findByLabelText(/Contact email for Unpaywall/));

@@ -633,3 +633,14 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .key-status--bad { background: var(--bad-bg); color: var(--bad-fg); border-color: var(--bad-line); }
 .key-status--neutral { background: var(--neutral-bg); color: var(--neutral-fg); }
 .scholar-note { max-width: 72ch; background: var(--sunk); }
+
+/* Settings → Full text: a numbered running order */
+.resolver-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: none; }
+.resolver { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border-radius: var(--r2); border: 1px solid transparent; }
+.resolver--on { background: var(--card); border-color: var(--rule); box-shadow: var(--shadow); }
+.resolver-rank { font: 600 18px/22px var(--serif); color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; }
+.resolver:not(.resolver--on) .resolver-rank { color: var(--rule-2); }
+.resolver-body .hint { margin-left: 50px; }
+.resolver-licence { display: block; font-style: italic; }
+.resolver-move { display: inline-flex; gap: 4px; }
+.resolver-move button { min-width: 32px; min-height: 32px; }
