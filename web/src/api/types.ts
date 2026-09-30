@@ -46,6 +46,32 @@ export type PanelOut = S["PanelOut"];
 export type PanelReportOut = S["PanelReportOut"];
 export type PanelAnswerOut = S["PanelAnswerOut"];
 export type PaperFileOut = S["PaperFileOut"];
+export type KeywordsIO = S["KeywordsIO"];
+export type QueryOverrideIO = S["QueryOverrideIO"];
+export type CollectionOut = S["CollectionOut"];
+export type CollectionRef = S["CollectionRef"];
+export type LibraryRef = S["LibraryRef"];
+export type LibraryItemOut = S["LibraryItemOut"];
+export type LibraryItemDetail = S["LibraryItemDetail"];
+export type LibraryEventOut = S["LibraryEventOut"];
+export type LibraryPage = S["LibraryPage"];
+export type LibrarySaveRequest = S["LibrarySaveRequest"];
+export type LibrarySaveOut = S["LibrarySaveOut"];
+export type LibraryPatch = S["LibraryPatch"];
+
+export type KeywordGroup = "all" | "any" | "none";
+export type KeywordSuggestion = { term: string; synonyms: string[] };
+/** `progress.result` of a finished field_assist job. */
+export type AssistResult = {
+  mode: string; model: string | null;
+  suggestions: { all: KeywordSuggestion[]; any: KeywordSuggestion[]; none: KeywordSuggestion[]; include: string[]; exclude: string[] };
+};
+export type PreviewSource = {
+  source: string; query: string | null; effective_query: string | null; count: number | null;
+  papers: { id: string; title: string; year: number | null }[]; error: string | null;
+};
+/** `progress.result` of a finished field_preview job. */
+export type PreviewResult = { mode: string; years: { from: number | null; to: number | null }; sources: PreviewSource[] };
 
 /** A job's `progress` while running ({status, done, total}) and when done ({status, result}). */
 export type JobProgressData = { status?: string; done?: number; total?: number; result?: unknown };

@@ -2,8 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  CallOut, DrawerOut, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
-  SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
+  CallOut, CollectionOut, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
+  ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
 
 export type PaperParams = {
@@ -36,6 +36,17 @@ export const keys = {
   reviewSettings: ["review-settings"] as const,
   models: ["models-available"] as const,
   paperFiles: (paperId: string) => ["paper-files", paperId] as const,
+  allLibrary: ["library"] as const,
+  library: (params: LibraryParams) => ["library", "list", params] as const,
+  libraryItem: (id: string) => ["library", "item", id] as const,
+  allCollections: ["collections"] as const,
+  collections: (archived: boolean) => ["collections", { archived }] as const,
+  reviewerVersion: (key: string, version: number) => ["reviewer", key, "version", version] as const,
+};
+
+export type LibraryParams = {
+  q?: string; collection_id?: string; status?: string; tag?: string; field_id?: string; min_score?: number; has_red_flags?: boolean;
+  sort?: string; direction?: "asc" | "desc"; page?: number; page_size?: number;
 };
 
 export const newIdempotencyKey = () =>
@@ -234,4 +245,108 @@ export function useDeletePaperFile(paperId: string) {
       void client.invalidateQueries({ queryKey: ["paper"] });
     },
   });
+}
+
+export const useReviewerVersion = (key: string | null, version: number | null) =>
+  useQuery({
+    queryKey: keys.reviewerVersion(key ?? "", version ?? 0), enabled: !!key && !!version, retry: false, staleTime: Infinity,
+    queryFn: () => api.get<ReviewerVersionOut>(`/reviewers/${key}/versions/${version}`),
+  });
+
+/* ---------- field assist and preview (worker jobs) ---------- */
+
+export type AssistBody = { description: string; topic: string; keywords: KeywordsIO | null; mode: "live" | "demo" };
+export const useAssist = () => useMutation({ mutationFn: (body: AssistBody) => api.post<JobOut>("/fields/assist", { body }) });
+
+export type PreviewBody = {
+  keywords: KeywordsIO | null; query_override: QueryOverrideIO | null; sources: string[];
+  years: { from: number | null; to: number | null }; mode: "live" | "demo";
+};
+export const usePreview = () => useMutation({ mutationFn: (body: PreviewBody) => api.post<JobOut>("/fields/preview", { body }) });
+
+/* ---------- team library ---------- */
+
+export const useLibrary = (params: LibraryParams) =>
+  useQuery({ queryKey: keys.library(params), placeholderData: keepPreviousData, queryFn: () => api.get<LibraryPage>("/library", params) });
+export const useLibraryItem = (id: string | null) =>
+  useQuery({ queryKey: keys.libraryItem(id ?? ""), enabled: !!id, queryFn: () => api.get<LibraryItemDetail>(`/library/${id}`) });
+export const useCollections = (archived = false) =>
+  useQuery({ queryKey: keys.collections(archived), queryFn: () => api.get<CollectionOut[]>("/library/collections", { archived }) });
+
+/** Everything that shows library state: the library itself, collections (counts) and paper rows/drawers. */
+function refreshLibrary(client: ReturnType<typeof useQueryClient>) {
+  void client.invalidateQueries({ queryKey: keys.allLibrary });
+  void client.invalidateQueries({ queryKey: keys.allCollections });
+  void client.invalidateQueries({ queryKey: ["papers"] });
+  void client.invalidateQueries({ queryKey: ["paper"] });
+}
+
+export function useSaveToLibrary() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: LibrarySaveRequest) => api.post<LibrarySaveOut>("/library", { body }),
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+export function usePatchLibraryItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: LibraryPatch & { id: string }) => api.patch<LibraryItemDetail>(`/library/${id}`, { body }),
+    onSuccess: (item) => client.setQueryData(keys.libraryItem(item.id), item),
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+export function useDeleteLibraryItems() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await api.delete(`/library/${id}`);
+    },
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+export function useSnapshotItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, runId }: { id: string; runId: string }) => api.post<LibraryItemDetail>(`/library/${id}/snapshot`, { body: { run_id: runId } }),
+    onSuccess: (item) => client.setQueryData(keys.libraryItem(item.id), item),
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+export function useCreateCollection() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; description?: string }) => api.post<CollectionOut>("/library/collections", { body }),
+    onSettled: () => void client.invalidateQueries({ queryKey: keys.allCollections }),
+  });
+}
+
+export function usePatchCollection() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name?: string; description?: string }) => api.patch<CollectionOut>(`/library/collections/${id}`, { body }),
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+export function useArchiveCollection() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archive }: { id: string; archive: boolean }) => api.post<CollectionOut>(`/library/collections/${id}/${archive ? "archive" : "restore"}`),
+    onSettled: () => refreshLibrary(client),
+  });
+}
+
+/** The export download: same origin, cookies, GET (no CSRF). Empty filters are left out. */
+export function exportUrl(params: LibraryParams, format: "csv" | "bibtex"): string {
+  const search = new URLSearchParams({ format });
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "" || key === "page" || key === "page_size") continue;
+    search.set(key, String(value));
+  }
+  return `/api/v1/library/export?${search.toString()}`;
 }
