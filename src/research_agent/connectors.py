@@ -3,14 +3,17 @@
 import hashlib
 import html
 import json
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import NamedTuple, Protocol
 
 import httpx
 
+from . import ratelimit
 from .schemas import Paper, Source
 
 
@@ -31,36 +34,87 @@ def normalize_doi(value):
 
 
 RETRYABLE = (429, 500, 502, 503, 504)
+MAX_RETRY_AFTER = 60  # seconds; a source asking for a longer pause fails closed at once
+VERSION = "0.1"
 
 
 class SourceUnavailable(RuntimeError):
     """A source failed after retries or answered with something unreadable. Fail closed: the run stops
     (checkpoint kept). The message is only the source name, so it is safe to show and to log."""
 
-    def __init__(self, source):
-        super().__init__(source)
+    def __init__(self, source, message=None):
+        super().__init__(message or source)
         self.source = source
+        self.message = message or source
 
 
-def fetch(client, url, params, source, decode):
-    """One GET with the Europe PMC policy of M1: 3 attempts, backoff 1 s then 2 s on transport errors and
-    429/5xx, 30 s timeout. Any failure, including an undecodable body, raises SourceUnavailable."""
+class SourceKeyMissing(SourceUnavailable):
+    """A source that needs a key has none in the environment; raised before any request. The message names the
+    variable (never a value)."""
+
+    def __init__(self, source, env_var):
+        super().__init__(source, f"{source}: set {env_var} in the worker environment")
+        self.env_var = env_var
+
+
+def env_key(name):
+    """A credential from the environment (None when unset or blank). Never logged, cached or stored."""
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
+def user_agent(contact=None):
+    contact = contact or env_key("RESEARCH_AGENT_CONTACT")
+    return f"research-agent/{VERSION} (+mailto:{contact})" if contact else f"research-agent/{VERSION}"
+
+
+def retry_after(response):
+    """Seconds asked by a Retry-After header (seconds or HTTP date), None when absent or unreadable."""
+    value = (response.headers.get("Retry-After") or "").strip()
+    if not value:
+        return None
+    if value.isdigit():
+        return float(value)
+    try:
+        when = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return max(0.0, (when - datetime.now(UTC)).total_seconds())
+
+
+def fetch(client, url, params, source, decode, headers=None, secret=False, contact=None, keyed=False):
+    """One GET: 3 attempts, 30 s timeout; transport errors and 429/5xx wait for Retry-After (at most 60 s) or
+    1 s then 2 s. Every attempt first takes a token from the source's shared rate bucket. Any failure,
+    including an undecodable body, raises SourceUnavailable; with `secret` (a key in the headers or params)
+    the httpx error is not chained, so no URL or header with a key travels with the exception."""
+    bucket = ratelimit.limiter(source, keyed)
+    sent = {"User-Agent": user_agent(contact), **(headers or {})}
+
+    def fail(exc):
+        if secret:
+            raise SourceUnavailable(source) from None
+        raise SourceUnavailable(source) from exc
 
     def attempts(http):
         for attempt in range(3):
+            if bucket is not None:
+                bucket.acquire()
             try:
-                response = http.get(url, params=params)
+                response = http.get(url, params=params, headers=sent)
                 response.raise_for_status()
                 return decode(response)
             except (httpx.TransportError, httpx.HTTPStatusError) as exc:
-                retryable = (
-                    not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code in RETRYABLE
-                )
-                if not retryable or attempt == 2:
-                    raise SourceUnavailable(source) from exc
-                time.sleep(2**attempt)
+                status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+                if (status is not None and status not in RETRYABLE) or attempt == 2:
+                    fail(exc)
+                wait = retry_after(exc.response) if status is not None else None
+                if wait is not None and wait > MAX_RETRY_AFTER:
+                    fail(exc)
+                time.sleep(2**attempt if wait is None else wait)
             except ValueError as exc:
-                raise SourceUnavailable(source) from exc
+                fail(exc)
 
     if client is not None:
         return attempts(client)
@@ -72,6 +126,7 @@ class SearchResult(NamedTuple):
     papers: list  # [Paper]
     total: int | None  # hits the source reports for the query (None: it did not say)
     query: str  # the query the source received (years included)
+    note: str | None = None  # how to read `total` when it differs from what `papers` were drawn from
 
 
 class Connector(Protocol):
