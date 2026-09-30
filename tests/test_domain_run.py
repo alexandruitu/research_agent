@@ -154,3 +154,21 @@ def test_cli_still_requires_a_topic_or_a_domain(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         run_cli(monkeypatch, "--run-dir", str(tmp_path / "run"))
     assert "Topic or --domain is required" in capsys.readouterr().err
+
+
+def test_a_source_without_its_required_key_fails_discover_naming_the_variable(tmp_path, monkeypatch):
+    from research_agent.connectors import SourceKeyMissing, domain_connector
+
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
+    data = {**DOMAIN, "sources": [{"name": "core", "max_results": 5}], "queries": {"core": '"ct"'}}
+    spec = read_domain(write_domain(tmp_path, data))
+    # Live connectors on a demo contract: the key check happens before any request, so no network is used.
+    monkeypatch.setattr(runner, "make_connector", lambda c, s: domain_connector(c.domain, s, "live"))
+    with pytest.raises(SourceKeyMissing):
+        run_research(tmp_path / "run", Contract(topic=spec.topic, domain=spec))
+    progress = json.loads((tmp_path / "run" / "progress.json").read_text())
+    assert progress["status"] == "failed" and progress["stages"]["discover"] == "failed"
+    assert (progress["error_type"], progress["message"]) == (
+        "SourceKeyMissing",
+        "core: set CORE_API_KEY in the worker environment",
+    )

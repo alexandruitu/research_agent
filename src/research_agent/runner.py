@@ -330,6 +330,6 @@ def run_research(
             progress.write(
                 status="failed",
                 error_type=type(exc).__name__,
-                message=exc.source if isinstance(exc, SourceUnavailable) else FAILED,
+                message=exc.message if isinstance(exc, SourceUnavailable) else FAILED,
             )
             raise
