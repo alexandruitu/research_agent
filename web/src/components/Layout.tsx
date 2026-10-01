@@ -28,7 +28,7 @@ function Chrome() {
     <>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="topbar">
-        <Link to="/" className="brand" onClick={guard}><img className="brand-logo" src="/healthineers-logo.png" alt="Siemens Healthineers" width="105" height="31" /><span className="brand-name">Literature Radar</span></Link>
+        <Link to="/" className="brand" onClick={guard}><img className="brand-logo" src="/healthineers-logo.svg" alt="Siemens Healthineers" width="128" height="32" /><span className="brand-name">Literature Radar</span></Link>
         <nav aria-label="Main">
           {NAV.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={guard}>{item.label}</NavLink>)}
         </nav>
