@@ -34,6 +34,7 @@ export function LoginPage() {
 
   return (
     <main className="login">
+      <p className="login-brand"><img className="brand-logo" src="/healthineers-logo.png" alt="Siemens Healthineers" width="105" height="31" /><span>Literature Radar</span></p>
       <h1>Sign in</h1>
       <form onSubmit={submit}>
         <label>

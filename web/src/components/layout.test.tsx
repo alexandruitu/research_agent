@@ -46,7 +46,7 @@ describe("routing and navigation", () => {
     expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Papers", "Library", "Runs", "Fields", "Evals", "System map", "Settings"]);
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     expect(screen.getByText("Member")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Research Agent/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /Literature Radar/ })).toHaveAttribute("href", "/");
   });
 
   it("offers the Users tab under Settings to admins only", async () => {

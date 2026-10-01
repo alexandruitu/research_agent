@@ -652,3 +652,5 @@ table.papers tr.is-cursor td:first-child { box-shadow: inset 3px 0 0 var(--accen
 .source-picker { display: grid; gap: 6px; }
 .source-picker-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; }
 .source-picker-title { font: 600 13px/1.4 var(--serif); min-width: 150px; color: var(--ink-2); }
+
+.login-brand { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; font: 600 19px/1 var(--serif); color: var(--ink); }

@@ -1,4 +1,4 @@
-# Research Agent — milestone 1
+# Literature Radar (Research Agent)
 
 Prototip Python + Pydantic + LangGraph, cu checkpointing SQLite și raport Markdown/JSON.
 Primul milestone demonstrează întregul circuit pe un topic, cu maximum 30 de candidați

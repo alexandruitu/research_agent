@@ -1,4 +1,4 @@
-# Research Agent: architecture
+# Literature Radar: architecture
 
 Literature screening for medical-imaging AI: topic → search → dedupe → screen → extract → review →
 rank, measured against published systematic reviews, browsable by a department in a web app.
