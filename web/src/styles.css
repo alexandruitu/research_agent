@@ -754,7 +754,7 @@ table.data-table th.item-text { font: 500 14px/1.4 var(--serif); max-width: 46ch
 table.data-table tr.is-reword th { box-shadow: inset 3px 0 0 var(--warn-line); }
 table.data-table tr.differs th, table.data-table tr.differs td { background: var(--warn-bg); }
 .flag-chip { display: inline-flex; gap: 4px; margin-top: 4px; padding: 0 8px; border-radius: 999px; font: 600 11px/1.7 var(--sans); background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line); }
-.share-bar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--sunk); border: 1px solid var(--rule); vertical-align: middle; overflow: hidden; }
+.share-bar { display: inline-flex; width: 60px; height: 6px; border-radius: 3px; background: var(--sunk); border: 1px solid var(--rule); vertical-align: middle; overflow: hidden; }
 .share-fill { display: block; height: 100%; background: var(--accent); }
 .dispersion { margin: 0; padding-left: 0; list-style: none; counter-reset: d; display: grid; gap: var(--s2); }
 .dispersion li { display: grid; grid-template-columns: 130px 1fr; gap: 0 var(--s3); counter-increment: d; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
@@ -765,3 +765,16 @@ table.data-table tr.differs th, table.data-table tr.differs td { background: var
 .sample-list { list-style: none; padding: 0; margin: 0 0 var(--s3); display: grid; gap: var(--s2); }
 .sample-row { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; padding: var(--s3); background: var(--card); border: 1px solid var(--rule); border-radius: var(--r2); }
 form.inline label { display: inline-flex; gap: 6px; align-items: center; }
+/* ablation */
+.verdict-sentence { font: 500 19px/1.45 var(--serif); max-width: 65ch; margin: 0 0 var(--s3); }
+.ablation-figure { margin: var(--s3) 0; padding: var(--s3); background: var(--card); border: 1px solid var(--rule); border-radius: var(--r2); }
+.ablation-chart { width: 100%; height: auto; max-width: 720px; display: block; }
+.ablation-chart .grid-line { stroke: var(--rule); stroke-dasharray: 2 3; }
+.ablation-chart .row-line { stroke: var(--rule-2); }
+.ablation-chart .pair-line { stroke: var(--ink-2); stroke-width: 2; }
+.ablation-chart .tick, .ablation-chart .row-value { fill: var(--ink-2); font: 11px var(--sans); }
+.ablation-chart .row-label { fill: var(--ink); font: 600 12px var(--sans); }
+.mark--verdict { fill: var(--accent); stroke: var(--card); stroke-width: 1.5; }
+.mark--flags { fill: var(--warn-line); stroke: var(--card); stroke-width: 1.5; }
+.ablation-figure .legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
+.ablation-figure .key { display: inline-flex; gap: 6px; align-items: center; }

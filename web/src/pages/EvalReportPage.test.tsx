@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setCsrfToken } from "../api/client";
 import userEvent from "@testing-library/user-event";
 
-import { EVAL_ID, PANEL_ID, SAMPLE_ID, evalDetail, evalMetrics, humanDetail, panelDetail, panelMetrics, ratingSample, session } from "../test/fixtures";
+import { EVAL_ID, PANEL_ID, SAMPLE_ID, ablationDetail, evalDetail, evalMetrics, humanDetail, panelDetail, panelMetrics, ratingSample, session } from "../test/fixtures";
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { EvalReportPage } from "./EvalReportPage";
@@ -192,5 +192,20 @@ describe("Human reference report", () => {
     expect(within(reviewers).getByRole("row", { name: /Methodologist/ })).toHaveTextContent("0.55");
     expect(within(human).getByRole("table", { name: "Panel vs humans per item" })).toHaveTextContent("Was the test set split by patient?");
     expect(human).toHaveTextContent("Spearman 0.80");
+  });
+});
+
+describe("Ablation report", () => {
+  it("leads with the summary sentence, draws the chart with an equivalent table and lists every subset", async () => {
+    setup(ablationDetail());
+    expect(await screen.findByText(/Going from 2 to 3 reviewers changed the majority verdict on 10%/)).toBeInTheDocument();
+    const chart = screen.getByRole("img", { name: /1 reviewer: verdict changed on 40%, red flags missed 60%/ });
+    expect(chart.tagName.toLowerCase()).toBe("svg");
+    const table = screen.getByRole("table", { name: "By number of reviewers" });
+    expect(within(table).getByRole("row", { name: /^2 reviewers/ })).toHaveTextContent("10%");
+    expect(within(table).getByRole("row", { name: /^2 reviewers/ })).toHaveTextContent("20 calls");
+    const subsets = screen.getByRole("table", { name: "Every reviewer subset" });
+    expect(within(subsets).getAllByRole("row")[2]).toHaveTextContent("10% (1 of 10)");
+    expect(screen.getByText(/the verdict is the reviewers' majority/)).toBeInTheDocument();
   });
 });
