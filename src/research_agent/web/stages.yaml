@@ -37,9 +37,18 @@ stages:
     headline: "{agreement.n} papers, quotes verified"
     data_link: papers
   - id: reviewers
-    title: Reviewers A and B
-    summary: Two independent reviews of each kept paper, one supportive and one critical, scored 0 to 4.
-    limits: Both reviewers are currently the same model family, so their agreement overstates independence.
+    title: Reviewers A and B  # kept: the frontend e2e names it; the frontend plan may rename it to "Reviewers"
+    summary: A panel of independent reviewers answers a checklist per paper; an editor synthesizes. Older runs used two reviewers (A supportive, B critical).
+    limits: Agreement among reviewers of one model family overstates independence; correctness needs human reference ratings.
+    alternatives:  # the newest panel evaluation, when there is one
+      - measured_by: [panel.verdicts.fleiss.kappa]
+        headline: "Fleiss kappa {panel.verdicts.fleiss.kappa:.2f} on {panel.n} papers"
+        caveat_when: panel.model_families.single_family
+        caveat: one model family
+      - measured_by: [panel.verdicts.fleiss.agreement]
+        headline: "verdict agreement {panel.verdicts.fleiss.agreement:.0%} on {panel.n} papers"
+        caveat_when: panel.model_families.single_family
+        caveat: one model family
     measured_by: [agreement.verdict.kappa]
     headline: "kappa {agreement.verdict.kappa:.2f}"
     caveat_when: agreement.same_family

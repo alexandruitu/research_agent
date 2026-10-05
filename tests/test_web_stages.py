@@ -69,3 +69,39 @@ def test_merge_takes_each_key_from_the_newest_report_that_has_it():
         and merged["agreement"]["n"] == 5
         and merged["strategies"] == {"x": 1}
     )
+
+
+PANEL = {
+    "n": 20,
+    "verdicts": {"fleiss": {"kappa": 0.61, "agreement": 0.85}},
+    "model_families": {"single_family": True},
+}
+
+
+def test_reviewers_read_the_newest_panel_eval_first(settings):
+    catalog = load_catalog(settings.stages_path)
+    stages = by_id(evaluate_stages(catalog, {**METRICS, "panel": PANEL}))
+    assert stages["reviewers"]["headline"] == "Fleiss kappa 0.61 on 20 papers"
+    assert stages["reviewers"]["status"] == "caveat" and stages["reviewers"]["caveat"] == "one model family"
+    two = {**PANEL, "model_families": {"single_family": False}}
+    assert by_id(evaluate_stages(catalog, {"panel": two}))["reviewers"]["status"] == "measured"
+
+
+def test_an_undefined_panel_kappa_falls_back_to_raw_agreement(settings):
+    panel = {**PANEL, "verdicts": {"fleiss": {"kappa": None, "agreement": 1.0}}}
+    stage = by_id(evaluate_stages(load_catalog(settings.stages_path), {"panel": panel}))["reviewers"]
+    assert stage["headline"] == "verdict agreement 100% on 20 papers" and stage["status"] == "caveat"
+
+
+def test_the_stages_route_uses_the_newest_panel_report(sign_in, db, tmp_path):
+    from web_fixtures import make_panel_eval
+
+    from research_agent.web.importer.evals import import_eval_run
+
+    folder, _gold = make_panel_eval(tmp_path)
+    import_eval_run(db, folder)
+    db.commit()
+    viewer, _ = sign_in("viewer")
+    stages = by_id(viewer.get("/api/v1/stages").json())
+    assert stages["reviewers"]["headline"] == "verdict agreement 100% on 4 papers"
+    assert stages["reviewers"]["caveat"] == "one model family"

@@ -61,10 +61,17 @@ def evaluate_stages(catalog, metrics):
         }
         if entry.get("kind") == "input":
             stage["status"] = "input"
-        elif entry.get("measured_by") and all(lookup(metrics, p) is not None for p in entry["measured_by"]):
-            stage["status"] = "measured"
-            stage["headline"] = format_headline(entry["headline"], metrics) if entry.get("headline") else None
-            if entry.get("caveat_when") and lookup(metrics, entry["caveat_when"]):
-                stage["status"], stage["caveat"] = "caveat", entry.get("caveat")
+        else:
+            # The first measurement that exists wins (e.g. the panel's Fleiss kappa before the old A/B kappa).
+            for source in [*entry.get("alternatives", []), entry]:
+                if source.get("measured_by") and all(
+                    lookup(metrics, p) is not None for p in source["measured_by"]
+                ):
+                    stage["status"] = "measured"
+                    template = source.get("headline")
+                    stage["headline"] = format_headline(template, metrics) if template else None
+                    if source.get("caveat_when") and lookup(metrics, source["caveat_when"]):
+                        stage["status"], stage["caveat"] = "caveat", source.get("caveat")
+                    break
         result.append(stage)
     return result
