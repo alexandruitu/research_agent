@@ -1,6 +1,7 @@
 """research-eval: build gold sets, screen them, run reviewer agreement, and report offline."""
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -9,11 +10,17 @@ from dotenv import load_dotenv
 
 from ..agents import Evaluator, live_models
 from ..connectors import EuropePMC
+from ..fulltext import FullText
 from ..jev import JevScreener
-from ..schemas import read_domain
+from ..runner import review_models
+from ..schemas import read_domain, read_review
 from ..storage import Store
+from .ablation import run_ablation
 from .agreement import run_agreement
 from .gold import load_gold, load_sr_spec, write_gold
+from .human import RATINGS_FILE, compare_human, load_ratings
+from .panel_eval import file_sha256, gold_source, load_panel_eval, run_panel_eval, run_source
+from .panel_report import build_eval_report, render_eval_markdown
 from .report import build_report, write_report
 from .resolve import build_gold
 from .screen import check_run_dir, read_manifest, run_screen, write_manifest
@@ -30,6 +37,15 @@ def make_jev(store):
 
 def make_evaluator(store, mode, models=None):
     return Evaluator(store, "demo") if mode == "demo" else Evaluator(store, "live", models or live_models())
+
+
+def make_fulltext(store, spec, mode):
+    return FullText(store, spec, mode=mode)
+
+
+def is_eval_kind(run_dir):
+    path = Path(run_dir) / "manifest.json"
+    return path.exists() and json.loads(path.read_text()).get("kind") in ("panel", "ablation")
 
 
 def cmd_build_gold(args):
@@ -83,7 +99,78 @@ def cmd_agreement(args):
     return 0
 
 
+def cmd_panel(args):
+    spec = read_review(args.review)
+    review = spec.model_dump()
+    if args.gold:
+        gold = load_gold(args.gold)
+        topic, papers, rows = gold_source(gold)
+        source = {"gold_path": str(Path(args.gold).resolve()), "gold_sha256": gold.content_sha256}
+    else:
+        topic, papers, rows = run_source(args.run)
+        report = Path(args.run) / "report.json"
+        source = {"run_dir": str(Path(args.run).resolve()), "report_sha256": file_sha256(report)}
+    store = Store(args.eval_dir)
+    keys = [r["key"] for r in review["panel"]]
+    models = None if args.mode == "demo" else live_models(review_models(spec), panel=keys)
+    evaluator = make_evaluator(store, args.mode, models)
+    data = run_panel_eval(
+        args.eval_dir,
+        topic=topic,
+        papers=papers,
+        rows=rows,
+        labels={r["id"]: r["label"] for r in rows},
+        source=source,
+        review=review,
+        review_path=args.review,
+        evaluator=evaluator,
+        fulltext=make_fulltext(store, review["fulltext"], args.mode),
+        n=args.sample,
+        seed=args.seed,
+        mode=args.mode,
+    )
+    print(f"Panel eval: {len(data['papers'])} papers · {len(keys)} reviewers · {args.eval_dir}")
+    return 0
+
+
+def cmd_ablation(args):
+    evaluator = None
+    if args.rerun_editor:
+        _manifest, review, _data = load_panel_eval(args.panel_dir)
+        spec = read_review(Path(args.panel_dir) / "review.json")
+        keys = [r["key"] for r in review["panel"]]
+        models = None if args.mode == "demo" else live_models(review_models(spec), panel=keys)
+        evaluator = make_evaluator(Store(args.eval_dir), args.mode, models)
+    data = run_ablation(
+        args.panel_dir, args.eval_dir, rerun_editor=args.rerun_editor, evaluator=evaluator, mode=args.mode
+    )
+    print(f"Ablation: {len(data['subsets'])} reviewer subsets · {args.eval_dir}")
+    return 0
+
+
+def cmd_human(args):
+    eval_dir = Path(args.eval_dir)
+    _manifest, review, panel_data = load_panel_eval(eval_dir)
+    source = Path(args.ratings) if args.ratings else eval_dir / RATINGS_FILE
+    ratings = load_ratings(source)  # validates before the file is copied in
+    target = eval_dir / RATINGS_FILE
+    if source.resolve() != target.resolve():
+        target.write_bytes(source.read_bytes())
+    out = compare_human(review, panel_data, ratings)
+    print(
+        f"Human reference: {out['ratings']} ratings · {out['units']} rated items · {out['stale_or_unknown']} stale"
+    )
+    return 0
+
+
 def cmd_report(args):
+    if is_eval_kind(args.run_dir):
+        report = build_eval_report(args.run_dir)
+        directory = Path(args.run_dir)
+        (directory / "metrics.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        (directory / "metrics.md").write_text(render_eval_markdown(report))
+        print(f"Report: {directory / 'metrics.md'} · {report['kind']}")
+        return 0
     report = build_report(args.run_dir, args.target_recall, args.holdout, args.allow_mixed_jev_versions)
     write_report(args.run_dir, report)
     best = report["recommended"]
@@ -101,6 +188,13 @@ def non_negative_int(text):
         raise argparse.ArgumentTypeError(f"not an integer: {text!r}") from None
     if value < 0:
         raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return value
+
+
+def positive_int(text):
+    value = non_negative_int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
     return value
 
 
@@ -127,6 +221,29 @@ def build_parser():
     p.add_argument("--limit", type=non_negative_int, default=40, help="number of negatives sampled")
     p.set_defaults(func=cmd_agreement)
 
+    p = sub.add_parser("panel", help="full text + review panel + editor on a sample of papers (cached)")
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument("--gold", help="a frozen gold set (SR labels: AUC is computed)")
+    source.add_argument("--run", help="a finished run folder (no labels)")
+    p.add_argument("--review", required=True, help="review.json with the panel to evaluate")
+    p.add_argument("--eval-dir", required=True)
+    p.add_argument("--sample", type=positive_int, default=20, help="number of papers")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--mode", choices=["live", "demo"], default="live")
+    p.set_defaults(func=cmd_panel)
+
+    p = sub.add_parser("ablation", help="every reviewer subset of a panel eval, offline")
+    p.add_argument("panel_dir")
+    p.add_argument("--eval-dir", required=True)
+    p.add_argument("--rerun-editor", action="store_true", help="ask the editor per subset (costs calls)")
+    p.add_argument("--mode", choices=["live", "demo"], default="live")
+    p.set_defaults(func=cmd_ablation)
+
+    p = sub.add_parser("human", help="compare a panel eval with human reference ratings")
+    p.add_argument("eval_dir")
+    p.add_argument("--ratings", help="human_ratings.json (copied into the eval folder)")
+    p.set_defaults(func=cmd_human)
+
     p = sub.add_parser("report", help="offline metrics from cached calls")
     p.add_argument("run_dir")
     p.add_argument(
@@ -147,7 +264,11 @@ def redact(message):
 
 
 def log_dir(args):
-    return Path(args.out).parent if args.command == "build-gold" else Path(args.run_dir)
+    if args.command == "build-gold":
+        return Path(args.out).parent
+    if args.command in ("panel", "ablation", "human"):
+        return Path(args.eval_dir)
+    return Path(args.run_dir)
 
 
 def main(argv=None, dotenv=True):
