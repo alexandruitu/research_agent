@@ -228,6 +228,29 @@ Limite:
   regula „fără pierderi față de llm_only” poate fi tot supra-potrivită.
 - Dacă reviewerii A și B sunt din aceeași familie de modele, kappa e umflat (corelația erorilor).
 
+### Evaluarea panelului: `panel`, `ablation`, `human`
+
+```sh
+research-eval panel --gold gold/x.json --review review.json --eval-dir evals/panel-x --sample 20 --seed 0 --mode live
+research-eval ablation evals/panel-x --eval-dir evals/abl-x            # offline; --rerun-editor costă apeluri
+research-eval human evals/panel-x --ratings human_ratings.json         # copiat în folderul eval
+research-eval report evals/panel-x                                     # metrics.json: panel (+ human)
+research-eval report evals/abl-x                                       # metrics.json: ablation
+```
+
+- `panel` (sau `--run RUN_DIR` în loc de `--gold`, fără etichete SR): eșantion determinist (seed) —
+  întâi lucrările incluse în SR (până la N/2), apoi excluse potrivite pe an/sursă; full text, toți
+  reviewerii și editorul, cu cache în `research.sqlite` din folderul eval. Folderul conține
+  `manifest.json` (configurație înghețată: hash gold, hash review.json, versiuni panel, modele,
+  versiune prompt, id-urile eșantionului), `review.json`, `panel.json`.
+- `ablation`: fiecare submulțime de revieweri (1..n) punctată în cod, comparată cu panelul complet
+  (verdict schimbat, red flags ratate, |Δscor|, cost). Costul = apeluri + caractere prompt+răspuns
+  (proxy pentru tokeni: cache-ul nu stochează usage-ul furnizorului).
+- `human`: `human_ratings.json` (`{"schema": 1, "ratings": [{paper_id, reviewer, reviewer_version,
+  item, item_text, rater, answer, quote}]}`); consens = majoritate, egalitate → unclear; ratingurile
+  pentru o formulare veche a itemului sunt ignorate (numărate ca stale).
+- AUC pentru incluse vs excluse din SR: Hanley–McNeil (fără resampling). Incluziunea în SR nu e calitate.
+
 ## Documentație consultată
 
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
