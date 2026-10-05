@@ -101,3 +101,30 @@ def drop_call(folder, role, paper_id):
         assert keys, (role, paper_id)
         connection.executemany("delete from calls where key = ?", [(k,) for k in keys])
     connection.close()
+
+
+def make_panel_eval(base, name="panel-a", reviewers=("methodologist", "clinician", "statistician"), sample=4):
+    """A finished demo panel eval (with metrics.json) under base/evals/<name>; its gold under base/gold."""
+    from eval_helpers import panel_gold, small_review
+
+    from research_agent.eval import cli
+
+    base = Path(base)
+    gold_path = base / "gold" / "panel-toy.json"
+    if not gold_path.exists():
+        write_gold(panel_gold(), gold_path)
+    review = small_review(base / f"{name}.review.json", reviewers)
+    folder = base / "evals" / name
+    args = ["panel", "--gold", str(gold_path), "--review", str(review), "--eval-dir", str(folder)]
+    assert cli.main([*args, "--sample", str(sample), "--seed", "1", "--mode", "demo"], dotenv=False) == 0
+    assert cli.main(["report", str(folder)], dotenv=False) == 0
+    return folder, gold_path
+
+
+def make_ablation_eval(base, panel_dir, name="abl-a"):
+    from research_agent.eval import cli
+
+    folder = Path(base) / "evals" / name
+    assert cli.main(["ablation", str(panel_dir), "--eval-dir", str(folder)], dotenv=False) == 0
+    assert cli.main(["report", str(folder)], dotenv=False) == 0
+    return folder

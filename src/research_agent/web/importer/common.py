@@ -31,6 +31,7 @@ class ImportResult:
     run_id: uuid.UUID
     status: str  # created | updated | unchanged
     warnings: list[str] = field(default_factory=list)
+    report_id: uuid.UUID | None = None  # eval imports: the eval report
 
 
 def file_sha256(*paths):
