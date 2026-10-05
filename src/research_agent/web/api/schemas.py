@@ -861,7 +861,7 @@ class ReviewSettingsOut(Model):
 
 
 class ProviderOut(Model):
-    provider: str  # anthropic | openai | typesafe
+    provider: str  # anthropic | openai | google_genai | typesafe
     key_present: bool
     key_accepted: bool | None  # null: not checked
 

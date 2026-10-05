@@ -276,7 +276,7 @@ def test_the_worker_records_the_key_status_and_never_a_key(world, monkeypatch, c
     monkeypatch.setenv("RESEARCH_MODEL", "anthropic:model-x")
     for name, value in SENTINELS.items():
         monkeypatch.setenv(name, value)
-    client = provider_client({"api.anthropic.com": 401})
+    client = provider_client({"api.anthropic.com": 401, "api.openai.com": 200})  # openai: a key: row
     worker = Worker(settings, factory, sleep=lambda s: None, http_client=client, key_check=True)
     worker.run_forever(stop=lambda: True)  # the check runs once at start, before the first poll
     member, _ = sign_in("member")
@@ -284,6 +284,7 @@ def test_the_worker_records_the_key_status_and_never_a_key(world, monkeypatch, c
     rows = {row["role"]: row for row in r.json()}
     assert rows["screen"]["key_present"] is True and rows["screen"]["key_accepted"] is False
     assert rows["screen"]["worker_id"] == worker.worker_id and rows["jev"]["detail"] == "not checked"
+    assert rows["key:openai"]["key_accepted"] is True and rows["key:openai"]["model"] is None
     with factory() as db:
         stored = str([tuple(row) for row in db.execute(sa.text("select * from worker_status"))])
     for value in SENTINELS.values():
@@ -301,3 +302,61 @@ def test_the_worker_survives_a_broken_key_check(world, monkeypatch, caplog):
     monkeypatch.setattr("research_agent.web.worker.check_keys", explode)
     assert Worker(settings, factory, key_check=True).check_keys() is None
     assert "key check failed" in caplog.text and sentinel not in caplog.text
+
+
+GOOGLE = "AIza-SENTINEL-google-keycheck-1234567890"
+GOOGLE_HOST = "generativelanguage.googleapis.com"
+
+
+def test_an_unused_provider_key_is_checked_once_under_a_key_row():
+    from research_agent.web.checks import check_keys
+
+    env = {
+        "RESEARCH_MODEL": "anthropic:m",
+        "ANTHROPIC_API_KEY": SENTINELS["ANTHROPIC_API_KEY"],
+        "GOOGLE_API_KEY": GOOGLE,
+    }
+    client = provider_client({"api.anthropic.com": 200, GOOGLE_HOST: 200})
+    rows = {r["role"]: r for r in check_keys(env, client)}
+    assert rows["key:google_genai"] == {
+        "role": "key:google_genai",
+        "provider": "google_genai",
+        "model": None,
+        "key_present": True,
+        "key_accepted": True,
+        "detail": "accepted",
+    }
+    assert "key:anthropic" not in rows  # a provider some role uses needs no extra row
+    google = [headers for host, headers in client.seen if host == GOOGLE_HOST]
+    assert len(google) == 1 and google[0]["x-goog-api-key"] == GOOGLE
+    assert not any(GOOGLE in str(v) for v in rows.values())
+
+
+def test_a_gemini_role_model_checks_the_google_key():
+    from research_agent.web.checks import check_keys
+
+    env = {"RESEARCH_MODEL": "google_genai:gemini-2.5-flash", "GOOGLE_API_KEY": GOOGLE}
+    client = provider_client({GOOGLE_HOST: 403})
+    rows = {r["role"]: r for r in check_keys(env, client)}
+    assert rows["screen"]["provider"] == "google_genai"
+    assert rows["screen"]["key_accepted"] is False and rows["screen"]["detail"] == "rejected (403)"
+    assert "key:google_genai" not in rows
+
+
+PROVIDER_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def test_the_google_listing_url_is_the_free_models_call():
+    from research_agent.web.checks import PROVIDERS
+
+    variable, url, headers = PROVIDERS["google_genai"]
+    assert variable == "GOOGLE_API_KEY" and url == PROVIDER_URL
+    assert headers("k") == {"x-goog-api-key": "k"}  # in a header, never in the URL
+
+
+def test_a_google_key_is_redacted(monkeypatch):
+    from research_agent.web.runner import redact, sanitize_error
+
+    monkeypatch.setenv("GOOGLE_API_KEY", GOOGLE)
+    assert GOOGLE not in redact(f"bad key {GOOGLE}")
+    assert GOOGLE not in sanitize_error(RuntimeError(f"x {GOOGLE}"))

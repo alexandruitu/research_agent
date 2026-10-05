@@ -141,8 +141,14 @@ PROVIDERS = {
         "https://api.openai.com/v1/models",
         lambda key: {"Authorization": f"Bearer {key}"},
     ),
+    "google_genai": (
+        "GOOGLE_API_KEY",
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        lambda key: {"x-goog-api-key": key},
+    ),
     "typesafe": ("TYPESAFE_API_KEY", None, None),
 }
+KEY_ROLE = "key:{}"  # worker_status row of a provider whose key is set but that no role uses
 ROLE_MODEL_VARIABLES = {
     "review_a": "RESEARCH_REVIEWER_A_MODEL",
     "review_b": "RESEARCH_REVIEWER_B_MODEL",
@@ -201,6 +207,22 @@ def check_keys(env, http_client=None):
             results[provider] = _validate(provider, key, http_client)
         accepted, detail = results[provider]
         rows.append(row | {"key_present": True, "key_accepted": accepted, "detail": detail})
+    used = {row["provider"] for row in rows}
+    for provider, (variable, url, _headers) in PROVIDERS.items():
+        key = env.get(variable) or ""
+        if provider in used or url is None or not key:
+            continue  # e.g. a Gemini key set for reviewers chosen later in the review settings
+        accepted, detail = _validate(provider, key, http_client)
+        rows.append(
+            {
+                "role": KEY_ROLE.format(provider),
+                "provider": provider,
+                "model": None,
+                "key_present": True,
+                "key_accepted": accepted,
+                "detail": detail,
+            }
+        )
     return rows
 
 

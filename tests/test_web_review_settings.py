@@ -150,3 +150,44 @@ def test_available_models_come_from_the_worker_check_and_the_settings(sign_in, d
             "in_settings": False,
         },
     ]
+
+
+def test_gemini_models_are_listed_when_the_google_key_is_accepted(sign_in, db):
+    viewer, _ = sign_in("viewer")
+    db.add(
+        WorkerStatus(
+            role="key:google_genai",
+            provider="google_genai",
+            model=None,
+            key_present=True,
+            key_accepted=True,
+            detail="accepted",
+            worker_id="w",
+        )
+    )
+    db.commit()
+    data = viewer.get(f"{API}/models/available").json()
+    assert {"provider": "google_genai", "key_present": True, "key_accepted": True} in data["providers"]
+    gemini = {m["id"]: m for m in data["models"] if m["provider"] == "google_genai"}
+    assert set(gemini) == {
+        "google_genai:gemini-2.5-pro",
+        "google_genai:gemini-2.5-flash",
+        "google_genai:gemini-3.1-pro-preview",
+    }
+    assert all(m["available"] and m["roles"] == [] and not m["in_settings"] for m in gemini.values())
+
+
+def test_gemini_models_are_not_listed_without_an_accepted_key(sign_in, db):
+    viewer, _ = sign_in("viewer")
+    db.add(
+        WorkerStatus(
+            role="key:google_genai",
+            provider="google_genai",
+            key_present=True,
+            key_accepted=False,
+            detail="rejected (403)",
+            worker_id="w",
+        )
+    )
+    db.commit()
+    assert not [m for m in viewer.get(f"{API}/models/available").json()["models"]]

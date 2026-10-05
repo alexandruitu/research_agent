@@ -351,6 +351,16 @@ def link_review(db, review, created_by=None):
 # --- models --------------------------------------------------------------------------------------------------
 
 
+# Offered once their provider's key is accepted, even when no role or setting names them yet.
+CURATED_MODELS = {
+    "google_genai": (
+        "google_genai:gemini-2.5-pro",
+        "google_genai:gemini-2.5-flash",
+        "google_genai:gemini-3.1-pro-preview",
+    ),
+}
+
+
 def provider_of(model):
     return model.split(":", 1)[0] if model and ":" in model else None
 
@@ -390,6 +400,10 @@ def available_models(db):
         version = get_reviewer_version(db, profile)
         if version is not None and version.model:
             add(version.model, in_settings=True)
+    for provider, ids in CURATED_MODELS.items():
+        if (providers.get(provider) or {}).get("key_accepted") is True:
+            for model_id in ids:
+                add(model_id)
     out = []
     for model_id in sorted(models):
         provider = provider_of(model_id)
