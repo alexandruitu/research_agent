@@ -3,7 +3,9 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { EVAL_ID, evalDetail, evalMetrics, session } from "../test/fixtures";
+import userEvent from "@testing-library/user-event";
+
+import { EVAL_ID, PANEL_ID, SAMPLE_ID, evalDetail, evalMetrics, humanDetail, panelDetail, panelMetrics, ratingSample, session } from "../test/fixtures";
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { EvalReportPage } from "./EvalReportPage";
@@ -96,5 +98,99 @@ describe("Screening report", () => {
     });
     renderWithProviders(<Routes><Route path="/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/evals/${EVAL_ID}` });
     expect(await screen.findByRole("alert")).toHaveTextContent("req-9");
+  });
+});
+
+describe("Panel report", () => {
+  const panel = (role: "viewer" | "member" | "admin" = "viewer", detail = panelDetail()) =>
+    setup(detail, role, { "GET /api/v1/rating-samples/:id": { body: ratingSample() }, "POST /api/v1/evals/:id/rating-samples": { status: 201, body: ratingSample() } });
+
+  it("shows Fleiss kappa with raw agreement and prevalence together, in words", async () => {
+    panel();
+    const summary = await screen.findByRole("region", { name: "Agreement at a glance" });
+    expect(summary).toHaveTextContent("Fleiss kappa 0.42");
+    expect(summary).toHaveTextContent("moderate");
+    expect(summary).toHaveTextContent("73% raw agreement");
+    expect(summary).toHaveTextContent("80% prevalence");
+    expect(summary).toHaveTextContent("Editor agrees with the majority on 90% (9 of 10)");
+    expect(screen.getByText(/kappa corrects for chance/i)).toBeInTheDocument();
+  });
+
+  it("ranks items worst-first with the text and a reword chip", async () => {
+    panel();
+    const table = await screen.findByRole("table", { name: "Agreement per checklist item" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("Was the test set split by patient?");
+    expect(rows[0]).toHaveTextContent("candidate to reword");
+    expect(rows[0]).toHaveTextContent("80% not answered");
+    expect(rows[1]).not.toHaveTextContent("candidate to reword");
+  });
+
+  it("coverage says answered shares in numbers and words, full text apart from abstracts", async () => {
+    panel();
+    const table = await screen.findByRole("table", { name: "Coverage: answered per reviewer and item" });
+    const row = within(table).getByRole("row", { name: /Statistician/ });
+    expect(row).toHaveTextContent("33% answered (2 of 6)");
+    expect(row).toHaveTextContent("0% answered (0 of 4)");
+    expect(within(table).getByRole("row", { name: /Methodologist/ })).toHaveTextContent("no papers");
+  });
+
+  it("lists the widest score spreads, linking to the papers", async () => {
+    panel();
+    const list = await screen.findByRole("list", { name: "Score dispersion" });
+    expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent("spread 50 points");
+    expect(within(list).getByRole("link", { name: /Change in CT-Derived FFR/ })).toHaveAttribute("href", "https://europepmc.org/article/MED/35097009");
+  });
+
+  it("states the AUC with its interval and that inclusion is not quality", async () => {
+    panel();
+    const auc = await screen.findByRole("region", { name: "Against SR inclusion" });
+    expect(auc).toHaveTextContent("AUC 0.71 (95% CI 0.48–0.94)");
+    expect(auc).toHaveTextContent("Inclusion ≠ quality");
+  });
+
+  it("explains one model family and links to AI models to mix Claude and Gemini", async () => {
+    panel();
+    const fam = await screen.findByRole("region", { name: "Model families" });
+    expect(fam).toHaveTextContent("All reviewers use one model family (anthropic)");
+    expect(within(fam).getByRole("link", { name: /Settings → AI models/ })).toHaveAttribute("href", "/settings/models");
+  });
+
+  it("shows rating samples with progress, and admins can create one", async () => {
+    const { calls } = panel("admin");
+    const ratings = await screen.findByRole("region", { name: "Human reference ratings" });
+    expect(await within(ratings).findByText(/1 of 2 papers have 2 raters/)).toBeInTheDocument();
+    expect(within(ratings).getByRole("link", { name: /Rate papers/ })).toHaveAttribute("href", `/rate/${SAMPLE_ID}`);
+    await userEvent.click(within(ratings).getByRole("button", { name: "Create rating sample" }));
+    expect(calls.find((c) => c.method === "POST")).toMatchObject({ path: `/api/v1/evals/${PANEL_ID}/rating-samples`, body: { size: 20, seed: 0 } });
+  });
+
+  it("members cannot create samples", async () => {
+    panel("member");
+    await screen.findByRole("region", { name: "Human reference ratings" });
+    expect(screen.queryByRole("button", { name: "Create rating sample" })).not.toBeInTheDocument();
+  });
+
+  it("two families: agreement split by family", async () => {
+    const metrics = panelMetrics();
+    const families = { providers: {}, single_family: false, families: { anthropic: { reviewers: ["methodologist"], fleiss: null, pairwise: {}, reason: "one reviewer" }, google_genai: { reviewers: ["statistician", "clinician"], fleiss: { kappa: 0.3 }, pairwise: {}, reason: null } }, between: {} };
+    panel("viewer", panelDetail({ metrics: { ...metrics, panel: { ...metrics.panel, model_families: families } } }));
+    const fam = await screen.findByRole("region", { name: "Model families" });
+    expect(fam).toHaveTextContent("google_genai");
+    expect(fam).toHaveTextContent("0.30");
+  });
+});
+
+describe("Human reference report", () => {
+  it("leads with panel vs human accuracy and kappa per reviewer and item, and Spearman", async () => {
+    setup(humanDetail(), "viewer", { "GET /api/v1/rating-samples/:id": { body: ratingSample() } });
+    const human = await screen.findByRole("region", { name: "Against human ratings" });
+    expect(human).toHaveTextContent("75% (30 of 40)");
+    expect(human).toHaveTextContent("2 raters");
+    expect(human).toHaveTextContent("85% (34 of 40)");
+    const reviewers = within(human).getByRole("table", { name: "Panel vs humans per reviewer" });
+    expect(within(reviewers).getByRole("row", { name: /Methodologist/ })).toHaveTextContent("0.55");
+    expect(within(human).getByRole("table", { name: "Panel vs humans per item" })).toHaveTextContent("Was the test set split by patient?");
+    expect(human).toHaveTextContent("Spearman 0.80");
   });
 });

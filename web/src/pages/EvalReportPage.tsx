@@ -6,6 +6,7 @@ import type { EvalDetailOut } from "../api/types";
 import { Skeleton } from "../components/ui/Skeleton";
 import { reportTitle } from "../features/evals/headline";
 import { Chips, KindBadge } from "../features/evals/KindBadge";
+import { PanelReport } from "../features/evals/PanelReport";
 import { ScreeningReport } from "../features/evals/ScreeningReport";
 import { KIND_LABEL, KIND_WHAT, dateText, kindOf } from "../features/evals/words";
 
@@ -13,6 +14,9 @@ function Body({ detail }: { detail: EvalDetailOut }) {
   switch (kindOf(detail.kind)) {
     case "screening":
       return <ScreeningReport detail={detail} />;
+    case "panel":
+    case "human":
+      return <PanelReport detail={detail} />;
     default:
       return <p>This report kind cannot be shown yet.</p>;
   }
