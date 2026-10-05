@@ -47,7 +47,11 @@ test.describe("viewer", () => {
 
   test("evals", async ({ page }) => {
     await page.goto("/evals");
+    await page.getByRole("article", { name: /^Screening/ }).first().getByRole("link", { name: /Open report/ }).click();
     await expect(page.getByRole("table", { name: "Threshold grid" })).toBeVisible();
+    await page.goto("/evals");
+    await audit(page);
+    await page.goBack();
     await audit(page);
   });
 

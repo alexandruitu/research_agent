@@ -1,38 +1,43 @@
 import { screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { EVAL_ID, evalDetail, evalMetrics, evalSummary, session } from "../test/fixtures";
-import { mockApi } from "../test/mockApi";
+import { EVAL_ID, evalDetail, evalMetrics, session } from "../test/fixtures";
+import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
-import { EvalsPage } from "./EvalsPage";
+import { EvalReportPage } from "./EvalReportPage";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   setCsrfToken(null);
 });
 
-function setup(detail = evalDetail(), summaries = [evalSummary()]) {
+function setup(detail = evalDetail(), role: "viewer" | "member" | "admin" = "viewer", extra: Record<string, MockHandler> = {}) {
   const api = mockApi({
-    "GET /api/v1/auth/me": { body: session("viewer") },
-    "GET /api/v1/evals": { body: summaries },
+    "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/evals/:id": { body: detail },
+    ...extra,
   });
-  renderWithProviders(<Routes><Route path="/evals" element={<EvalsPage />} /><Route path="/evals/:evalId" element={<EvalsPage />} /></Routes>, { route: "/evals" });
+  renderWithProviders(<Routes><Route path="/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/evals/${detail.id}` });
   return api;
 }
 
-describe("EvalsPage", () => {
-  it("opens the newest eval set and shows the summary cards with the exact numbers", async () => {
+describe("Screening report", () => {
+  it("opens the report and shows the summary cards with the exact numbers", async () => {
     setup();
-    expect(await screen.findByRole("heading", { name: /mlffrct-2024/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: /mlffrct-2024/ })).toBeInTheDocument();
     const cards = screen.getByRole("region", { name: "Summary" });
     expect(within(cards).getByText("15/16 (95% CI 0.72–0.99)", { exact: false })).toBeInTheDocument();
     expect(within(cards).getByText("include ≥ 0.1, exclude ≥ 0.7")).toBeInTheDocument();
     expect(within(cards).getByText("0.945")).toBeInTheDocument();
     expect(within(cards).getByText("same model family")).toBeInTheDocument();
+  });
+
+  it("names the kind in words and links back to all evaluations", async () => {
+    setup();
+    expect(await screen.findByRole("heading", { level: 1, name: /Screening/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← All evaluations" })).toHaveAttribute("href", "/evals");
   });
 
   it("shows recall for the three strategies with intervals", async () => {
@@ -84,27 +89,12 @@ describe("EvalsPage", () => {
     expect(screen.getByText("No admissible pair")).toBeInTheDocument();
   });
 
-  it("switches between eval sets", async () => {
-    const second = evalSummary({ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", gold_set: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "aiffr-slr-2023", citation: "Other 2023" } });
-    const { calls } = setup(evalDetail(), [evalSummary(), second]);
-    await screen.findByRole("heading", { name: /mlffrct-2024/ });
-    await userEvent.selectOptions(screen.getByLabelText("Eval set"), second.id);
-    expect(calls.some((c) => c.path === `/api/v1/evals/${second.id}`)).toBe(true);
-    expect(calls.some((c) => c.path === `/api/v1/evals/${EVAL_ID}`)).toBe(true);
-  });
-
-  it("says so when there are no eval reports", async () => {
-    setup(evalDetail(), []);
-    expect(await screen.findByText(/No eval reports yet/)).toBeInTheDocument();
-  });
-
   it("shows the request id when the report cannot be loaded", async () => {
     mockApi({
       "GET /api/v1/auth/me": { body: session("viewer") },
-      "GET /api/v1/evals": { body: [evalSummary()] },
       "GET /api/v1/evals/:id": { status: 500, body: { code: "internal_error", message: "Unexpected error", request_id: "req-9" } },
     });
-    renderWithProviders(<Routes><Route path="/evals" element={<EvalsPage />} /></Routes>, { route: "/evals" });
+    renderWithProviders(<Routes><Route path="/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/evals/${EVAL_ID}` });
     expect(await screen.findByRole("alert")).toHaveTextContent("req-9");
   });
 });

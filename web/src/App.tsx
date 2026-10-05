@@ -9,7 +9,8 @@ import { ReviewerEditorPage } from "./features/settings/ReviewerEditor";
 import { ReviewersTab } from "./features/settings/ReviewersTab";
 import { ScreeningTab } from "./features/settings/ScreeningTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
-import { EvalsPage } from "./pages/EvalsPage";
+import { EvalReportPage } from "./pages/EvalReportPage";
+import { EvalsHomePage } from "./pages/EvalsHomePage";
 import { FieldEditorPage } from "./pages/FieldEditorPage";
 import { FieldsPage } from "./pages/FieldsPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -35,8 +36,8 @@ export function App() {
               <Route path="/fields/new" element={<FieldEditorPage />} />
             </Route>
             <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
-            <Route path="/evals" element={<EvalsPage />} />
-            <Route path="/evals/:evalId" element={<EvalsPage />} />
+            <Route path="/evals" element={<EvalsHomePage />} />
+            <Route path="/evals/:evalId" element={<EvalReportPage />} />
             <Route path="/system" element={<SystemMapPage />} />
             <Route path="/settings" element={<SettingsPage />}>
               <Route index element={<Navigate to="sources" replace />} />

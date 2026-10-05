@@ -74,6 +74,7 @@ test.describe("viewer", () => {
 
   test("Evals: the threshold grid outlines the shipped default", async ({ page }) => {
     await page.goto("/evals");
+    await page.getByRole("article", { name: /^Screening/ }).first().getByRole("link", { name: /Open report/ }).click();
     await expect(page.getByRole("region", { name: "Summary" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Threshold grid" })).toBeVisible();
     await expect(page.locator("table[aria-label='Threshold grid'] td.is-default")).toHaveCount(1);
