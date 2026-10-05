@@ -108,3 +108,90 @@ def jev_criteria_client(probability):
     client = httpx.Client(transport=httpx.MockTransport(handler))
     client.calls = calls
     return client
+
+
+def panel_gold(n=10, positive_ids=(1, 2, 3), name="panel-toy"):
+    """Gold set whose years alternate 2023/2024, for matched sampling."""
+    gold = make_gold(n=n, positive_ids=positive_ids, name=name)
+    for c in gold.candidates:
+        c.year = "2023" if int(c.id.split(":")[1]) % 2 else "2024"
+    return gold
+
+
+def small_review(path, reviewers=("methodologist", "statistician")):
+    """A review.json with two or three short reviewers; the 'shared' item lets item agreement be defined."""
+    import json
+
+    panel = [
+        {
+            "key": key,
+            "name": key.title(),
+            "version": 1,
+            "perspective": f"You review as the {key} of the panel.",
+            "items": [
+                {"key": "shared", "text": "The data split is described.", "weight": 2},
+                {"key": f"{key[0]}1", "text": f"{key} item one.", "red_flag_if": "no"},
+            ],
+        }
+        for key in reviewers
+    ]
+    review = {"schema": 1, "panel": panel, "editor": {"instructions": "Decide."}, "fulltext": {"sources": []}}
+    path.write_text(json.dumps(review))
+    return path
+
+
+class PanelStub(Evaluator):
+    """Demo evaluator with paper-dependent panel answers: positives (title 'Paper N' with N in `positives`)
+    get 'yes' answers and an include verdict, the rest 'no' and exclude; `contrarian` flips its verdict and
+    answers 'not_reported' on its own item; counts calls per role."""
+
+    def __init__(self, store, positives=(1, 2, 3), contrarian="statistician", **kwargs):
+        super().__init__(store, **kwargs)
+        self.positives, self.contrarian, self.calls = set(positives), contrarian, {}
+
+    def _demo(self, role, payload):
+        from research_agent.schemas import EditorDecision, ItemAnswer, PanelReview
+
+        self.calls[role] = self.calls.get(role, 0) + 1
+        index = int(re.search(r"Paper (\d+) title", payload["paper"]["title"]).group(1))
+        good = index in self.positives
+        if role.startswith("review:"):
+            content = payload["text"]["content"]
+            first, last = content.split(". ")[0] + ".", content.split(". ")[-1]
+            own = role == f"review:{self.contrarian}"
+            answers = [
+                ItemAnswer(key=i["key"], answer="not_reported", quote="", section="")
+                if own and i["key"] != "shared"
+                else ItemAnswer(
+                    key=i["key"], answer="yes" if good else "no", quote=first if good else last, section=""
+                )
+                for i in payload["items"]
+            ]
+            verdict = ("exclude" if good else "include") if own else ("include" if good else "exclude")
+            return PanelReview(
+                answers=answers, verdict=verdict, strengths=["s"], weaknesses=["w"], summary="stub"
+            )
+        if role == "editor":
+            return EditorDecision(
+                verdict="include" if good else "exclude", reason=f"{len(payload['reviews'])} reviews"
+            )
+        return super()._demo(role, payload)
+
+
+class FakeFulltext:
+    """Full text for chosen paper ids (text_source 'pmc_oa'), the abstract for the rest."""
+
+    def __init__(self, ids=()):
+        self.ids = set(ids)
+
+    def resolve(self, paper):
+        source = "pmc_oa" if paper["id"] in self.ids else "abstract"
+        return {
+            "text_source": source,
+            "content": paper["abstract"],
+            "sections": [],
+            "truncated": False,
+            "origin": None,
+            "reason": None,
+            "text_licence": source,
+        }
