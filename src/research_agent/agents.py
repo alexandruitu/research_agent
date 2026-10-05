@@ -170,7 +170,8 @@ class Evaluator:
                 max_tokens=6000 if is_panel(role) else 2500,
             )
             # Native constrained decoding: schema-valid by construction (forced tool calling drifted on
-            # nested fields, and is unsupported on some newer Claude models).
+            # nested fields, and is unsupported on some newer Claude models). Gemini (google_genai:*) takes the
+            # same path: langchain-google-genai's json_schema is its native response schema.
             structured = llm.with_structured_output(schema, method="json_schema")
             messages = [("system", system + "\n" + instruction), ("human", canonical_json(payload))]
             for attempt in range(SCHEMA_ATTEMPTS):
