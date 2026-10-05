@@ -25,3 +25,13 @@ export function modelOptions(models: AvailableModelOut[], current: string | null
   }
   return options;
 }
+
+const PROVIDER_NAME: Record<string, string> = { google_genai: "Gemini", anthropic: "Claude", openai: "GPT" };
+
+/** What to do about a one-family panel: name an available model from another provider, or say how to get one. */
+export function familyAdvice(family: string, models: AvailableModelOut[], reviewerName: string): string {
+  const other = models.filter((m) => m.available && providerOf(m.id) !== family).sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (!other) return "No other provider is available yet: add a GOOGLE_API_KEY to the worker to offer Gemini models here.";
+  const provider = providerOf(other.id) ?? "";
+  return `Mix families: for example, make ${reviewerName} use ${other.id}${PROVIDER_NAME[provider] ? ` (${PROVIDER_NAME[provider]})` : ""}.`;
+}

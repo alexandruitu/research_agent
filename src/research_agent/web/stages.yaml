@@ -37,7 +37,7 @@ stages:
     headline: "{agreement.n} papers, quotes verified"
     data_link: papers
   - id: reviewers
-    title: Reviewers A and B  # kept: the frontend e2e names it; the frontend plan may rename it to "Reviewers"
+    title: Review panel
     summary: A panel of independent reviewers answers a checklist per paper; an editor synthesizes. Older runs used two reviewers (A supportive, B critical).
     limits: Agreement among reviewers of one model family overstates independence; correctness needs human reference ratings.
     alternatives:  # the newest panel evaluation, when there is one

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { modelsAvailable } from "../../test/fixtures";
-import { modelOptions, providerOf, sharedFamily } from "./models";
+import { familyAdvice, modelOptions, providerOf, sharedFamily } from "./models";
 
 describe("model choices", () => {
   it("reads the provider from the id", () => {
@@ -22,5 +22,15 @@ describe("model choices", () => {
     expect(options.map((o) => o.label)).toEqual(["anthropic:claude-opus-5-5", "anthropic:claude-sonnet-5", "openai:gpt-6 (key not accepted)"]);
     expect(modelOptions(modelsAvailable().models, "mistral:x").at(-1)).toEqual({ id: "mistral:x", label: "mistral:x (not configured in the worker)", available: false });
     expect(modelOptions(modelsAvailable().models, null).map((o) => o.id)).toEqual(["anthropic:claude-opus-5-5", "anthropic:claude-sonnet-5"]);
+  });
+
+  it("advises mixing families with a concrete model when another provider is available", () => {
+    const gemini = { id: "google_genai:gemini-2.5-pro", provider: "google_genai", available: true, roles: [], in_settings: false };
+    expect(familyAdvice("anthropic", [...modelsAvailable().models, gemini], "Statistician")).toBe(
+      "Mix families: for example, make Statistician use google_genai:gemini-2.5-pro (Gemini).",
+    );
+    expect(familyAdvice("anthropic", modelsAvailable().models.filter((m) => m.provider === "anthropic"), "Statistician")).toBe(
+      "No other provider is available yet: add a GOOGLE_API_KEY to the worker to offer Gemini models here.",
+    );
   });
 });

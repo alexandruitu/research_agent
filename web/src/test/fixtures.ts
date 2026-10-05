@@ -35,7 +35,7 @@ export const STAGES: StageOut[] = [
   stage("dedup", "Deduplicate", "unmeasured"),
   stage("screen", "Screen", "measured", "recall 15/16", { data_link: "papers", summary: "Jev decides when confident; Claude screens the rest.", limits: "Abstract only." }),
   stage("extract", "Extract", "measured", "36 papers, quotes verified", { data_link: "papers" }),
-  stage("reviewers", "Reviewers A and B", "caveat", "kappa 0.94", { caveat: "one model family", data_link: "evals" }),
+  stage("reviewers", "Review panel", "caveat", "kappa 0.94", { caveat: "one model family", data_link: "evals" }),
   stage("adjudicate", "Adjudicate", "measured", "fired 1 of 36", { data_link: "papers" }),
   stage("rank", "Rank", "unmeasured", null, { data_link: "papers" }),
 ];

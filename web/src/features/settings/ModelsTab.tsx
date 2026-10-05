@@ -5,7 +5,7 @@ import { useModelsAvailable, useReviewers, useSaveReviewer, useWorkers } from ".
 import { hasRole, type AvailableModelOut, type ReviewerOut, type ReviewSettingsOut, type RoleModelsIO, type WorkerStatusOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { useReportDirty } from "./dirtyGuard";
-import { modelOptions, sharedFamily } from "./models";
+import { familyAdvice, modelOptions, sharedFamily } from "./models";
 import { withModel } from "./reviewerForm";
 import { SettingsFrame } from "./SettingsFrame";
 import { errorText, useSettingsSave } from "./useSettingsSave";
@@ -137,7 +137,8 @@ function ModelsForm({ data, panel, models, admin, saver }: { data: ReviewSetting
       </table>
       {family && (
         <p className="chip chip--warn family-warning" role="note">
-          ⚠ All reviewers use one model family ({family}): their mistakes may agree. Independent reviewers are stronger with models from different providers.
+          ⚠ All reviewers use one model family ({family}): their mistakes may agree. Independent reviewers are stronger with models from different providers.{" "}
+          {familyAdvice(family, models, (panel.find((r) => /statistic/i.test(r.current.name)) ?? panel[panel.length - 1])?.current.name ?? "one reviewer")}
         </p>
       )}
     </SettingsFrame>

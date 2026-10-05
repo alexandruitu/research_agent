@@ -305,10 +305,20 @@ describe("Settings → AI models (choices)", () => {
     const { calls } = setup("admin", "/settings/models", { "POST /api/v1/reviewers/statistician/versions": { status: 201, body: reviewerRows()[2] } });
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Model for Statistician" }), "anthropic:claude-sonnet-5");
     expect(screen.getByRole("note")).toHaveTextContent("All reviewers use one model family (anthropic)");
+    expect(screen.getByRole("note")).toHaveTextContent("add a GOOGLE_API_KEY");
     expect(screen.getByText(/also creates a new version of Statistician/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save as v4" }));
     await waitFor(() => expect(calls.find((c) => c.path === "/api/v1/reviewers/statistician/versions")?.body).toMatchObject({ model: "anthropic:claude-sonnet-5", base_version: 2, name: "Statistician" }));
     expect(posted(calls)).toBeUndefined();
+  });
+
+  it("offers Gemini models once the Google key is accepted, and the warning names one to mix in", async () => {
+    const gemini = { id: "google_genai:gemini-2.5-pro", provider: "google_genai", available: true, roles: [], in_settings: false };
+    setup("admin", "/settings/models", { "GET /api/v1/models/available": { body: { ...modelsAvailable(), models: [...modelsAvailable().models, gemini] } } });
+    const stat = await screen.findByRole("combobox", { name: "Model for Statistician" });
+    expect(within(stat).getByRole("option", { name: "google_genai:gemini-2.5-pro" })).toBeInTheDocument();
+    await userEvent.selectOptions(stat, "anthropic:claude-sonnet-5");
+    expect(screen.getByRole("note")).toHaveTextContent("make Statistician use google_genai:gemini-2.5-pro (Gemini)");
   });
 
   it("saves pipeline and editor models as a settings version", async () => {

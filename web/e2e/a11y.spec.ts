@@ -57,7 +57,7 @@ test.describe("viewer", () => {
 
   test("system map with a panel", async ({ page }) => {
     await page.goto("/system?stage=reviewers");
-    await expect(page.getByRole("complementary", { name: "About Reviewers A and B" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "About Review panel" })).toBeVisible();
     await audit(page);
   });
 });

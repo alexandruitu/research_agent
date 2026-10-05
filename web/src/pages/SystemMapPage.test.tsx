@@ -31,8 +31,8 @@ describe("SystemMapPage", () => {
     const box = (title: string) => within(list).getByRole("button", { name: new RegExp(`^${title}`) });
     expect(box("Search")).toHaveAttribute("data-status", "measured");
     expect(box("Search")).toHaveTextContent("recall 15/16");
-    expect(box("Reviewers A and B")).toHaveAttribute("data-status", "caveat");
-    expect(box("Reviewers A and B")).toHaveTextContent("one model family");
+    expect(box("Review panel")).toHaveAttribute("data-status", "caveat");
+    expect(box("Review panel")).toHaveTextContent("one model family");
     expect(box("Rank")).toHaveAttribute("data-status", "unmeasured");
     expect(box("Rank")).toHaveTextContent("not measured");
     expect(box("Topic")).toHaveAttribute("data-status", "input");
@@ -50,7 +50,7 @@ describe("SystemMapPage", () => {
 
   it("opens straight to a stage from the URL and closes it again", async () => {
     setup("/system?stage=reviewers");
-    const panel = await screen.findByRole("complementary", { name: "About Reviewers A and B" });
+    const panel = await screen.findByRole("complementary", { name: "About Review panel" });
     expect(within(panel).getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/evals");
     await userEvent.click(within(panel).getByRole("button", { name: "Close stage details" }));
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();

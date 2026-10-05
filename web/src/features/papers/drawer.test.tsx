@@ -154,7 +154,7 @@ describe("stage panel", () => {
   it("shows what a stage does, its status and its limits, and links to the eval data", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("viewer") } });
     renderWithProviders(<StagePanel stage={STAGES.find((s) => s.id === "reviewers")!} onClose={() => undefined} />);
-    expect(screen.getByRole("heading", { name: "Reviewers A and B" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review panel" })).toBeInTheDocument();
     expect(screen.getByText("caveat: one model family")).toBeInTheDocument();
     expect(screen.getByText(/limits\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/evals");
