@@ -121,6 +121,12 @@ class GoldSet(Base):
     name: Mapped[str] = mapped_column(String(200), unique=True)
     citation: Mapped[str] = mapped_column(Text)
     sha256: Mapped[str] = mapped_column(String(64))
+    path: Mapped[str | None] = mapped_column(Text, nullable=True)  # the frozen gold file (built in the app)
+    candidates: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    positives: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unresolved: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # the SR spec it was built from
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = created()
 
 
@@ -227,12 +233,56 @@ class GoldLabel(Base):
 
 
 class EvalReport(Base):
+    """One immutable evaluation report. kind: screening | panel | ablation | human."""
+
     __tablename__ = "eval_reports"
     id: Mapped[uuid.UUID] = pk()
-    gold_set_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("gold_sets.id"))
+    kind: Mapped[str] = mapped_column(String(16), server_default="screening")
+    gold_set_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("gold_sets.id"), nullable=True)
     run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("runs.id", ondelete="CASCADE"), unique=True)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("eval_reports.id", ondelete="SET NULL"), nullable=True
+    )  # ablation and human reports: the panel report they were computed from
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # frozen config
     metrics: Mapped[dict] = mapped_column(JSONB)
     agreement: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class RatingSample(Base):
+    """Papers of a panel eval chosen for human reference ratings (stratified by panel score)."""
+
+    __tablename__ = "rating_samples"
+    id: Mapped[uuid.UUID] = pk()
+    eval_report_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("eval_reports.id", ondelete="CASCADE"), index=True
+    )
+    folder: Mapped[str] = mapped_column(Text)  # the panel eval folder
+    size: Mapped[int] = mapped_column(Integer)
+    seed: Mapped[int] = mapped_column(Integer)
+    paper_ids: Mapped[list] = mapped_column(JSONB)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class HumanRatingRow(Base):
+    """One rater's answer to one checklist item of one paper, with the item wording it answered."""
+
+    __tablename__ = "human_ratings"
+    __table_args__ = (UniqueConstraint("sample_id", "paper_id", "rater_id", "reviewer", "item"),)
+    id: Mapped[uuid.UUID] = pk()
+    sample_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("rating_samples.id", ondelete="CASCADE"), index=True
+    )
+    paper_id: Mapped[str] = mapped_column(String(200))  # the eval's paper id (e.g. MED:123)
+    rater_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewer: Mapped[str] = mapped_column(String(64))
+    reviewer_version: Mapped[int] = mapped_column(Integer)
+    item: Mapped[str] = mapped_column(String(64))
+    item_text: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(String(16))  # yes | no | unclear | not_reported
+    quote: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = created()
 
 

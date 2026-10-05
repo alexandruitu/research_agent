@@ -40,6 +40,8 @@ TABLES = {
     "paper_reviews",
     "panel_reports",
     "red_flags",
+    "rating_samples",
+    "human_ratings",
 }
 
 
