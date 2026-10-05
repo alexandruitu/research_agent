@@ -52,7 +52,9 @@ def import_eval_run(
     try:
         manifest_kind = json.loads(manifest_path.read_text()).get("kind")
     except (OSError, ValueError) as exc:
-        raise ImportFailed(f"{folder}: cannot read the eval run (manifest.json: {type(exc).__name__})") from exc
+        raise ImportFailed(
+            f"{folder}: cannot read the eval run (manifest.json: {type(exc).__name__})"
+        ) from exc
     if manifest_kind in EVAL_KINDS:
         return _import_eval_kind(
             db, folder, created_by, gold_dir, kind=kind, parent_id=parent_id, extra_config=extra_config

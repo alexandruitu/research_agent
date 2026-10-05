@@ -11,6 +11,7 @@ from .routers import (
     evals,
     fields,
     files,
+    gold_sets,
     health,
     imports,
     jobs,
@@ -40,6 +41,20 @@ def create_app(settings=None, session_factory=None):
     install_error_handlers(app)
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(users.router, prefix=API_PREFIX)
-    for module in (admin, review, fields, runs, papers, files, library, stages, evals, jobs, imports, health):
+    for module in (
+        admin,
+        review,
+        fields,
+        runs,
+        papers,
+        files,
+        library,
+        stages,
+        evals,
+        gold_sets,
+        jobs,
+        imports,
+        health,
+    ):
         app.include_router(module.router, prefix=API_PREFIX)
     return app

@@ -378,9 +378,18 @@ class StageOut(Model):
 
 
 class GoldSetOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["candidates", "positives", "unresolved", "built_in_app", "usable", "created_at"]
+    )
     id: uuid.UUID
     name: str
     citation: str
+    candidates: int | None = None  # null: imported with a screening eval, counts not stored
+    positives: int | None = None
+    unresolved: int | None = None  # SR-included studies not resolved (or ambiguous)
+    built_in_app: bool = False
+    usable: bool = False  # its gold file is on the server and unchanged: can start an evaluation
+    created_at: datetime | None = None
 
 
 class Ratio(Model):
@@ -393,30 +402,264 @@ class Recommended(Model):
     exclude_min_confidence: float
 
 
+EvalKind = Literal["screening", "panel", "ablation", "human"]
+
+
 class EvalHeadline(Model):
+    """Two or three numbers per kind; every field is null when it does not apply or was not measured."""
+
+    ADDED: ClassVar[frozenset] = frozenset(
+        [
+            "papers",
+            "reviewers",
+            "fleiss_kappa",
+            "raw_agreement",
+            "editor_vs_majority",
+            "sr_auc",
+            "summary",
+            "verdict_changed",
+            "red_flags_added",
+            "cost_increase",
+            "human_accuracy",
+            "human_kappa",
+            "human_raters",
+            "human_units",
+            "spearman",
+        ]
+    )
     retrieval_recall: Ratio | None
     cascade_recall: Ratio | None
     recommended: Recommended | None
     kappa: float | None
-    same_family: bool | None
+    same_family: bool | None  # screening: reviewers A/B; panel/human: all reviewers on one provider
     screened: int | None
+    papers: int | None = None  # panel/human/ablation: papers evaluated
+    reviewers: int | None = None
+    fleiss_kappa: float | None = None
+    raw_agreement: float | None = None
+    editor_vs_majority: float | None = None
+    sr_auc: float | None = None
+    summary: str | None = None  # ablation: "A third reviewer changed ..."
+    verdict_changed: float | None = None
+    red_flags_added: float | None = None
+    cost_increase: float | None = None
+    human_accuracy: float | None = None
+    human_kappa: float | None = None
+    human_raters: int | None = None
+    human_units: int | None = None
+    spearman: float | None = None
 
 
 class EvalSummaryOut(Model):
-    id: uuid.UUID
-    gold_set: GoldSetOut
-    run_id: uuid.UUID
+    """A finished report (status done), or an evaluation still queued/running/failed (id null, job set)."""
+
+    ADDED: ClassVar[frozenset] = frozenset(["kind", "status", "parent_id", "chips", "job"])
+    id: uuid.UUID | None
+    gold_set: GoldSetOut | None
+    run_id: uuid.UUID | None
     created_at: datetime
     headline: EvalHeadline
+    kind: EvalKind = "screening"
+    status: Literal["queued", "running", "done", "failed"] = "done"
+    parent_id: uuid.UUID | None = None
+    chips: list[str] = []  # config summary, e.g. ["gold panel-toy", "3 reviewers", "n=20"]
+    job: "JobOut | None" = None
 
 
 class EvalDetailOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["kind", "parent_id", "config", "chips", "headline", "children", "rating_sample_ids"]
+    )
     id: uuid.UUID
-    gold_set: GoldSetOut
+    gold_set: GoldSetOut | None
     run_id: uuid.UUID
     created_at: datetime
     metrics: dict[str, Any]
     agreement: dict[str, Any] | None
+    kind: EvalKind = "screening"
+    parent_id: uuid.UUID | None = None
+    config: dict[str, Any] = {}  # frozen config (server paths reduced to file names)
+    chips: list[str] = []
+    headline: EvalHeadline | None = None
+    children: list["EvalChildOut"] = []  # ablation/human reports computed from this one
+    rating_sample_ids: list[uuid.UUID] = []
+
+
+class EvalChildOut(Model):
+    id: uuid.UUID
+    kind: EvalKind
+    created_at: datetime
+
+
+class EvalRequest(Model):
+    """Inputs per kind (others ignored): screening: gold_set_id (+ field_version_id); panel: gold_set_id xor
+    run_id, settings_version_id (default: current), sample, seed; ablation: panel_eval_id, rerun_editor;
+    human: rating_sample_id."""
+
+    kind: EvalKind
+    mode: Literal["live", "demo"] = "live"
+    gold_set_id: uuid.UUID | None = None
+    run_id: uuid.UUID | None = None
+    field_version_id: uuid.UUID | None = None
+    settings_version_id: uuid.UUID | None = None
+    sample: int = Field(20, ge=1, le=100)
+    seed: int = Field(0, ge=0, le=2**31 - 1)
+    panel_eval_id: uuid.UUID | None = None
+    rerun_editor: bool = False
+    rating_sample_id: uuid.UUID | None = None
+
+
+class EstimateLine(Model):
+    role: str  # screen | jev | review:<key> | editor
+    model: str | None
+    calls: int
+    input_chars: int
+    output_tokens: int
+    cost_usd: float | None  # null: no price known for this model
+
+
+class EstimateOut(Model):
+    kind: EvalKind
+    calls: int  # an upper bound: calls already in a cache cost nothing
+    input_chars: int
+    input_tokens: int  # chars / 4
+    output_tokens: int
+    cost_usd: float | None  # null when any line has no known price
+    lines: list[EstimateLine]
+    notes: list[str]
+
+
+class CompareRow(Model):
+    section: str
+    key: str
+    label: str
+    values: list[float | int | str | bool | None]  # one per report, in the order of `ids`
+    differs: bool
+
+
+class CompareOut(Model):
+    family: Literal["screening", "panel", "ablation"]
+    reports: list[EvalSummaryOut]
+    metrics: list[CompareRow]
+    config: list[CompareRow]
+
+
+class GoldStudyIn(Model):
+    doi: str = Field("", max_length=200)
+    title: str = Field("", max_length=1000)
+    year: str = Field("", max_length=8)
+
+
+class GoldSetRequest(Model):
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$", max_length=120)
+    citation: str = Field(min_length=3, max_length=1000)
+    topic: str = Field(min_length=3, max_length=500)
+    query: str = Field(min_length=3, max_length=2000)  # the Europe PMC query the SR's search is rebuilt with
+    included: list[GoldStudyIn] = Field(min_length=1, max_length=500)  # the SR's included studies
+    sr_reference: str | None = Field(None, max_length=200)  # the SR's own DOI or PMID (recorded only)
+    max_candidates: int = Field(200, ge=10, le=1000)
+
+
+class RatingSampleRequest(Model):
+    size: int = Field(20, ge=1, le=200)
+    seed: int = Field(0, ge=0, le=2**31 - 1)
+
+
+class RatingPaperProgress(Model):
+    paper_id: str
+    title: str
+    score: float | None
+    raters: int
+    rated_by_me: bool
+
+
+class RatingSampleOut(Model):
+    id: uuid.UUID
+    eval_id: uuid.UUID
+    size: int
+    seed: int
+    created_at: datetime
+    raters_needed: int  # per paper, recommended
+    papers: list[RatingPaperProgress]
+    complete_papers: int  # papers with >= raters_needed raters
+    my_rated: int
+    latest_human_eval_id: uuid.UUID | None
+
+
+class RatingItemOut(Model):
+    key: str
+    text: str
+
+
+class RatingReviewerOut(Model):
+    key: str
+    name: str
+    version: int
+    items: list[RatingItemOut]
+
+
+class RatingTextOut(Model):
+    source: str  # the text the panel reviewed: a full-text source or "abstract"
+    content: str
+    chars: int
+
+
+class RatingPaperOut(Model):
+    paper_id: str
+    title: str
+    year: str
+    text: RatingTextOut
+
+
+class RatingNextOut(Model):
+    """The next paper for this rater. Never carries a model's answer (blind rating)."""
+
+    done: bool
+    paper: RatingPaperOut | None
+    reviewers: list[RatingReviewerOut]
+    position: int  # papers this user has rated so far
+    total: int
+
+
+class RatingAnswerIn(Model):
+    reviewer: str = Field(max_length=64)
+    item: str = Field(max_length=64)
+    answer: Literal["yes", "no", "unclear", "not_reported"]
+    quote: str = Field("", max_length=2000)
+
+
+class RatingSubmitIn(Model):
+    paper_id: str = Field(max_length=200)
+    answers: list[RatingAnswerIn] = Field(min_length=1, max_length=500)
+
+
+class RatingSubmitOut(Model):
+    paper_id: str
+    saved: int
+    job: "JobOut | None"  # the human-reference recompute (null: one is already queued)
+
+
+class RevealAnswer(Model):
+    answer: str
+    quote: str
+    section: str = ""
+
+
+class RevealItem(Model):
+    reviewer: str
+    item: str
+    text: str
+    mine: RevealAnswer
+    model: RevealAnswer | None  # null: this reviewer has no answer for the item in the panel eval
+    agree: bool | None
+
+
+class RevealOut(Model):
+    paper_id: str
+    title: str
+    items: list[RevealItem]
+    agreed: int
+    compared: int
 
 
 class PaperRef(Model):
@@ -483,7 +726,9 @@ class PaperRow(Model):
     coverage: float | None = None  # 0-1: share of checklist items answered yes or no
     red_flag_count: int | None = None
     text_source: str | None = None  # a full-text resolver name, or abstract
-    text_licence: str | None = None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
+    text_licence: str | None = (
+        None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
+    )
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
 
 
@@ -804,6 +1049,7 @@ class FulltextIO(Model):
         if len(set(value)) != len(value):
             raise ValueError("each full-text source may be listed once")
         return value
+
     contact: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     max_chars: int = Field(ge=2000, le=200000)
     upload_max_mb: int = Field(default=30, ge=1, le=30)
@@ -1013,3 +1259,7 @@ class SnapshotRequest(Model):
 PaperRow.model_rebuild()
 PaperPage.model_rebuild()
 DrawerOut.model_rebuild()
+
+
+for _model in (EvalSummaryOut, EvalDetailOut, RatingSubmitOut, CompareOut):
+    _model.model_rebuild()
