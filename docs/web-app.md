@@ -325,8 +325,17 @@ Screens and who sees them:
   radio group. Active filters show as chips with **Clear all**.
 - **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
   run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
-- **Evals** (every role): summary cards, recall with intervals per strategy, the threshold grid (default
-  outlined, recommended starred, pairs that lose an SR-included paper in red and in words).
+- **Evals** (every role reads; members start evaluations; admins create rating samples): `/evals` lists report
+  cards (kind, date, config chips, headline numbers in words, parent/follow-up links), evaluations in progress
+  with their step, a kind filter and compare selection (2–3 reports of one family → `/evals/compare?ids=`).
+  `/evals/new` is the wizard: kind → inputs (gold set or finished run, sample and seed, panel report and
+  "re-run the editor" for 1/2/3 reviewers, demo mode, "Build a gold set from a systematic review") → cost
+  estimate → start → follow → Open report. `/evals/<id>` shows the report by kind: screening (recall with
+  intervals, threshold grid), review panel (Fleiss kappa with raw agreement and prevalence, items worst-first
+  with "candidate to reword", coverage full text vs abstract, score dispersion, SR inclusion AUC, model
+  families, rating samples), 1/2/3 reviewers (summary sentence, SVG chart with an equal table, every subset),
+  human reference (panel vs human consensus per reviewer and item, Spearman). `/rate/<sample>` is the blind
+  Rate view (keys 1–4 answer the focused item; the models' answers appear only after submitting).
 - **System map** (every role): every stage with its status in words and a panel explaining it.
 - **Fields** (every role reads; members create, edit, test and start runs; admins archive and restore): the
   list (version, author, criteria and keyword counts, sources, last run, Start run, "Show archived fields") and
