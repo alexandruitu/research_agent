@@ -196,3 +196,165 @@ def recommend(rows, target=None, other_rows=None):
         missed = r["missed"] + (partner["missed"] if partner else 0)
         candidates.append(((-saved, missed, -r["min_confidence"], -r["exclude_min_confidence"]), r))
     return min(candidates, key=lambda c: c[0])[1] if candidates else None
+
+
+# --- Panel evaluation metrics (slice 6). Pure functions: label lists in, dicts out. ---------------------
+
+
+def fleiss_kappa(units):
+    """Fleiss' kappa. `units`: one list of labels per rated unit, every unit rated by the same number (>= 2)
+    of raters. Raw agreement (mean pairwise agreement per unit) and prevalence are always reported; kappa is
+    None with a reason when only one class occurs."""
+    if not units:
+        raise ValueError("fleiss kappa needs at least one unit")
+    m = len(units[0])
+    if m < 2 or any(len(u) != m for u in units):
+        raise ValueError("fleiss kappa needs the same number (>= 2) of ratings per unit")
+    labels = sorted({label for u in units for label in u}, key=str)
+    n = len(units)
+    agreement = sum((sum(u.count(c) ** 2 for c in labels) - m) / (m * (m - 1)) for u in units) / n
+    prevalence = {c: sum(u.count(c) for u in units) / (n * m) for c in labels}
+    expected = sum(p * p for p in prevalence.values())
+    result = {"n": n, "raters": m, "agreement": agreement, "prevalence": prevalence}
+    if expected == 1:
+        return {**result, "kappa": None, "reason": "single class: kappa undefined"}
+    return {**result, "kappa": (agreement - expected) / (1 - expected), "reason": None}
+
+
+def pairwise_cohen(labels_by_rater):
+    """{rater: [labels]} (aligned) -> {"a|b": cohen_kappa(...)} for every pair, in sorted key order."""
+    keys = sorted(labels_by_rater)
+    return {
+        f"{a}|{b}": cohen_kappa(labels_by_rater[a], labels_by_rater[b])
+        for i, a in enumerate(keys)
+        for b in keys[i + 1 :]
+    }
+
+
+def unit_agreement(answers, answered=("yes", "no")):
+    """Per-item agreement over papers. `answers`: one {rater: answer} dict per paper. Only raters with an
+    answer in `answered` count. Share = papers where >= 2 raters answered and all agree / such papers.
+    Kappa: Cohen for two raters, Fleiss for more, over papers where every rater answered; None otherwise."""
+    rated = [{r: a for r, a in unit.items() if a in answered} for unit in answers]
+    multi = [u for u in rated if len(u) >= 2]
+    share = rate(sum(len(set(u.values())) == 1 for u in multi), len(multi))
+    raters = sorted({r for unit in answers for r in unit})
+    full = [u for u in rated if len(u) == len(raters)]
+    kappa = None
+    if len(raters) < 2:
+        reason = "single answerer: agreement undefined"
+    elif not full:
+        reason = "no paper answered by every rater"
+    elif len(raters) == 2:
+        kappa = cohen_kappa([u[raters[0]] for u in full], [u[raters[1]] for u in full])
+        reason = kappa["reason"]
+    else:
+        kappa = fleiss_kappa([[u[r] for r in raters] for u in full])
+        reason = kappa["reason"]
+    return {"answerers": raters, "share": share, "kappa": kappa, "reason": reason}
+
+
+def auc(positive_scores, negative_scores):
+    """Mann-Whitney AUC (ties count 1/2) with a Hanley-McNeil 95% interval clamped to [0, 1]. None with a
+    reason when a class is empty. Hanley-McNeil is closed form (no resampling, no seed); with the small
+    samples of a panel eval a bootstrap would be unstable and give a degenerate interval when A = 1."""
+    n1, n2 = len(positive_scores), len(negative_scores)
+    if not n1 or not n2:
+        return {"value": None, "ci": None, "n_pos": n1, "n_neg": n2, "reason": "needs both classes"}
+    wins = sum((p > q) + 0.5 * (p == q) for p in positive_scores for q in negative_scores)
+    a = wins / (n1 * n2)
+    q1, q2 = a / (2 - a), 2 * a * a / (1 + a)
+    variance = (a * (1 - a) + (n1 - 1) * (q1 - a * a) + (n2 - 1) * (q2 - a * a)) / (n1 * n2)
+    half = Z95 * math.sqrt(max(variance, 0.0))
+    return {
+        "value": a,
+        "ci": (max(0.0, a - half), min(1.0, a + half)),
+        "n_pos": n1,
+        "n_neg": n2,
+        "method": "hanley-mcneil",
+        "reason": None,
+    }
+
+
+def _ranks(values):
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        for k in range(i, j + 1):
+            ranks[order[k]] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def spearman(x, y):
+    """Spearman's rho (average ranks for ties). None with a reason for n < 3 or a constant variable."""
+    if len(x) != len(y):
+        raise ValueError("spearman needs two equal-length lists")
+    n = len(x)
+    if n < 3:
+        return {"n": n, "rho": None, "reason": "needs at least 3 pairs"}
+    rx, ry = _ranks(x), _ranks(y)
+    mx, my = sum(rx) / n, sum(ry) / n
+    sxy = sum((a - mx) * (b - my) for a, b in zip(rx, ry, strict=True))
+    sxx, syy = sum((a - mx) ** 2 for a in rx), sum((b - my) ** 2 for b in ry)
+    if sxx == 0 or syy == 0:
+        return {"n": n, "rho": None, "reason": "constant ranks: correlation undefined"}
+    return {"n": n, "rho": sxy / math.sqrt(sxx * syy), "reason": None}
+
+
+def dispersion(scores):
+    """Spread of reviewer scores for one paper (None scores ignored)."""
+    values = [s for s in scores if s is not None]
+    if not values:
+        return {"n": 0, "range": None, "sd": None}
+    mean = sum(values) / len(values)
+    sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+    return {"n": len(values), "range": max(values) - min(values), "sd": sd}
+
+
+def majority(labels):
+    """Most frequent label; a tie for first place (or no labels) gives 'uncertain'."""
+    if not labels:
+        return "uncertain"
+    counts = {label: labels.count(label) for label in labels}
+    top = max(counts.values())
+    winners = [label for label, c in counts.items() if c == top]
+    return winners[0] if len(winners) == 1 else "uncertain"
+
+
+def compare_to_full(full, subset):
+    """Ablation comparison over shared papers. `full`/`subset`: {paper id: {"score", "verdict", "flags"
+    (set of flag keys), "editor" (verdict or None), "cost": {"calls", "chars"}}}."""
+    ids = sorted(full)
+    changed = sum(full[p]["verdict"] != subset[p]["verdict"] for p in ids)
+    edited = [p for p in ids if full[p].get("editor") and subset[p].get("editor")]
+    flags_full = sum(len(full[p]["flags"]) for p in ids)
+    missed = sum(len(full[p]["flags"] - subset[p]["flags"]) for p in ids)
+    deltas = [
+        abs(full[p]["score"] - subset[p]["score"])
+        for p in ids
+        if full[p]["score"] is not None and subset[p]["score"] is not None
+    ]
+    cost_full = {k: sum(full[p]["cost"][k] for p in ids) for k in ("calls", "chars")}
+    cost_sub = {k: sum(subset[p]["cost"][k] for p in ids) for k in ("calls", "chars")}
+    return {
+        "papers": len(ids),
+        "verdict_changed": rate(changed, len(ids)),
+        "editor_verdict_changed": (
+            rate(sum(full[p]["editor"] != subset[p]["editor"] for p in edited), len(edited))
+            if edited
+            else None
+        ),
+        "red_flags_missed": rate(missed, flags_full),
+        "mean_abs_score_delta": sum(deltas) / len(deltas) if deltas else None,
+        "scored_pairs": len(deltas),
+        "cost": cost_sub,
+        "cost_delta": {
+            k: (cost_sub[k] - cost_full[k]) / cost_full[k] if cost_full[k] else None
+            for k in ("calls", "chars")
+        },
+    }
