@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, uploadFile } from "./client";
 import type {
   CallOut, CollectionOut, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
+  CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
 
@@ -24,6 +25,13 @@ export const keys = {
   stages: ["stages"] as const,
   evals: ["evals"] as const,
   eval: (id: string) => ["eval", id] as const,
+  evalList: (kind: EvalKind | null) => ["evals", { kind }] as const,
+  evalJobs: ["evals", "jobs"] as const,
+  compare: (ids: string[]) => ["evals", "compare", ids] as const,
+  goldSets: ["gold-sets"] as const,
+  ratingSample: (id: string) => ["rating-sample", id] as const,
+  ratingNext: (id: string) => ["rating-sample", id, "next"] as const,
+  reveal: (id: string, paperId: string) => ["rating-sample", id, "reveal", paperId] as const,
   job: (id: string) => ["job", id] as const,
   call: (runId: string, key: string) => ["call", runId, key] as const,
   users: ["users"] as const,
@@ -72,7 +80,8 @@ export const usePapers = (runId: string | null, params: PaperParams) =>
 export const usePaper = (runId: string | null, paperId: string | null) =>
   useQuery({ queryKey: keys.paper(runId ?? "", paperId ?? ""), enabled: !!runId && !!paperId, queryFn: () => api.get<DrawerOut>(`/runs/${runId}/papers/${paperId}`) });
 export const useStages = () => useQuery({ queryKey: keys.stages, queryFn: () => api.get<StageOut[]>("/stages") });
-export const useEvals = () => useQuery({ queryKey: keys.evals, queryFn: () => api.get<EvalSummaryOut[]>("/evals") });
+export const useEvals = (kind: EvalKind | null = null) =>
+  useQuery({ queryKey: kind ? keys.evalList(kind) : keys.evals, queryFn: () => api.get<EvalSummaryOut[]>("/evals", { kind }) });
 export const useEval = (id: string | null) =>
   useQuery({ queryKey: keys.eval(id ?? ""), enabled: !!id, queryFn: () => api.get<EvalDetailOut>(`/evals/${id}`) });
 export const useCall = (runId: string, key: string | null) =>
@@ -350,3 +359,46 @@ export function exportUrl(params: LibraryParams, format: "csv" | "bibtex"): stri
   }
   return `/api/v1/library/export?${search.toString()}`;
 }
+
+// --- live evals ------------------------------------------------------------------------------------------
+
+const ACTIVE = ["queued", "running"];
+/** Evaluations without a report yet; polls every 3 seconds while one is queued or running. */
+export const useEvalJobs = (enabled = true) =>
+  useQuery({
+    queryKey: keys.evalJobs, enabled, queryFn: () => api.get<EvalJobOut[]>("/evals/jobs"),
+    refetchInterval: (query) => ((query.state.data ?? []).some((j) => ACTIVE.includes(j.job.status)) ? 3000 : false),
+  });
+export const useGoldSets = (enabled = true) => useQuery({ queryKey: keys.goldSets, enabled, queryFn: () => api.get<GoldSetOut[]>("/gold-sets") });
+export const useCompare = (ids: string[]) =>
+  useQuery({ queryKey: keys.compare(ids), enabled: ids.length >= 2, retry: false, queryFn: () => api.get<CompareOut>("/evals/compare", { ids: ids.join(",") }) });
+export const useEstimate = () => useMutation({ mutationFn: (body: EvalRequest) => api.post<EstimateOut>("/evals/estimate", { body }) });
+export function useStartEval() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EvalRequest) => api.post<JobOut>("/evals", { body, headers: { "Idempotency-Key": newIdempotencyKey() } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.evalJobs }),
+  });
+}
+export const useBuildGoldSet = () =>
+  useMutation({ mutationFn: (body: GoldSetRequest) => api.post<JobOut>("/gold-sets", { body, headers: { "Idempotency-Key": newIdempotencyKey() } }) });
+export function useCreateRatingSample(evalId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { size: number; seed: number }) => api.post<RatingSampleOut>(`/evals/${evalId}/rating-samples`, { body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.eval(evalId) }),
+  });
+}
+export const useRatingSample = (id: string | null) =>
+  useQuery({ queryKey: keys.ratingSample(id ?? ""), enabled: !!id, queryFn: () => api.get<RatingSampleOut>(`/rating-samples/${id}`) });
+export const useRatingNext = (id: string) =>
+  useQuery({ queryKey: keys.ratingNext(id), queryFn: () => api.get<RatingNextOut>(`/rating-samples/${id}/next`), gcTime: 0, staleTime: Infinity });
+export function useSubmitRatings(sampleId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RatingSubmitIn) => api.post<RatingSubmitOut>(`/rating-samples/${sampleId}/ratings`, { body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.ratingSample(sampleId) }),
+  });
+}
+export const useReveal = (sampleId: string, paperId: string | null) =>
+  useQuery({ queryKey: keys.reveal(sampleId, paperId ?? ""), enabled: !!paperId, retry: false, queryFn: () => api.get<RevealOut>(`/rating-samples/${sampleId}/papers/${paperId}/reveal`) });

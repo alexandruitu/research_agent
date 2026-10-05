@@ -1,4 +1,4 @@
-import type { CollectionOut, LibraryItemDetail, LibraryItemOut, PanelOut, PaperFileOut, ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
+import type { EvalJobOut, GoldSetOut, RatingNextOut, RatingSampleOut, RevealOut, EstimateOut, CompareOut, CollectionOut, LibraryItemDetail, LibraryItemOut, PanelOut, PaperFileOut, ChecklistItemOut, ModelsAvailableOut, ReviewerOut, ReviewSettingsContent, ReviewSettingsOut, CriteriaTestResult, DrawerOut, EvalDetailOut, EvalSummaryOut, FieldOut, FieldVersionOut, JobOut, PaperRow, RunDetailOut, RunOut, SourceOut, StageOut, UserOut, WorkerStatusOut } from "../api/types";
 
 export const user = (role: "viewer" | "member" | "admin" = "member"): UserOut => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -315,4 +315,143 @@ export const libraryDetail = (over: Partial<LibraryItemDetail> = {}): LibraryIte
   ],
   files: [],
   ...over,
+});
+
+// --- live evals (slice 6) ----------------------------------------------------------------------------------
+export const PANEL_ID = "aaaa0000-0000-4000-8000-000000000001";
+export const ABLATION_ID = "aaaa0000-0000-4000-8000-000000000002";
+export const HUMAN_ID = "aaaa0000-0000-4000-8000-000000000003";
+export const SAMPLE_ID = "aaaa0000-0000-4000-8000-000000000004";
+const cohen = (agreement: number, prevalence: number, kappa: number | null, n = 10) => ({ n, agreement, prevalence, kappa, reason: kappa === null ? "one class only" : null });
+
+export const humanSection = () => ({
+  ratings_sha256: "h".repeat(64), ratings: 40, stale_or_unknown: 0, raters: ["u1", "u2"], units: 40, papers: 5,
+  inter_rater: { share: rate(34, 40, [0.71, 0.93]), fleiss: { kappa: 0.61 }, reason: null },
+  panel: { accuracy: rate(30, 40, [0.6, 0.86]), kappa: cohen(0.75, 0.6, 0.48, 40) },
+  per_reviewer: { methodologist: { accuracy: rate(16, 20, [0.58, 0.92]), kappa: cohen(0.8, 0.6, 0.55, 20) }, statistician: { accuracy: rate(14, 20, [0.48, 0.85]), kappa: cohen(0.7, 0.6, 0.4, 20) } },
+  per_item: [
+    { reviewer: "statistician", item: "s1", text: "Was the test set split by patient?", n: 5, accuracy: rate(2, 5, [0.12, 0.77]), kappa: cohen(0.4, 0.5, 0.1, 5) },
+    { reviewer: "methodologist", item: "m1", text: "Is there external validation?", n: 5, accuracy: rate(5, 5, [0.57, 1]), kappa: cohen(1, 0.5, 1, 5) },
+  ],
+  scores: { papers: [{ paper_id: "MED:1", human: 70, panel: 72, reviewers: {} }], spearman: { n: 5, rho: 0.8, reason: null } },
+});
+
+export const panelMetrics = (over: Record<string, unknown> = {}) => ({
+  kind: "panel",
+  config: { mode: "demo", panel: [{ key: "methodologist", name: "Methodologist", version: 2, model: "anthropic:claude-sonnet-4-5" }, { key: "statistician", name: "Statistician", version: 1, model: "anthropic:claude-sonnet-4-5" }, { key: "clinician", name: "Clinician", version: 1, model: "anthropic:claude-sonnet-4-5" }], prompt_version: "p7" },
+  panel: {
+    n: 10, reviewers: ["methodologist", "statistician", "clinician"], text_sources: { fulltext: 6, abstract: 4 },
+    verdicts: { fleiss: { n: 10, raters: 3, agreement: 0.73, prevalence: 0.8, kappa: 0.42, reason: null }, pairwise: { "methodologist|statistician": cohen(0.8, 0.7, 0.5) }, reason: null },
+    editor_vs_majority: rate(9, 10, [0.6, 0.98]),
+    items: [
+      { items: [{ reviewer: "statistician", item: "s1" }], text: "Was the test set split by patient?", source: "CLAIM 7", answerers: ["statistician"], share: { k: 0, n: 0, value: null, ci: null, reason: "single answerer: agreement undefined" }, kappa: null, reason: "single answerer: agreement undefined", answers: { yes: 2, not_reported: 8 }, unanswered_share: 0.8, reword_candidate: true },
+      { items: [{ reviewer: "methodologist", item: "m1" }, { reviewer: "clinician", item: "c1" }], text: "Is there external validation?", source: null, answerers: ["methodologist", "clinician"], share: rate(9, 10, [0.6, 0.98]), kappa: cohen(0.9, 0.5, 0.8), reason: null, answers: { yes: 12, no: 8 }, unanswered_share: 0, reword_candidate: false },
+    ],
+    coverage: {
+      statistician: { s1: { fulltext: rate(2, 6, [0.1, 0.7]), abstract: rate(0, 4, [0, 0.5]) } },
+      methodologist: { m1: { fulltext: rate(6, 6, [0.6, 1]), abstract: { k: 0, n: 0, value: null, ci: null, reason: "no papers" } } },
+    },
+    dispersion: [
+      { paper_id: "MED:35097009", title: "Change in CT-Derived FFR", score: 55, scores: { methodologist: 80, statistician: 30, clinician: 55 }, n: 3, range: 50, sd: 25 },
+      { paper_id: "MED:1", title: "Diagnostic accuracy of deep learning FFR", score: 72, scores: { methodologist: 70, statistician: 74, clinician: 72 }, n: 3, range: 4, sd: 2 },
+    ],
+    sr_inclusion_auc: { value: 0.71, ci: [0.48, 0.94], n_pos: 4, n_neg: 6, method: "hanley-mcneil", unscored: 0, note: "SR inclusion is not a quality label", reason: null },
+    model_families: { providers: { methodologist: "anthropic", statistician: "anthropic", clinician: "anthropic" }, single_family: true, families: { single: "anthropic" }, note: "one family" },
+  },
+  ...over,
+});
+
+export const ablationMetrics = () => ({
+  kind: "ablation",
+  config: { reviewers: ["methodologist", "statistician", "clinician"], rerun_editor: false, mode: "demo" },
+  ablation: {
+    papers: 10, reviewers: ["methodologist", "statistician", "clinician"], rerun_editor: false, cost_basis: "chars", token_usage: null,
+    subsets: [
+      { subset: "methodologist", reviewers: ["methodologist"], size: 1, papers: 10, verdict_changed: rate(4, 10, [0.17, 0.69]), editor_verdict_changed: null, red_flags_missed: rate(6, 10, [0.31, 0.83]), mean_abs_score_delta: 9.5, scored_pairs: 10, cost: { calls: 10, chars: 40000 }, cost_delta: { calls: -20, chars: -80000 } },
+      { subset: "methodologist+statistician", reviewers: ["methodologist", "statistician"], size: 2, papers: 10, verdict_changed: rate(1, 10, [0.02, 0.4]), editor_verdict_changed: null, red_flags_missed: rate(2, 10, [0.06, 0.51]), mean_abs_score_delta: 3.1, scored_pairs: 10, cost: { calls: 20, chars: 80000 }, cost_delta: { calls: -10, chars: -40000 } },
+      { subset: "methodologist+statistician+clinician", reviewers: ["methodologist", "statistician", "clinician"], size: 3, papers: 10, verdict_changed: rate(0, 10, [0, 0.28]), editor_verdict_changed: null, red_flags_missed: rate(0, 10, [0, 0.28]), mean_abs_score_delta: 0, scored_pairs: 10, cost: { calls: 30, chars: 120000 }, cost_delta: { calls: 0, chars: 0 } },
+    ],
+    sizes: {
+      "1": { subsets: 3, verdict_changed: 0.4, red_flags_missed: 0.6, mean_abs_score_delta: 9.5, cost_calls: 10, cost_chars: 40000 },
+      "2": { subsets: 3, verdict_changed: 0.1, red_flags_missed: 0.2, mean_abs_score_delta: 3.1, cost_calls: 20, cost_chars: 80000 },
+      "3": { subsets: 1, verdict_changed: 0, red_flags_missed: 0, mean_abs_score_delta: 0, cost_calls: 30, cost_chars: 120000 },
+    },
+    summary: { from_size: 2, to_size: 3, verdict_changed: 0.1, red_flags_added: 1.5, cost_increase: 0.5, sentence: "Going from 2 to 3 reviewers changed the majority verdict on 10% of papers and added 1.5 red flags on average; cost +50% (prompt + output characters)." },
+    full_editor_vs_majority: rate(9, 10, [0.6, 0.98]),
+  },
+});
+
+const headline = (over: Record<string, unknown> = {}) => ({ retrieval_recall: null, cascade_recall: null, recommended: null, kappa: null, same_family: null, screened: null, ...over });
+
+export const panelSummary = (over: Partial<EvalSummaryOut> = {}): EvalSummaryOut => ({
+  id: PANEL_ID, gold_set: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "mlffrct-2024", citation: "Zhao et al. 2024" }, run_id: RUN_ID, created_at: "2026-10-05T09:00:00Z",
+  kind: "panel", status: "done", parent_id: null, chips: ["gold mlffrct-2024", "demo", "3 reviewers", "provider anthropic", "n=10 seed 0"],
+  headline: headline({ papers: 10, reviewers: 3, fleiss_kappa: 0.42, raw_agreement: 0.73, editor_vs_majority: 0.9, sr_auc: 0.71, same_family: true }), ...over,
+});
+export const ablationSummary = (over: Partial<EvalSummaryOut> = {}): EvalSummaryOut => ({
+  ...panelSummary(), id: ABLATION_ID, kind: "ablation", parent_id: PANEL_ID, chips: ["demo", "3 reviewers", "offline"],
+  headline: headline({ papers: 10, reviewers: 3, summary: ablationMetrics().ablation.summary.sentence, verdict_changed: 0.1, red_flags_added: 1.5, cost_increase: 0.5 }), ...over,
+});
+export const humanSummary = (over: Partial<EvalSummaryOut> = {}): EvalSummaryOut => ({
+  ...panelSummary(), id: HUMAN_ID, kind: "human", parent_id: PANEL_ID, chips: ["human reference"],
+  headline: headline({ papers: 10, human_accuracy: 0.75, human_kappa: 0.48, human_raters: 2, human_units: 40, spearman: 0.8 }), ...over,
+});
+
+export const panelDetail = (over: Partial<EvalDetailOut> = {}): EvalDetailOut => ({
+  ...panelSummary(), metrics: panelMetrics(), agreement: null, config: panelMetrics().config,
+  children: [{ id: ABLATION_ID, kind: "ablation", created_at: "2026-10-05T10:00:00Z" }], rating_sample_ids: [SAMPLE_ID], ...over,
+});
+export const ablationDetail = (): EvalDetailOut => ({ ...ablationSummary(), metrics: ablationMetrics(), agreement: null, config: ablationMetrics().config, children: [], rating_sample_ids: [] });
+export const humanDetail = (): EvalDetailOut => ({ ...humanSummary(), metrics: panelMetrics({ human: humanSection() }), agreement: null, config: {}, children: [], rating_sample_ids: [SAMPLE_ID] });
+
+export const evalJob = (over: Partial<EvalJobOut> = {}): EvalJobOut => ({
+  kind: "panel", parent_id: null, chips: ["demo", "n=10 seed 0"],
+  job: jobOut({ id: JOB_ID, kind: "eval_run", status: "running", run_id: null, progress: { status: "running", kind: "panel", step: "panel", steps: ["panel", "report", "import"], done: 3, total: 10 } }),
+  ...over,
+});
+
+export const goldSet = (over: Partial<GoldSetOut> = {}): GoldSetOut => ({
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "mlffrct-2024", citation: "Zhao et al. 2024", candidates: 151, positives: 16, unresolved: 0, built_in_app: false, usable: true, created_at: "2026-09-26T09:00:00Z", ...over,
+});
+
+export const estimateOut = (over: Partial<EstimateOut> = {}): EstimateOut => ({
+  kind: "panel", calls: 40, input_chars: 400000, input_tokens: 100000, output_tokens: 20000, cost_usd: null,
+  lines: [{ role: "review:methodologist", model: "anthropic:claude-sonnet-4-5", calls: 10, input_chars: 100000, output_tokens: 5000, cost_usd: 0.45 }, { role: "review:statistician", model: "google_genai:gemini-9", calls: 10, input_chars: 100000, output_tokens: 5000, cost_usd: null }],
+  notes: ["Upper bound: cached calls are not subtracted."], ...over,
+});
+
+export const compareOut = (): CompareOut => ({
+  family: "panel", reports: [panelSummary(), humanSummary()],
+  metrics: [
+    { section: "agreement", key: "panel.verdicts.fleiss.kappa", label: "Fleiss kappa", values: [0.42, 0.42], differs: false },
+    { section: "agreement", key: "panel.editor_vs_majority.value", label: "Editor vs majority", values: [0.9, 0.8], differs: true },
+  ],
+  config: [{ section: "config", key: "mode", label: "Mode", values: ["demo", "live"], differs: true }],
+});
+
+export const ratingSample = (over: Partial<RatingSampleOut> = {}): RatingSampleOut => ({
+  id: SAMPLE_ID, eval_id: PANEL_ID, size: 20, seed: 0, created_at: "2026-10-05T11:00:00Z", raters_needed: 2,
+  papers: [
+    { paper_id: "MED:1", title: "Diagnostic accuracy of deep learning FFR", score: 72, raters: 2, rated_by_me: true },
+    { paper_id: "MED:35097009", title: "Change in CT-Derived FFR", score: 55, raters: 1, rated_by_me: false },
+  ],
+  complete_papers: 1, my_rated: 1, latest_human_eval_id: HUMAN_ID, ...over,
+});
+
+export const ratingNext = (over: Partial<RatingNextOut> = {}): RatingNextOut => ({
+  done: false, position: 3, total: 20,
+  paper: { paper_id: "MED:35097009", title: "Change in CT-Derived FFR", year: "2021", text: { source: "abstract", content: "This study sought to evaluate the diagnostic performance of CT-FFR.", chars: 66 } },
+  reviewers: [
+    { key: "methodologist", name: "Methodologist", version: 2, items: [{ key: "m1", text: "Is there external validation?" }] },
+    { key: "statistician", name: "Statistician", version: 1, items: [{ key: "s1", text: "Was the test set split by patient?" }] },
+  ],
+  ...over,
+});
+
+export const revealOut = (): RevealOut => ({
+  paper_id: "MED:35097009", title: "Change in CT-Derived FFR", agreed: 1, compared: 2,
+  items: [
+    { reviewer: "methodologist", item: "m1", text: "Is there external validation?", mine: { answer: "no", quote: "", section: "" }, model: { answer: "no", quote: "single centre", section: "methods" }, agree: true },
+    { reviewer: "statistician", item: "s1", text: "Was the test set split by patient?", mine: { answer: "yes", quote: "", section: "" }, model: { answer: "not_reported", quote: "", section: "" }, agree: false },
+  ],
 });
