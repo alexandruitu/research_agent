@@ -48,7 +48,7 @@ Spec: `docs/superpowers/specs/2026-10-05-live-evals-design.md`. Eval contract: `
 9. **Estimate**: calls counted from inputs (no cache lookup, so it is an upper bound); chars from the source
    abstracts (or `fulltext.max_chars` when full-text sources are configured) plus prompt overhead; tokens = chars/4;
    cost from a small price table (USD per 1M tokens), `null` for unknown models.
-10. **List**: `GET /evals` returns finished reports plus queued/running/failed `eval_run` jobs (id null, `job` set).
+10. **List**: `GET /evals` returns finished reports only (ids stay non-null for the existing frontend); `GET /evals/jobs` lists queued/running/failed `eval_run` jobs. The Reviewers stage keeps its title "Reviewers A and B" (the frontend e2e names it; Plan 3 may rename it).
 11. **Compare**: 2–3 reports of one family (`screening`; `panel`+`human`; `ablation`), aligned metric rows and config rows.
 12. **System map**: stage entries may list `alternatives`; the Reviewers stage reads the newest panel/human report's
     Fleiss kappa first (caveat "one model family" when `panel.model_families.single_family`), else the legacy A/B kappa.
