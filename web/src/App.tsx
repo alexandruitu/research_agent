@@ -9,6 +9,7 @@ import { ReviewerEditorPage } from "./features/settings/ReviewerEditor";
 import { ReviewersTab } from "./features/settings/ReviewersTab";
 import { ScreeningTab } from "./features/settings/ScreeningTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
+import { ComparePage } from "./pages/ComparePage";
 import { EvalReportPage } from "./pages/EvalReportPage";
 import { EvalsHomePage } from "./pages/EvalsHomePage";
 import { NewEvalPage } from "./pages/NewEvalPage";
@@ -39,6 +40,7 @@ export function App() {
             </Route>
             <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
             <Route path="/evals" element={<EvalsHomePage />} />
+            <Route path="/evals/compare" element={<ComparePage />} />
             <Route path="/evals/:evalId" element={<EvalReportPage />} />
             <Route path="/system" element={<SystemMapPage />} />
             <Route path="/settings" element={<SettingsPage />}>
