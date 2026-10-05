@@ -11,6 +11,7 @@ import { ScreeningTab } from "./features/settings/ScreeningTab";
 import { SourcesTab } from "./features/settings/SourcesTab";
 import { EvalReportPage } from "./pages/EvalReportPage";
 import { EvalsHomePage } from "./pages/EvalsHomePage";
+import { NewEvalPage } from "./pages/NewEvalPage";
 import { FieldEditorPage } from "./pages/FieldEditorPage";
 import { FieldsPage } from "./pages/FieldsPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -34,6 +35,7 @@ export function App() {
             <Route path="/fields" element={<FieldsPage />} />
             <Route element={<RequireRole role="member" />}>
               <Route path="/fields/new" element={<FieldEditorPage />} />
+              <Route path="/evals/new" element={<NewEvalPage />} />
             </Route>
             <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
             <Route path="/evals" element={<EvalsHomePage />} />
