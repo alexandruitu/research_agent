@@ -14,7 +14,7 @@ function Measurement({ field }: { field: FieldOut }) {
   const current = field.current_version ?? 1;
   if (runs.isLoading || evals.isLoading) return <p className="sub">Checking measurements…</p>;
   const runIds = new Set((runs.data ?? []).filter((r) => r.field_id === field.id && (r.field_version ?? 1) === current).map((r) => r.id));
-  const golds = [...new Set((evals.data ?? []).filter((e) => runIds.has(e.run_id)).map((e) => e.gold_set.name))];
+  const golds = [...new Set((evals.data ?? []).filter((e) => runIds.has(e.run_id)).flatMap((e) => (e.gold_set ? [e.gold_set.name] : [])))];
   if (golds.length > 0) return <p className="banner">Screening for this field (v{current}): measured against {golds.join(", ")}.</p>;
   return <p className="banner banner--warn">Screening for this field (v{current}): not measured. No eval against a published review has used this version yet.</p>;
 }

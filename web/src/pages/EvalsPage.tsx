@@ -26,7 +26,7 @@ export function EvalsPage() {
       <h1>Evals</h1>
       <label>Eval set
         <select value={selected ?? ""} onChange={(e) => navigate(`/evals/${e.target.value}`)}>
-          {evals.data.map((e) => <option key={e.id} value={e.id}>{e.gold_set.name}</option>)}
+          {evals.data.map((e) => <option key={e.id} value={e.id}>{e.gold_set?.name ?? e.kind}</option>)}
         </select>
       </label>
       {detail.isError && <p role="alert" className="form-error">{detail.error instanceof ApiError ? `${detail.error.message} (request ${detail.error.requestId})` : "Could not load this report."}</p>}

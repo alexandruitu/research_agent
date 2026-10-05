@@ -48,7 +48,7 @@ def create_app(settings=None, session_factory=None):
         fields,
         runs,
         papers,
-    ratings,
+        ratings,
         files,
         library,
         stages,

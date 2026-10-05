@@ -219,6 +219,43 @@ in any order. Panel reviews record `text_licence` (`cc-*`, `cc0`, `open_access`,
 review text, of any licence, is ever exported. Keys go in `deploy/worker.env` (see `worker.env.example`); restart
 the worker after a change.
 
+## Live evals, gold sets, human reference ratings, Gemini (slice 6)
+
+- **Evaluations run as worker jobs** (`eval_run`). `POST /evals` (member) takes `kind` + inputs and returns a
+  202 job: `screening` (gold set, optional field version), `panel` (gold set *or* finished research run, review
+  settings version — default current —, `sample`, `seed`), `ablation` (a panel report, optional `rerun_editor`),
+  `human` (a rating sample). The worker runs the same `research-eval` subcommands as the CLI in a child process
+  (`panel`/`screen`/`ablation`/`human`, then `report`) in a new folder under `RESEARCH_EVALS_DIR`, and imports it
+  as a new immutable report (`eval_reports.kind`, frozen `config`, `parent_id` for ablation/human). Old screening
+  reports keep working (kind `screening`). Job progress: `{status, kind, step, steps, done, total}`, and on success
+  `result: {eval_id, folder, warnings}`.
+- `GET /evals` lists finished reports (kind, config chips, headline numbers per kind); `GET /evals/jobs` lists
+  evaluations without a report yet (queued, running, failed). `GET /evals/{id}` returns metrics, frozen config (paths
+  reduced to file names), children and rating samples. `GET /evals/compare?ids=a,b[,c]` aligns 2–3 reports of one
+  family (screening; panel + human; ablation). `POST /evals/estimate` counts calls and estimates chars, tokens
+  (chars/4) and cost from a small price table before anything starts; it never calls a provider and counts cached
+  calls too (an upper bound).
+- **Gold sets**: `GET /gold-sets`; `POST /gold-sets` (member) queues `gold_build` from an SR spec (name, citation,
+  topic, Europe PMC query, the included studies as DOIs and/or titles). Only the public Europe PMC API is used; the
+  gold file is frozen in `RESEARCH_GOLD_DIR`. The SR's own DOI/PMID (`sr_reference`) is recorded, not resolved:
+  reading an SR's included list from its references is not automated.
+- **Human reference ratings**: an admin draws a rating sample from a panel report
+  (`POST /evals/{id}/rating-samples`, stratified by panel score, seeded). Members rate with
+  `GET /rating-samples/{id}/next` (text the panel reviewed + checklist items; never a model answer) and
+  `POST /rating-samples/{id}/ratings` (every item of every reviewer, once per rater); only then
+  `GET /rating-samples/{id}/papers/{paper}/reveal` shows the model's answers next to theirs. Ratings are stored with
+  the reviewer version and item wording they answered. Each submission queues (at most one at a time) a `human`
+  job: the worker writes `human_ratings.json` into the panel folder (eval contract), copies the folder, recomputes
+  there and imports a new `human` report — the panel report never changes.
+- **System map**: the Reviewers stage reads the newest panel/human report's Fleiss kappa (or raw agreement when
+  kappa is undefined); the "one model family" caveat appears only when every reviewer uses one provider.
+- **Gemini**: set `GOOGLE_API_KEY` in the worker's environment and use model ids such as
+  `google_genai:gemini-2.5-pro`, `google_genai:gemini-2.5-flash` or `google_genai:gemini-3.1-pro-preview` for any
+  role (reviewers, editor). The worker checks the key with the free models listing
+  (`GET https://generativelanguage.googleapis.com/v1beta/models`, key in the `x-goog-api-key` header); a provider whose
+  key is set but that no role uses gets a `key:<provider>` row in the workers status, and `/models/available` lists the
+  curated Gemini ids once the key is accepted. Structured output uses the same `json_schema` path as Anthropic.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19

@@ -585,6 +585,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evals/{eval_id}/rating-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Sample */
+        post: operations["create_sample_api_v1_evals__eval_id__rating_samples_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rating-samples/{sample_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Sample */
+        get: operations["get_sample_api_v1_rating_samples__sample_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rating-samples/{sample_id}/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Next Paper
+         * @description The paper this user should rate next: not yet rated by them, fewest raters first, then sample order.
+         */
+        get: operations["next_paper_api_v1_rating_samples__sample_id__next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rating-samples/{sample_id}/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Ratings
+         * @description All items of all reviewers for one paper, once per rater; then a human-reference recompute is queued.
+         */
+        post: operations["submit_ratings_api_v1_rating_samples__sample_id__ratings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rating-samples/{sample_id}/papers/{paper_id}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal */
+        get: operations["reveal_api_v1_rating_samples__sample_id__papers__paper_id__reveal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/papers/{paper_id}/files": {
         parameters: {
             query?: never;
@@ -798,10 +889,68 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Evals */
+        /**
+         * List Evals
+         * @description Finished reports, newest first.
+         */
         get: operations["list_evals_api_v1_evals_get"];
         put?: never;
+        /** Start Eval */
+        post: operations["start_eval_api_v1_evals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Eval Jobs
+         * @description Evaluations without a report yet (queued, running, failed), newest first, at most 20.
+         */
+        get: operations["list_eval_jobs_api_v1_evals_jobs_get"];
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Evals */
+        get: operations["compare_evals_api_v1_evals_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evals/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate Eval */
+        post: operations["estimate_eval_api_v1_evals_estimate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -819,6 +968,28 @@ export interface paths {
         get: operations["get_eval_api_v1_evals__eval_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gold-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Gold Sets */
+        get: operations["list_gold_sets_api_v1_gold_sets_get"];
+        put?: never;
+        /**
+         * Build Gold Set
+         * @description Job `gold_build`: resolves the included studies on Europe PMC (public API, no key) and freezes the
+         *     gold file; its result names the new gold set.
+         */
+        post: operations["build_gold_set_api_v1_gold_sets_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1037,6 +1208,33 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CompareOut */
+        CompareOut: {
+            /**
+             * Family
+             * @enum {string}
+             */
+            family: "screening" | "panel" | "ablation";
+            /** Reports */
+            reports: components["schemas"]["EvalSummaryOut"][];
+            /** Metrics */
+            metrics: components["schemas"]["CompareRow"][];
+            /** Config */
+            config: components["schemas"]["CompareRow"][];
+        };
+        /** CompareRow */
+        CompareRow: {
+            /** Section */
+            section: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Values */
+            values: (number | string | boolean | null)[];
+            /** Differs */
+            differs: boolean;
+        };
         /**
          * CriteriaTestRequest
          * @description Test the saved current version (`draft` null) or unsaved edits (`draft`).
@@ -1171,6 +1369,61 @@ export interface components {
             /** Call Key */
             call_key: string | null;
         };
+        /** EstimateLine */
+        EstimateLine: {
+            /** Role */
+            role: string;
+            /** Model */
+            model: string | null;
+            /** Calls */
+            calls: number;
+            /** Input Chars */
+            input_chars: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+        };
+        /** EstimateOut */
+        EstimateOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "screening" | "panel" | "ablation" | "human";
+            /** Calls */
+            calls: number;
+            /** Input Chars */
+            input_chars: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Lines */
+            lines: components["schemas"]["EstimateLine"][];
+            /** Notes */
+            notes: string[];
+        };
+        /** EvalChildOut */
+        EvalChildOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "screening" | "panel" | "ablation" | "human";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** EvalDetailOut */
         EvalDetailOut: {
             /**
@@ -1178,7 +1431,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            gold_set: components["schemas"]["GoldSetOut"];
+            gold_set: components["schemas"]["GoldSetOut"] | null;
             /**
              * Run Id
              * Format: uuid
@@ -1197,8 +1450,29 @@ export interface components {
             agreement: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind?: "screening" | "panel" | "ablation" | "human";
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Chips */
+            chips?: string[];
+            headline?: components["schemas"]["EvalHeadline"] | null;
+            /** Children */
+            children?: components["schemas"]["EvalChildOut"][];
+            /** Rating Sample Ids */
+            rating_sample_ids?: string[];
         };
-        /** EvalHeadline */
+        /**
+         * EvalHeadline
+         * @description Two or three numbers per kind; every field is null when it does not apply or was not measured.
+         */
         EvalHeadline: {
             retrieval_recall: components["schemas"]["Ratio"] | null;
             cascade_recall: components["schemas"]["Ratio"] | null;
@@ -1209,15 +1483,110 @@ export interface components {
             same_family: boolean | null;
             /** Screened */
             screened: number | null;
+            /** Papers */
+            papers?: number | null;
+            /** Reviewers */
+            reviewers?: number | null;
+            /** Fleiss Kappa */
+            fleiss_kappa?: number | null;
+            /** Raw Agreement */
+            raw_agreement?: number | null;
+            /** Editor Vs Majority */
+            editor_vs_majority?: number | null;
+            /** Sr Auc */
+            sr_auc?: number | null;
+            /** Summary */
+            summary?: string | null;
+            /** Verdict Changed */
+            verdict_changed?: number | null;
+            /** Red Flags Added */
+            red_flags_added?: number | null;
+            /** Cost Increase */
+            cost_increase?: number | null;
+            /** Human Accuracy */
+            human_accuracy?: number | null;
+            /** Human Kappa */
+            human_kappa?: number | null;
+            /** Human Raters */
+            human_raters?: number | null;
+            /** Human Units */
+            human_units?: number | null;
+            /** Spearman */
+            spearman?: number | null;
         };
-        /** EvalSummaryOut */
+        /**
+         * EvalJobOut
+         * @description An evaluation that has no report yet: queued, running, or failed.
+         */
+        EvalJobOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "screening" | "panel" | "ablation" | "human";
+            /** Parent Id */
+            parent_id: string | null;
+            /** Chips */
+            chips: string[];
+            job: components["schemas"]["JobOut"];
+        };
+        /**
+         * EvalRequest
+         * @description Inputs per kind (others ignored): screening: gold_set_id (+ field_version_id); panel: gold_set_id xor
+         *     run_id, settings_version_id (default: current), sample, seed; ablation: panel_eval_id, rerun_editor;
+         *     human: rating_sample_id.
+         */
+        EvalRequest: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "screening" | "panel" | "ablation" | "human";
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
+            /** Gold Set Id */
+            gold_set_id?: string | null;
+            /** Run Id */
+            run_id?: string | null;
+            /** Field Version Id */
+            field_version_id?: string | null;
+            /** Settings Version Id */
+            settings_version_id?: string | null;
+            /**
+             * Sample
+             * @default 20
+             */
+            sample: number;
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+            /** Panel Eval Id */
+            panel_eval_id?: string | null;
+            /**
+             * Rerun Editor
+             * @default false
+             */
+            rerun_editor: boolean;
+            /** Rating Sample Id */
+            rating_sample_id?: string | null;
+        };
+        /**
+         * EvalSummaryOut
+         * @description A finished, immutable report. Evaluations still queued, running or failed: GET /evals/jobs.
+         */
         EvalSummaryOut: {
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            gold_set: components["schemas"]["GoldSetOut"];
+            gold_set: components["schemas"]["GoldSetOut"] | null;
             /**
              * Run Id
              * Format: uuid
@@ -1229,6 +1598,20 @@ export interface components {
              */
             created_at: string;
             headline: components["schemas"]["EvalHeadline"];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind?: "screening" | "panel" | "ablation" | "human";
+            /**
+             * Status
+             * @constant
+             */
+            status?: "done";
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Chips */
+            chips?: string[];
         };
         /** ExtractCell */
         ExtractCell: {
@@ -1433,6 +1816,56 @@ export interface components {
             name: string;
             /** Citation */
             citation: string;
+            /** Candidates */
+            candidates?: number | null;
+            /** Positives */
+            positives?: number | null;
+            /** Unresolved */
+            unresolved?: number | null;
+            /** Built In App */
+            built_in_app?: boolean;
+            /** Usable */
+            usable?: boolean;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** GoldSetRequest */
+        GoldSetRequest: {
+            /** Name */
+            name: string;
+            /** Citation */
+            citation: string;
+            /** Topic */
+            topic: string;
+            /** Query */
+            query: string;
+            /** Included */
+            included: components["schemas"]["GoldStudyIn"][];
+            /** Sr Reference */
+            sr_reference?: string | null;
+            /**
+             * Max Candidates
+             * @default 200
+             */
+            max_candidates: number;
+        };
+        /** GoldStudyIn */
+        GoldStudyIn: {
+            /**
+             * Doi
+             * @default
+             */
+            doi: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Year
+             * @default
+             */
+            year: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1969,6 +2402,148 @@ export interface components {
             /** Position */
             position: number;
         };
+        /** RatingAnswerIn */
+        RatingAnswerIn: {
+            /** Reviewer */
+            reviewer: string;
+            /** Item */
+            item: string;
+            /**
+             * Answer
+             * @enum {string}
+             */
+            answer: "yes" | "no" | "unclear" | "not_reported";
+            /**
+             * Quote
+             * @default
+             */
+            quote: string;
+        };
+        /** RatingItemOut */
+        RatingItemOut: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * RatingNextOut
+         * @description The next paper for this rater. Never carries a model's answer (blind rating).
+         */
+        RatingNextOut: {
+            /** Done */
+            done: boolean;
+            paper: components["schemas"]["RatingPaperOut"] | null;
+            /** Reviewers */
+            reviewers: components["schemas"]["RatingReviewerOut"][];
+            /** Position */
+            position: number;
+            /** Total */
+            total: number;
+        };
+        /** RatingPaperOut */
+        RatingPaperOut: {
+            /** Paper Id */
+            paper_id: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year: string;
+            text: components["schemas"]["RatingTextOut"];
+        };
+        /** RatingPaperProgress */
+        RatingPaperProgress: {
+            /** Paper Id */
+            paper_id: string;
+            /** Title */
+            title: string;
+            /** Score */
+            score: number | null;
+            /** Raters */
+            raters: number;
+            /** Rated By Me */
+            rated_by_me: boolean;
+        };
+        /** RatingReviewerOut */
+        RatingReviewerOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /** Items */
+            items: components["schemas"]["RatingItemOut"][];
+        };
+        /** RatingSampleOut */
+        RatingSampleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Eval Id
+             * Format: uuid
+             */
+            eval_id: string;
+            /** Size */
+            size: number;
+            /** Seed */
+            seed: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Raters Needed */
+            raters_needed: number;
+            /** Papers */
+            papers: components["schemas"]["RatingPaperProgress"][];
+            /** Complete Papers */
+            complete_papers: number;
+            /** My Rated */
+            my_rated: number;
+            /** Latest Human Eval Id */
+            latest_human_eval_id: string | null;
+        };
+        /** RatingSampleRequest */
+        RatingSampleRequest: {
+            /**
+             * Size
+             * @default 20
+             */
+            size: number;
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+        };
+        /** RatingSubmitIn */
+        RatingSubmitIn: {
+            /** Paper Id */
+            paper_id: string;
+            /** Answers */
+            answers: components["schemas"]["RatingAnswerIn"][];
+        };
+        /** RatingSubmitOut */
+        RatingSubmitOut: {
+            /** Paper Id */
+            paper_id: string;
+            /** Saved */
+            saved: number;
+            job: components["schemas"]["JobOut"] | null;
+        };
+        /** RatingTextOut */
+        RatingTextOut: {
+            /** Source */
+            source: string;
+            /** Content */
+            content: string;
+            /** Chars */
+            chars: number;
+        };
         /** Ratio */
         Ratio: {
             /** K */
@@ -1991,6 +2566,44 @@ export interface components {
             source: string | null;
             /** Raised By */
             raised_by: components["schemas"]["RaisedByOut"][];
+        };
+        /** RevealAnswer */
+        RevealAnswer: {
+            /** Answer */
+            answer: string;
+            /** Quote */
+            quote: string;
+            /**
+             * Section
+             * @default
+             */
+            section: string;
+        };
+        /** RevealItem */
+        RevealItem: {
+            /** Reviewer */
+            reviewer: string;
+            /** Item */
+            item: string;
+            /** Text */
+            text: string;
+            mine: components["schemas"]["RevealAnswer"];
+            model: components["schemas"]["RevealAnswer"] | null;
+            /** Agree */
+            agree: boolean | null;
+        };
+        /** RevealOut */
+        RevealOut: {
+            /** Paper Id */
+            paper_id: string;
+            /** Title */
+            title: string;
+            /** Items */
+            items: components["schemas"]["RevealItem"][];
+            /** Agreed */
+            agreed: number;
+            /** Compared */
+            compared: number;
         };
         /** ReviewOut */
         ReviewOut: {
@@ -3769,6 +4382,170 @@ export interface operations {
             };
         };
     };
+    create_sample_api_v1_evals__eval_id__rating_samples_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingSampleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingSampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sample_api_v1_rating_samples__sample_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sample_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingSampleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    next_paper_api_v1_rating_samples__sample_id__next_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sample_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingNextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_ratings_api_v1_rating_samples__sample_id__ratings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sample_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingSubmitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingSubmitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_api_v1_rating_samples__sample_id__papers__paper_id__reveal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sample_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_files_api_v1_papers__paper_id__files_get: {
         parameters: {
             query?: never;
@@ -4342,7 +5119,9 @@ export interface operations {
     };
     list_evals_api_v1_evals_get: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4356,6 +5135,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvalSummaryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_eval_api_v1_evals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_eval_jobs_api_v1_evals_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalJobOut"][];
+                };
+            };
+        };
+    };
+    compare_evals_api_v1_evals_compare_get: {
+        parameters: {
+            query: {
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_eval_api_v1_evals_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4378,6 +5285,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvalDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_gold_sets_api_v1_gold_sets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoldSetOut"][];
+                };
+            };
+        };
+    };
+    build_gold_set_api_v1_gold_sets_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoldSetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */

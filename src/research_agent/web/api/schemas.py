@@ -451,19 +451,27 @@ class EvalHeadline(Model):
 
 
 class EvalSummaryOut(Model):
-    """A finished report (status done), or an evaluation still queued/running/failed (id null, job set)."""
+    """A finished, immutable report. Evaluations still queued, running or failed: GET /evals/jobs."""
 
-    ADDED: ClassVar[frozenset] = frozenset(["kind", "status", "parent_id", "chips", "job"])
-    id: uuid.UUID | None
-    gold_set: GoldSetOut | None
-    run_id: uuid.UUID | None
+    ADDED: ClassVar[frozenset] = frozenset(["kind", "status", "parent_id", "chips"])
+    id: uuid.UUID
+    gold_set: GoldSetOut | None  # null: a panel eval of a research run (no gold set)
+    run_id: uuid.UUID
     created_at: datetime
     headline: EvalHeadline
     kind: EvalKind = "screening"
-    status: Literal["queued", "running", "done", "failed"] = "done"
+    status: Literal["done"] = "done"
     parent_id: uuid.UUID | None = None
-    chips: list[str] = []  # config summary, e.g. ["gold panel-toy", "3 reviewers", "n=20"]
-    job: "JobOut | None" = None
+    chips: list[str] = []  # config summary, e.g. ["gold panel-toy", "3 reviewers", "n=20 seed 0"]
+
+
+class EvalJobOut(Model):
+    """An evaluation that has no report yet: queued, running, or failed."""
+
+    kind: EvalKind
+    parent_id: uuid.UUID | None  # ablation/human: the panel report it starts from
+    chips: list[str]
+    job: "JobOut"
 
 
 class EvalDetailOut(Model):
@@ -1261,5 +1269,5 @@ PaperPage.model_rebuild()
 DrawerOut.model_rebuild()
 
 
-for _model in (EvalSummaryOut, EvalDetailOut, RatingSubmitOut, CompareOut):
+for _model in (EvalJobOut, EvalDetailOut, RatingSubmitOut, CompareOut):
     _model.model_rebuild()

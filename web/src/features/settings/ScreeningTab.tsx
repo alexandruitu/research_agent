@@ -43,7 +43,7 @@ function Band({ low, high, lowWord, highWord }: { low: number; high: number; low
 function latestRecommendation(evals: ReturnType<typeof useEvals>["data"]): { pair: Pair; gold: string; when: string } | null {
   const found = [...(evals ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)).find((e) => e.headline.recommended);
   const rec = found?.headline.recommended;
-  return found && rec ? { pair: { include: rec.min_confidence, exclude: rec.exclude_min_confidence }, gold: found.gold_set.name, when: new Date(found.created_at).toLocaleDateString() } : null;
+  return found && rec ? { pair: { include: rec.min_confidence, exclude: rec.exclude_min_confidence }, gold: found.gold_set?.name ?? "a run", when: new Date(found.created_at).toLocaleDateString() } : null;
 }
 
 function EvalsHint({ admin, values, onApply }: { admin: boolean; values: ScreeningIO; onApply: (patch: Partial<ScreeningIO>) => void }) {

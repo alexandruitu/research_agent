@@ -15,6 +15,7 @@ from ..schemas import (
     EstimateOut,
     EvalDetailOut,
     EvalHeadline,
+    EvalJobOut,
     EvalRequest,
     EvalSummaryOut,
     GoldSetOut,
@@ -47,7 +48,6 @@ def summary(db, settings, report):
         status="done",
         parent_id=report.parent_id,
         chips=svc.chips(report, name),
-        job=None,
     )
 
 
@@ -59,14 +59,8 @@ def _pending(db):
         .limit(ACTIVE_JOBS_LISTED)
     )
     return [
-        EvalSummaryOut(
-            id=None,
-            gold_set=None,
-            run_id=None,
-            created_at=job.created_at,
-            headline=EvalHeadline(**svc.headline({}, job.payload.get("kind"))),
+        EvalJobOut(
             kind=job.payload.get("kind", "screening"),
-            status=job.status,
             parent_id=uuid.UUID(job.payload["parent_id"]) if job.payload.get("parent_id") else None,
             chips=[c for c in (job.payload.get("mode"),) if c],
             job=job_out(job),
@@ -86,12 +80,17 @@ def list_evals(
     db=Depends(get_db),
     settings=Depends(get_settings),
 ):
-    """Queued, running and failed evaluations first, then finished reports, newest first."""
+    """Finished reports, newest first."""
     query = select(EvalReport).order_by(EvalReport.created_at.desc())
     if kind:
         query = query.where(EvalReport.kind == kind)
-    pending = [p for p in _pending(db) if kind in (None, p.kind)]
-    return pending + [summary(db, settings, r) for r in db.scalars(query)]
+    return [summary(db, settings, r) for r in db.scalars(query)]
+
+
+@router.get("/jobs", response_model=list[EvalJobOut])
+def list_eval_jobs(user=Depends(require_role("viewer")), db=Depends(get_db)):
+    """Evaluations without a report yet (queued, running, failed), newest first, at most 20."""
+    return _pending(db)
 
 
 @router.get("/compare", response_model=CompareOut)

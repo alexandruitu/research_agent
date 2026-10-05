@@ -109,6 +109,18 @@ def matrix(imported, paper_id, field_id):
         ("PATCH", f"/library/collections/{NIL}", "member"),
         ("POST", f"/library/collections/{NIL}/archive", "admin"),
         ("POST", f"/library/collections/{NIL}/restore", "admin"),
+        ("POST", "/evals", "member"),
+        ("POST", "/evals/estimate", "member"),
+        ("GET", "/evals/compare", "viewer"),
+        ("GET", "/evals/jobs", "viewer"),
+        ("GET", f"/evals/{NIL}", "viewer"),
+        ("POST", f"/evals/{NIL}/rating-samples", "admin"),
+        ("GET", "/gold-sets", "viewer"),
+        ("POST", "/gold-sets", "member"),
+        ("GET", f"/rating-samples/{NIL}", "viewer"),
+        ("GET", f"/rating-samples/{NIL}/next", "member"),
+        ("POST", f"/rating-samples/{NIL}/ratings", "member"),
+        ("GET", f"/rating-samples/{NIL}/papers/MED:1/reveal", "member"),
     ]
 
 
@@ -164,6 +176,7 @@ def test_secrets_never_appear_in_responses_logs_or_error_bodies(
     sentinel = "sk-ant-SENTINEL-1234567890abcdef"
     monkeypatch.setenv("ANTHROPIC_API_KEY", sentinel)
     monkeypatch.setenv("TYPESAFE_API_KEY", sentinel)
+    monkeypatch.setenv("GOOGLE_API_KEY", sentinel)
     application = create_app(settings, session_factory=lambda: db)
     application.dependency_overrides[get_db] = lambda: db
 
@@ -176,7 +189,16 @@ def test_secrets_never_appear_in_responses_logs_or_error_bodies(
         "/api/v1/auth/login", json={"email": "member@example.org", "password": "correct horse battery"}
     )
     seen = [login.text, str(login.headers)]
-    for path in ("/auth/me", "/fields", "/runs", "/stages", "/evals", "/nope"):
+    for path in (
+        "/auth/me",
+        "/fields",
+        "/runs",
+        "/stages",
+        "/evals",
+        "/gold-sets",
+        "/models/available",
+        "/nope",
+    ):
         r = client.get(f"/api/v1{path}")
         seen += [r.text, str(r.headers)]
     with caplog.at_level(logging.DEBUG):

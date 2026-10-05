@@ -32,9 +32,10 @@ def test_start_a_panel_eval_queues_an_eval_run_job(sign_in, db, settings):
     payload = db.get(Job, job["id"]).payload
     assert payload["kind"] == "panel" and payload["sample"] == 6 and payload["review"]["panel"]
     assert payload["gold_path"].endswith("panel-toy.json") and payload["folder"].startswith("panel-")
-    listed = member.get(f"{API}/evals").json()
-    assert listed[0]["id"] is None and listed[0]["status"] == "queued" and listed[0]["job"]["id"] == job["id"]
-    assert listed[0]["kind"] == "panel"
+    assert member.get(f"{API}/evals").json() == []  # no report yet
+    pending = member.get(f"{API}/evals/jobs").json()
+    assert pending == [{"kind": "panel", "parent_id": None, "chips": ["demo"], "job": pending[0]["job"]}]
+    assert pending[0]["job"]["id"] == job["id"] and pending[0]["job"]["status"] == "queued"
 
 
 def test_start_validation(sign_in, db, settings):
@@ -90,7 +91,7 @@ def test_list_and_detail_carry_kind_chips_and_headline(sign_in, db, tmp_path):
     viewer, _ = sign_in("viewer")
     listed = {e["id"]: e for e in viewer.get(f"{API}/evals").json()}
     panel = listed[str(first)]
-    assert panel["kind"] == "panel" and panel["status"] == "done" and panel["job"] is None
+    assert panel["kind"] == "panel" and panel["status"] == "done"
     assert panel["gold_set"]["name"] == "panel-toy" and panel["gold_set"]["built_in_app"] is False
     assert "3 reviewers" in panel["chips"] and "n=4 seed 1" in panel["chips"] and "demo" in panel["chips"]
     head = panel["headline"]
