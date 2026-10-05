@@ -388,7 +388,7 @@ def headline(report_or_metrics, kind=None):
         out |= {
             "human_accuracy": get(metrics, "human.panel.accuracy.value"),
             "human_kappa": get(metrics, "human.panel.kappa.kappa"),
-            "human_raters": get(metrics, "human.raters"),
+            "human_raters": len(get(metrics, "human.raters") or []) or None,
             "human_units": get(metrics, "human.units"),
             "spearman": get(metrics, "human.scores.spearman.rho"),
         }
