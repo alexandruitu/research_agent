@@ -401,4 +401,4 @@ export function useSubmitRatings(sampleId: string) {
   });
 }
 export const useReveal = (sampleId: string, paperId: string | null) =>
-  useQuery({ queryKey: keys.reveal(sampleId, paperId ?? ""), enabled: !!paperId, retry: false, queryFn: () => api.get<RevealOut>(`/rating-samples/${sampleId}/papers/${paperId}/reveal`) });
+  useQuery({ queryKey: keys.reveal(sampleId, paperId ?? ""), enabled: !!paperId, retry: false, queryFn: () => api.get<RevealOut>(`/rating-samples/${sampleId}/papers/${encodeURIComponent(paperId ?? "")}/reveal`) });

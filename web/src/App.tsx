@@ -17,6 +17,7 @@ import { FieldEditorPage } from "./pages/FieldEditorPage";
 import { FieldsPage } from "./pages/FieldsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RatePage } from "./pages/RatePage";
 import { PapersPage } from "./pages/PapersPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -37,6 +38,7 @@ export function App() {
             <Route element={<RequireRole role="member" />}>
               <Route path="/fields/new" element={<FieldEditorPage />} />
               <Route path="/evals/new" element={<NewEvalPage />} />
+              <Route path="/rate/:sampleId" element={<RatePage />} />
             </Route>
             <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
             <Route path="/evals" element={<EvalsHomePage />} />
