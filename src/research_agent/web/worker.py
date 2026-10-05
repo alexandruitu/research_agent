@@ -28,10 +28,12 @@ from .runner import (
     EXIT_LOCKED,
     RunSpec,
     child_environment,
+    eval_command,
     failure_message,
     progress_snapshot,
     redact,
     sanitize_error,
+    spawn_command,
 )
 from .runner import spawn as spawn_process
 from .uploads import materialize
@@ -73,6 +75,7 @@ class Worker:
         http_client=None,
         jev_client=None,
         key_check=False,
+        spawn_eval=spawn_command,
     ):
         self.settings = settings
         self.factory = session_factory or make_session_factory(make_engine(settings.database_url))
@@ -84,6 +87,9 @@ class Worker:
         # HTTP clients for source checks and criteria tests (None: the connectors' own); tests inject mocks.
         self.http_client, self.jev_client = http_client, jev_client
         self.key_check = key_check  # check the provider keys once when run_forever starts
+        self.spawn_eval = (
+            spawn_eval  # (command, env, log_path, cwd) -> process; tests run research-eval in-process
+        )
 
     def request_stop(self):
         self.stop_requested.set()
@@ -181,6 +187,10 @@ class Worker:
                     return self._field_assist(db, job)
                 if job.kind == "field_preview":
                     return self._field_preview(db, job)
+                if job.kind == "eval_run":
+                    return self._eval_run(db, job)
+                if job.kind == "gold_build":
+                    return self._gold_build(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -402,3 +412,100 @@ class Worker:
         with tempfile.TemporaryDirectory() as scratch, self._heartbeat_while(job.id):
             result = field_preview(payload, Store(scratch), http_client=self.http_client)
         return self._finish(db, job, result)
+
+    def _eval_run(self, db, job):
+        """research-eval steps in child processes (the only place with keys), then import the folder as a
+        new eval report. Progress: {status, kind, step, steps, done, total}; result: {eval_id, folder, warnings}."""
+        from .eval_jobs import eval_steps, parent_report_id
+
+        payload = job.payload or {}
+        folder, steps, options = eval_steps(self.settings, payload, db)
+        db.commit()
+        names = [argv[0] for argv in steps]
+        deadline = self.monotonic() + self.settings.job_timeout_seconds
+        for done, argv in enumerate(steps):
+            snapshot = {
+                "status": "running",
+                "kind": payload["kind"],
+                "step": argv[0],
+                "steps": names,
+                "done": done,
+                "total": len(steps),
+            }
+            if not set_progress(db, job, snapshot, self.clock(), worker_id=self.worker_id):
+                db.rollback()
+                return True
+            db.commit()
+            process = self.spawn_eval(
+                eval_command(argv), child_environment(), folder / "worker.log", str(self.settings.evals_dir)
+            )
+            interrupted = None
+            try:
+                while process.poll() is None:
+                    if self.stopping:
+                        interrupted = "stopped"
+                        break
+                    if self.monotonic() >= deadline:
+                        interrupted = "timeout"
+                        break
+                    self.sleep(self.settings.progress_poll_seconds)
+                    owned = heartbeat(db, job, self.clock(), worker_id=self.worker_id)
+                    db.commit()
+                    if not owned:
+                        return True
+            finally:
+                stop_child(process)
+            if interrupted == "stopped":
+                return self._release(db, job)  # resumes from the eval's call cache when claimed again
+            if interrupted == "timeout":
+                self._fail(db, job, f"the evaluation timed out after {self.settings.job_timeout_seconds:g} s")
+                return True
+            if process.returncode != 0:
+                self._fail(db, job, eval_failure(folder, argv[0], process.returncode))
+                return True
+        with self._heartbeat_while(job.id):
+            result = import_eval_run(
+                db,
+                folder,
+                created_by=job.created_by,
+                gold_dir=self.settings.gold_dir,
+                kind=options["kind"],
+                parent_id=parent_report_id(db, options["parent_id"]),
+                extra_config=options["extra_config"],
+            )
+        progress = {
+            "status": "done",
+            "kind": payload["kind"],
+            "step": None,
+            "steps": names,
+            "done": len(steps),
+            "total": len(steps),
+            "result": {"eval_id": str(result.report_id), "folder": folder.name, "warnings": result.warnings},
+        }
+        if not complete(db, job, progress, worker_id=self.worker_id):
+            db.rollback()
+            return True
+        db.commit()
+        return True
+
+    def _gold_build(self, db, job):
+        from .eval_jobs import build_gold_set
+
+        with self._heartbeat_while(job.id):
+            _row, result = build_gold_set(
+                self.settings,
+                job.payload or {},
+                http_client=self.http_client,
+                created_by=job.created_by,
+                db=db,
+            )
+        return self._finish(db, job, result)
+
+
+def eval_failure(folder, step, code):
+    """`research-eval` writes `Type: message` (keys redacted) to errors.log; redacted again and cut here."""
+    try:
+        first = (Path(folder) / "errors.log").read_text().splitlines()[0]
+    except (OSError, IndexError):
+        return f"step '{step}' exited with code {code}"
+    return redact(f"step '{step}' failed: {first}")[:300]

@@ -44,6 +44,23 @@ def build_command(spec):
     return args + ["--", spec.topic]  # after `--` a topic such as "--run-dir=..." can never be read as a flag
 
 
+def eval_command(argv):
+    """argv for `research-eval` (research_agent.eval.cli). Every element is a value we built; no shell."""
+    return [sys.executable, "-m", "research_agent.eval.cli", *argv]
+
+
+def spawn_command(command, env, log_path, cwd=None):
+    """Start any child command with its output in `log_path` (never in the database)."""
+    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    log = open(log_path, "ab")  # noqa: SIM115 -- owned by the child for its lifetime
+    try:
+        return subprocess.Popen(
+            command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True, cwd=cwd
+        )
+    finally:
+        log.close()
+
+
 def child_environment():
     env = {
         k: v
