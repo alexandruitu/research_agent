@@ -72,6 +72,32 @@ def score(review):
     return round(100 * (0.4 * review["relevance"] + 0.3 * review["methods"] + 0.3 * review["support"]) / 4, 2)
 
 
+def brief(paper):
+    return {"id": paper["id"], "title": paper["title"], "year": paper["year"]}
+
+
+def reviewer_payload(topic, paper, text_source, content, spec):
+    """One panel reviewer's prompt payload. Shared with research-eval panel so cache keys match."""
+    return {
+        "topic": topic,
+        "paper": brief(paper),
+        "text": {"source": text_source, "content": content},
+        "reviewer": {"name": spec["name"], "perspective": spec["perspective"]},
+        "items": [{"key": i["key"], "text": i["text"]} for i in spec["items"]],
+    }
+
+
+def editor_payload(topic, paper, text_source, panel, reviews, instructions):
+    """The editor's payload over `panel` (reviewer specs) and their reviews ({key: PanelReview dict})."""
+    return {
+        "topic": topic,
+        "paper": brief(paper),
+        "text_source": text_source,
+        "reviews": {r["key"]: {"name": r["name"], **reviews[r["key"]]} for r in panel},
+        "instructions": instructions,
+    }
+
+
 def build_graph(
     connector,
     evaluator,
@@ -270,9 +296,6 @@ def build_graph(
     def reviewed_text(entry):
         return evaluator.store.raw_payload(entry["sha256"])["fulltext"]
 
-    def brief(paper):
-        return {"id": paper["id"], "title": paper["title"], "year": paper["year"]}
-
     def panel_reviewer(spec):
         def run(s):
             # No sibling review enters the prompt; weights and red-flag rules stay in code.
@@ -281,13 +304,9 @@ def build_graph(
                 if paper["id"] not in s["evidence"]:
                     continue
                 entry = s["texts"][paper["id"]]
-                payload = {
-                    "topic": s["contract"]["topic"],
-                    "paper": brief(paper),
-                    "text": {"source": entry["text_source"], "content": reviewed_text(entry)},
-                    "reviewer": {"name": spec["name"], "perspective": spec["perspective"]},
-                    "items": [{"key": i["key"], "text": i["text"]} for i in spec["items"]],
-                }
+                payload = reviewer_payload(
+                    s["contract"]["topic"], paper, entry["text_source"], reviewed_text(entry), spec
+                )
                 out[paper["id"]] = evaluator.ask(f"review:{spec['key']}", PanelReview, payload).model_dump()
             return {"panel": {spec["key"]: out}}
 
@@ -299,16 +318,14 @@ def build_graph(
         for paper in s["papers"]:
             if paper["id"] not in s["evidence"]:
                 continue
-            reviews = {
-                r["key"]: {"name": r["name"], **s["panel"][r["key"]][paper["id"]]} for r in spec["panel"]
-            }
-            payload = {
-                "topic": s["contract"]["topic"],
-                "paper": brief(paper),
-                "text_source": s["texts"][paper["id"]]["text_source"],
-                "reviews": reviews,
-                "instructions": spec["editor"]["instructions"],
-            }
+            payload = editor_payload(
+                s["contract"]["topic"],
+                paper,
+                s["texts"][paper["id"]]["text_source"],
+                spec["panel"],
+                {r["key"]: s["panel"][r["key"]][paper["id"]] for r in spec["panel"]},
+                spec["editor"]["instructions"],
+            )
             out[paper["id"]] = evaluator.ask("editor", EditorDecision, payload).model_dump()
         return {"editor_decisions": out}
 
