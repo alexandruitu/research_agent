@@ -83,6 +83,8 @@ def test_read_progress_and_snapshot(tmp_path):
         "status": None,
         "stages": {},
         "updated_at": None,
+        "started_at": None,
+        "timings": {},
     }
     (tmp_path / "progress.json").write_text(
         json.dumps(
@@ -98,6 +100,8 @@ def test_read_progress_and_snapshot(tmp_path):
         "status": "running",
         "stages": {"plan": "completed", "discover": "running"},
         "updated_at": "2026-09-26T10:00:00+00:00",
+        "started_at": None,
+        "timings": {},
     }
     (tmp_path / "progress.json").write_text("{ not json")
     assert read_progress(tmp_path) == {}

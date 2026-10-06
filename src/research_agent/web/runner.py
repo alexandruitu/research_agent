@@ -99,6 +99,8 @@ def progress_snapshot(run_dir):
         "status": data.get("status"),
         "stages": data.get("stages", {}),
         "updated_at": data.get("updated_at"),
+        "started_at": data.get("started_at"),
+        "timings": data.get("timings") or {},
     }
 
 

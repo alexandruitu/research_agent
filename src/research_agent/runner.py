@@ -204,6 +204,8 @@ class Progress:
             "stages": {},
             "started_at": datetime.now(UTC).isoformat(),
             "pid": os.getpid(),
+            # {stage: {started_at, finished_at}}; a resume keeps the times of stages that ran before
+            "timings": (read_json(self.path, {}) or {}).get("timings") or {},
         }
 
     def write(self, **updates):
@@ -214,8 +216,15 @@ class Progress:
 
     def observe(self, name, status):
         with self.lock:
+            now = datetime.now(UTC).isoformat()
             self.data["stages"][name] = status
-            self.data["updated_at"] = datetime.now(UTC).isoformat()
+            timing = self.data["timings"].setdefault(name, {})
+            if status == "running":
+                timing.clear()
+                timing["started_at"] = now
+            else:
+                timing["finished_at"] = now
+            self.data["updated_at"] = now
             atomic_json(self.path, self.data)
 
 
