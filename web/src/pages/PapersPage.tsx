@@ -268,7 +268,7 @@ export function PapersPage() {
         </div>
         {panelOpen && (
           <ErrorBoundary label="the side panel">
-            <PapersSidePanel runId={runId} paperId={view.paperId} stageId={view.stageId} stages={stages.data ?? []} onClose={close} />
+            <PapersSidePanel runId={runId} paperId={view.paperId} stageId={view.stageId} stages={stages.data ?? []} onClose={close} detailsOpen={viewMode === "detailed"} />
           </ErrorBoundary>
         )}
       </div>

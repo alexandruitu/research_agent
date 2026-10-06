@@ -1,4 +1,4 @@
-import type { PaperRow } from "../../api/types";
+import type { DrawerOut, PaperRow } from "../../api/types";
 import { criterionLabel } from "../fields/labels";
 
 type Screen = PaperRow["screen"];
@@ -109,3 +109,33 @@ export function whySentence(row: PaperRow, ctx: WhyContext = {}): string {
   const rest = panelParts(row, ctx);
   return `${head}${rest.length ? `; ${rest.join("; ")}` : ""}.`;
 }
+
+/** The drawer's data as a table row, so the drawer's why sentence comes from the same function. */
+export function drawerAsRow(drawer: DrawerOut): PaperRow {
+  const { screening, panel } = drawer;
+  const table = screening.criteria_table ?? [];
+  const byRole = Object.fromEntries(drawer.reviews.map((r) => [r.role, r.verdict]));
+  return {
+    paper: { id: drawer.paper.id, source_id: drawer.paper.source_id, title: drawer.paper.title, year: drawer.paper.year, doi: drawer.paper.doi },
+    found_by: drawer.found_by, sources: drawer.sources ?? [], in_sr: drawer.in_sr,
+    screen: {
+      tier: screening.tier, decision: screening.decision, jev_decision: screening.jev_decision, llm_decision: screening.llm_decision,
+      criteria: Object.fromEntries(screening.criteria.map((c) => [c.key, c.probability])),
+      decided_by: screening.decided_by ?? table.find((r) => r.decided)?.key ?? null,
+      cells: Object.fromEntries(table.map((r) => [r.key, { kind: r.kind, jev_p: r.jev_p, llm: r.llm, quote: r.quote }])),
+    },
+    extract: null,
+    reviews: drawer.reviews.length ? { a: byRole.a ?? null, b: byRole.b ?? null, adjudicated: "adjudicator" in byRole, adjudicator: byRole.adjudicator ?? null } : null,
+    rank: drawer.rank,
+    score: panel?.score ?? null, coverage: panel?.coverage ?? null, red_flag_count: panel ? panel.red_flag_count : null,
+    text_source: panel?.text_source ?? null, provisional: panel?.coverage != null ? panel.coverage < 0.5 : null,
+  };
+}
+
+/** The drawer's first line: the same sentence, with full quotes, criterion texts and red flag names. */
+export const drawerWhy = (drawer: DrawerOut) =>
+  whySentence(drawerAsRow(drawer), {
+    texts: Object.fromEntries((drawer.screening.criteria_table ?? []).map((r) => [r.key, r.text])),
+    redFlags: drawer.panel?.red_flags.map((f) => f.text) ?? [],
+    maxQuote: Infinity,
+  });

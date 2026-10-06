@@ -50,6 +50,18 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
 }
 
 describe("paper drawer", () => {
+  it("in the Simple view starts with the why sentence and keeps the tables behind Show details", async () => {
+    localStorage.clear();
+    setup();
+    const drawer = await openDrawer();
+    const why = within(drawer).getByText("Dropped: doesn't meet topic match (LLM).");
+    const details = drawer.querySelector("details.drawer-details")!;
+    expect(why.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(details).not.toHaveAttribute("open");
+    await userEvent.click(within(drawer).getByText("Show details"));
+    expect(details).toHaveAttribute("open");
+  });
+
   it("tells the story of the paper the screen lost, stage by stage", async () => {
     setup();
     const drawer = await openDrawer();

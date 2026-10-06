@@ -62,3 +62,12 @@ describe("why sentence", () => {
     expect(whySentence(paperRow())).toBe("Kept: meets the criterion; reviewers say include.");
   });
 });
+
+describe("drawer why", () => {
+  it("is the same sentence, naming the red flags and the full text read", async () => {
+    const { drawerOut, panelOut } = await import("../../test/fixtures");
+    const { drawerWhy } = await import("./why");
+    const drawer = drawerOut({ screening: { ...drawerOut().screening, tier: "jev", decision: "include", jev_decision: "include", llm_decision: null, criteria: [{ key: "topic_match", question: "", probability: 0.97, jev_version: "j" }] }, reviews: [], panel: panelOut() });
+    expect(drawerWhy(drawer)).toBe("Kept: meets the criterion; panel found 1 red flag (data were split at patient level, not image level); full text read.");
+  });
+});

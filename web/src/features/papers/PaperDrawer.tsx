@@ -9,6 +9,7 @@ import { DrawerLibrary } from "./DrawerLibrary";
 import { PaperFiles } from "./PaperFiles";
 import { PeerReview } from "./PeerReview";
 import { RawCalls } from "./RawCalls";
+import { drawerWhy } from "./why";
 
 const ROLE_LABEL: Record<string, string> = { a: "Reviewer A", b: "Reviewer B", adjudicator: "Adjudicator" };
 const JEV_MEANING: Record<string, string> = {
@@ -123,7 +124,8 @@ function Timeline({ drawer }: { drawer: DrawerOut }) {
   );
 }
 
-export function PaperDrawer({ runId, paperId, onClose }: { runId: string; paperId: string; onClose: () => void }) {
+/** `detailsOpen`: the criteria and panel tables start expanded (Detailed view) or collapsed (Simple view). */
+export function PaperDrawer({ runId, paperId, onClose, detailsOpen = true }: { runId: string; paperId: string; onClose: () => void; detailsOpen?: boolean }) {
   const { user } = useAuth();
   const paper = usePaper(runId, paperId);
   const [section, setSection] = useState<"overview" | "abstract" | "calls">("overview");
@@ -144,6 +146,7 @@ export function PaperDrawer({ runId, paperId, onClose }: { runId: string; paperI
       {paper.isError && <p role="alert" className="form-error">{paper.error instanceof ApiError ? `${paper.error.message} (request ${paper.error.requestId})` : "Could not load this paper."}</p>}
       {paper.data && (
         <>
+          <p className="drawer-why"><span className="sr-only">Why: </span>{drawerWhy(paper.data)}</p>
           <p className="sub">{paper.data.paper.year ?? ""} · {paper.data.paper.source_id}{paper.data.paper.doi ? ` · ${paper.data.paper.doi}` : ""}</p>
           <div role="group" aria-label="Drawer sections" className="sections">
             <button type="button" aria-pressed={section === "overview"} onClick={() => setSection("overview")}>Overview</button>
@@ -152,7 +155,10 @@ export function PaperDrawer({ runId, paperId, onClose }: { runId: string; paperI
           </div>
           {section === "overview" && (
             <>
-              <Timeline drawer={paper.data} />
+              <details className="drawer-details" open={detailsOpen}>
+                <summary>Show details <span className="sub-inline">(criteria, peer review, rank)</span></summary>
+                <Timeline drawer={paper.data} />
+              </details>
               <PaperFiles paperId={paper.data.paper.id} initial={paper.data.files ?? []} abstractOnly={paper.data.panel?.text_source === "abstract"} />
             </>
           )}

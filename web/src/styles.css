@@ -1003,3 +1003,7 @@ table.papers td.col-criteria { min-width: 15rem; }
 .view-toggle-wrap { display: grid; gap: 2px; font-size: 12px; color: var(--ink-2); }
 .score-muted { margin-left: 6px; color: var(--ink-2); font-size: 12px; text-decoration: line-through dotted; text-decoration-color: var(--rule-2); }
 .provisional-tip .chip { margin-left: 0; }
+.drawer-why { margin: var(--s3) 0 var(--s1); font: 400 16px/1.45 var(--serif); color: var(--ink); padding-left: var(--s3); border-left: 3px solid var(--accent); }
+.drawer-details { margin-top: var(--s3); }
+.drawer-details > summary { cursor: pointer; font-weight: 600; padding: var(--s2) 0; }
+.drawer-details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r1); }
