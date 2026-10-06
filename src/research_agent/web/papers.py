@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, case, exists, func, literal, or_, select
 from sqlalchemy.orm import aliased
 
 from ..agents import validate_evidence
@@ -42,6 +42,51 @@ class PaperQuery:
     decided_by: str | None = None
     source: str | None = None
     has_red_flags: bool | None = None
+    group_by: str = "quality"
+    group: str | None = None
+
+
+QUALITY_GROUPS = (
+    ("read_first", "Read first", "Kept by screening, editor verdict include and 0 red flags."),
+    (
+        "worth_a_look",
+        "Worth a look",
+        (
+            "Kept, verdict include or uncertain and at most 1 red flag "
+            "(legacy A/B runs: red flags were not checked)."
+        ),
+    ),
+    ("has_problems", "Has problems", "Kept, but 2 or more red flags or verdict exclude."),
+    ("not_relevant", "Not relevant", "Dropped by screening; each row names the criterion that dropped it."),
+    (
+        "not_reviewed",
+        "Not reviewed",
+        "Kept (or never screened: no abstract) but without a review verdict.",
+    ),
+)
+
+
+def quality_expr(ra, rb, rj):
+    """The quality group of a row, first match wins. The verdict is the panel editor's; in legacy A/B runs
+    the adjudicator's, else A's when A and B agree, else uncertain when they disagree. Red flags are null
+    when no panel reviewed the paper (not checked), so such a paper never qualifies for read_first."""
+    legacy = case(
+        (rj.verdict.is_not(None), rj.verdict),
+        (and_(ra.verdict.is_not(None), ra.verdict == rb.verdict), ra.verdict),
+        (and_(ra.verdict.is_not(None), rb.verdict.is_not(None)), literal("uncertain")),
+    )
+    verdict = case((PaperReview.id.is_not(None), PaperReview.editor_verdict), else_=legacy)
+    flags = PaperReview.red_flag_count
+    return case(
+        (and_(Screening.decision == "exclude", Screening.tier != NOT_SCREENED), literal("not_relevant")),
+        (or_(flags >= 2, verdict == "exclude"), literal("has_problems")),
+        (and_(verdict == "include", flags == 0), literal("read_first")),
+        (
+            and_(verdict.in_(["include", "uncertain"]), or_(flags.is_(None), flags <= 1)),
+            literal("worth_a_look"),
+        ),
+        else_=literal("not_reviewed"),
+    )
 
 
 def _criterion_probability(key):
@@ -86,7 +131,9 @@ def reviews_cell(verdicts, adjudication_expected, expected):
 PANEL_COLUMNS = ("score", "coverage", "red_flag_count", "text_source", "text_licence")
 
 
-def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label, panel=None):
+def build_row(
+    run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label, panel=None, group=None
+):
     expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
     if quotes:
         extract = {"claims": len(quotes), "quotes_verified": quotes_verified(quotes, paper.abstract)}
@@ -116,9 +163,8 @@ def build_row(run, screening, paper, cells, quotes, verdicts, adjudication_expec
         "extract": extract,
         "reviews": reviews,
         "rank": {"score": rank[0], "position": rank[1]} if rank[0] is not None else None,
-        **dict(
-            zip(PANEL_COLUMNS, panel or (None,) * len(PANEL_COLUMNS), strict=True)
-        ),
+        "group": group,
+        **dict(zip(PANEL_COLUMNS, panel or (None,) * len(PANEL_COLUMNS), strict=True)),
     }
 
 
@@ -135,8 +181,10 @@ def _sort_key(sort):
     raise ValueError(f"unknown sort {sort!r}")
 
 
-def paper_table(db, run, q):
+def _filtered(run, q):
+    """The run's rows with every filter applied: (statement, quality expression)."""
     ra, rb, rj, gl = aliased(Review), aliased(Review), aliased(Review), aliased(GoldLabel)
+    quality = quality_expr(ra, rb, rj)
 
     def review_join(alias, role):
         return and_(
@@ -160,6 +208,7 @@ def paper_table(db, run, q):
             PaperReview.red_flag_count,
             PaperReview.text_source,
             PaperReview.text_licence,
+            quality,
         )
         .join(Paper, Paper.id == Screening.paper_id)
         .outerjoin(ra, review_join(ra, "a"))
@@ -204,7 +253,20 @@ def paper_table(db, run, q):
         stmt = stmt.where(
             exists().where(CriterionScore.criterion_id == Criterion.id, *conditions).correlate(Screening)
         )
+    if q.group is not None:
+        stmt = stmt.where(group_key(q.group_by, quality, q.group))
+    return stmt, quality
 
+
+def group_key(by, quality, key):
+    """The condition "the row is in group `key` of dimension `by`"."""
+    if by == "quality":
+        return quality == key
+    raise ValueError(f"unknown grouping {by!r}")
+
+
+def paper_table(db, run, q):
+    stmt, _quality = _filtered(run, q)
     total = db.scalar(
         select(func.count()).select_from(
             stmt.with_only_columns(Screening.id, maintain_column_froms=True).subquery()
@@ -253,7 +315,8 @@ def paper_table(db, run, q):
             any((d or {}).get("adjudicated") is True for d in (da, db_)),
             (score, position),
             label,
-            panel,
+            panel[:-1],
+            panel[-1],
         )
         for s, p, va, vb, vj, da, db_, score, position, label, *panel in rows
     ]

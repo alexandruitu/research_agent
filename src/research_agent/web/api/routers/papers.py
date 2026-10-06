@@ -13,6 +13,7 @@ from ..schemas import CallOut, DrawerOut, PaperPage, SourceName
 from .files import files_of
 
 router = APIRouter(prefix="/runs", tags=["papers"])
+GroupBy = Literal["quality", "source", "year", "decided_by", "library"]
 MAX_PAGE = 100_000  # keeps (page - 1) * page_size far inside a SQL bigint offset
 
 
@@ -33,6 +34,8 @@ def list_papers(
     decided_by: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
     source: SourceName | Literal["demo"] | None = None,
     has_red_flags: bool | None = None,
+    group_by: GroupBy = "quality",
+    group: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
     settings=Depends(get_settings),
@@ -63,6 +66,8 @@ def list_papers(
         decided_by,
         source,
         has_red_flags,
+        group_by,
+        group,
     )
     items, total = paper_table(db, run, query)
     return PaperPage(items=items, total=total, page=page, page_size=page_size)

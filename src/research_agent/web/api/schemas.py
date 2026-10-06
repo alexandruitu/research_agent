@@ -906,7 +906,16 @@ class RankCell(Model):
 
 class PaperRow(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["sources", "score", "coverage", "red_flag_count", "text_source", "text_licence", "library"]
+        [
+            "sources",
+            "score",
+            "coverage",
+            "red_flag_count",
+            "text_source",
+            "text_licence",
+            "library",
+            "group",
+        ]
     )
     paper: PaperRef
     found_by: str
@@ -925,6 +934,8 @@ class PaperRow(Model):
         None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
     )
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
+    # read_first | worth_a_look | has_problems | not_relevant | not_reviewed (rules: papers.QUALITY_GROUPS)
+    group: str | None = None
 
 
 class PaperPage(Model):
