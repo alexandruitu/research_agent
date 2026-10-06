@@ -25,10 +25,10 @@ export function LibraryBadge({ library }: { library: PaperRow["library"] }) {
   );
 }
 
-function SortHeader({ label, sortKey, sort, direction, onSort }: { label: string; sortKey: string; sort: string; direction: string; onSort: (key: string) => void }) {
+function SortHeader({ label, sortKey, sort, direction, onSort, className }: { label: string; sortKey: string; sort: string; direction: string; onSort: (key: string) => void; className?: string }) {
   const active = sort === sortKey;
   return (
-    <th scope="col" aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+    <th scope="col" className={className} aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
       <button type="button" className="sort" onClick={() => onSort(sortKey)}>
         {label}{active ? (direction === "asc" ? " ▲" : " ▼") : ""}
       </button>
@@ -51,9 +51,9 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                   onChange={(e) => selection.onToggleAll(e.target.checked)} />
               </th>
             )}
-            <SortHeader label="Paper" sortKey="title" {...sortProps} />
+            <SortHeader label="Paper" sortKey="title" className="col-paper" {...sortProps} />
             <th scope="col">Found by</th>
-            {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" {...sortProps} /> : <th scope="col">Criteria</th>}
+            {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" className="col-criteria" {...sortProps} /> : <th scope="col" className="col-criteria">Criteria</th>}
             <th scope="col">Decision</th>
             <th scope="col">Claims</th>
             {panel ? (
@@ -81,15 +81,16 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                     <input type="checkbox" aria-label={`Select ${row.paper.title}`} checked={selection.ids.has(row.paper.id)} onChange={(e) => selection.onToggle(row.paper.id, e.target.checked)} />
                   </td>
                 )}
-                <td>
-                  <button type="button" className="linklike" data-open-paper={row.paper.id} onClick={(event) => { event.stopPropagation(); onOpen(row.paper.id); }}>
+                <td className="col-paper">
+                  <button type="button" className="linklike title-clamp" title={row.paper.title} data-open-paper={row.paper.id} onClick={(event) => { event.stopPropagation(); onOpen(row.paper.id); }}>
                     {row.paper.title}
                   </button>
-                  <span className="sub">{row.paper.year ?? ""} {row.paper.source_id}</span>
+                  <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
+                  {row.text_source === "abstract" && <span className="abstract-only" title="The panel read only the abstract">abstract only</span>}
                   <LibraryBadge library={row.library ?? null} />
                 </td>
                 <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>
-                <td><CriteriaCell screen={row.screen} /></td>
+                <td className="col-criteria"><CriteriaCell screen={row.screen} /></td>
                 <td><DecisionCell screen={row.screen} /></td>
                 <td><ExtractCellView cell={row.extract} /></td>
                 {panel ? (

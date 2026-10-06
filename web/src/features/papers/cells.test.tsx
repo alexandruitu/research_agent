@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { lostRow, paperRow } from "../../test/fixtures";
@@ -92,5 +92,26 @@ describe("criteria cell for a field with criteria", () => {
     expect(screen.getByText("Semantic Scholar, PubMed, IEEE Xplore, Crossref")).toBeInTheDocument();
     rerender(<FoundByCell foundBy="lookup" sources={[]} />);
     expect(screen.getByText("lookup")).toBeInTheDocument();
+  });
+});
+
+describe("criteria values", () => {
+  it("lists every criterion with its full value and marks the decider in words", () => {
+    render(<CriteriaCell screen={fieldScreen({ cells: { ...fieldScreen().cells, e1: { kind: "exclude", jev_p: 0.02, llm: "no", quote: null } } })} />);
+    const list = screen.getByRole("list", { name: "Criteria values" });
+    const items = within(list).getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(["incl 1p 0.01◆ decided", "incl 2p 0.90", "excl 1p 0.02LLM no"]);
+  });
+});
+
+describe("paper column", () => {
+  it("clamps the title but keeps the full title on hover, and marks abstract-only reviews", async () => {
+    const { PaperTable } = await import("./PaperTable");
+    const row = paperRow({ text_source: "abstract", score: 70, coverage: 0.8, red_flag_count: 0 });
+    render(<PaperTable rows={[row]} stages={[]} sort="title" direction="asc" onSort={() => {}} selectedPaperId={null} onOpen={() => {}} selectedStageId={null} onSelectStage={() => {}} legacy={true} />);
+    const title = screen.getByRole("button", { name: row.paper.title });
+    expect(title).toHaveClass("title-clamp");
+    expect(title).toHaveAttribute("title", row.paper.title);
+    expect(screen.getByText("abstract only", { selector: ".abstract-only" })).toBeInTheDocument();
   });
 });

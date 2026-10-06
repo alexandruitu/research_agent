@@ -66,7 +66,37 @@ export function CriteriaCell({ screen }: { screen: Screen }) {
       </span>
     );
   }
-  return <span className="topic"><span>{criteriaText(screen)}</span>{badges}</span>;
+  return (
+    <span className="topic">
+      <span>{criteriaText(screen)}</span>{badges}
+      <CriteriaValues screen={screen} />
+    </span>
+  );
+}
+
+/** One line per criterion: its label, Jev's probability and the LLM's answer, never truncated; the
+ * criterion that decided is marked with "◆ decided" (a word, not a colour). */
+export function CriteriaValues({ screen }: { screen: Screen }) {
+  const keys = screenKeys(screen);
+  if (keys.length === 0) return null;
+  return (
+    <ul className="crit-values" aria-label="Criteria values">
+      {keys.map((key) => {
+        const cell = screen.cells?.[key];
+        const p = cell?.jev_p ?? screen.criteria[key] ?? null;
+        const decided = screen.decided_by === key;
+        return (
+          <li key={key} className={decided ? "is-decider" : undefined}>
+            <span className="crit-key">{criterionLabel(key)}</span>
+            {p !== null && <span className="crit-p">p {p.toFixed(2)}</span>}
+            {cell?.llm && <span className="crit-llm">LLM {cell.llm}</span>}
+            {p === null && !cell?.llm && <span className="na">not scored</span>}
+            {decided && <span className="crit-decided">◆ decided</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 const DECISION: Record<string, string> = { include: "keep", exclude: "drop", uncertain: "unsure" };
