@@ -46,4 +46,4 @@ Screening, citations, schema and model errors stay fail-closed.
   Settings → Sources.
 - Papers page: dismissible banner "Partial search: Semantic Scholar skipped (rate limited). Results may be
   missing papers from this source." (dismissal per run, session only).
-- Evals: only where a run is the input (run-based reports); screening evals use gold sets and get no caveat.
+- Evals: `EvalDetailOut.source_search_warnings` comes from the run named by `run_dir` in the report's frozen config (panel evals built from a run); the report page shows a caveat. Screening evals use gold sets and get none.
