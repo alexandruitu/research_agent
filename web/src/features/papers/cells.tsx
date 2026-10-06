@@ -1,5 +1,8 @@
 import type { PaperRow } from "../../api/types";
+import { Term } from "../../components/ui/Term";
+import { Tooltip } from "../../components/ui/Tooltip";
 import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
+import { criteriaSummary, criterionLines } from "./why";
 
 const VERDICT: Record<string, string> = { include: "inc", exclude: "exc", uncertain: "unc" };
 const verdict = (value: string | null) => (value ? (VERDICT[value] ?? value) : "–");
@@ -50,8 +53,8 @@ export function CriteriaCell({ screen }: { screen: Screen }) {
   if (keys.length === 0) return <NotApplicable />;
   const badges = (
     <>
-      {screen.tier === "jev" && <span className="chip chip--ok">Jev</span>}
-      {screen.jev_decision === "escalate" && <span className="chip chip--warn">escalated</span>}
+      {screen.tier === "jev" && <span className="chip chip--ok"><Term k="jev">Jev</Term></span>}
+      {screen.jev_decision === "escalate" && <span className="chip chip--warn"><Term k="escalated">escalated</Term></span>}
     </>
   );
   if (!keys.some(isFieldCriterion)) {
@@ -68,7 +71,8 @@ export function CriteriaCell({ screen }: { screen: Screen }) {
   }
   return (
     <span className="topic">
-      <span>{criteriaText(screen)}</span>{badges}
+      <CriteriaLine screen={screen} />
+      <span className="sub">{criteriaText(screen)}</span>{badges}
       <CriteriaValues screen={screen} />
     </span>
   );
@@ -96,6 +100,31 @@ export function CriteriaValues({ screen }: { screen: Screen }) {
         );
       })}
     </ul>
+  );
+}
+
+const STATE_WORD = { met: "passes", not_met: "fails", unclear: "unclear" } as const;
+
+/**
+ * The compact criteria line ("✓ 4/4 met", "✕ dropped by incl 2", "? 2 unclear"). It is a button: hover,
+ * focus or tap shows every criterion's values (nothing is hidden for good: the drawer lists them too).
+ */
+export function CriteriaLine({ screen, texts = {} }: { screen: Screen; texts?: Record<string, string> }) {
+  const summary = criteriaSummary(screen);
+  const lines = criterionLines(screen);
+  const line = <span className={`crit-line crit-line--${summary.icon === "✓" ? "ok" : summary.icon === "✕" ? "bad" : "warn"}`}><span aria-hidden="true">{summary.icon}</span> {summary.text}</span>;
+  if (lines.length === 0) return line;
+  return (
+    <Tooltip className="crit-tip" trigger={line} tip={
+      <ul aria-label="Criteria values">
+        {lines.map((l) => (
+          <li key={l.key}>
+            <strong>{criterionLabel(l.key)}</strong>{texts[l.key] ? ` ${texts[l.key]}` : ""}: {STATE_WORD[l.state]}
+            {l.jevP !== null && ` · Jev p ${l.jevP.toFixed(2)}`}{l.llm && ` · LLM ${l.llm}`}{l.decided && " · ◆ decided"}
+          </li>
+        ))}
+      </ul>
+    } />
   );
 }
 

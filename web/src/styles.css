@@ -982,3 +982,8 @@ table.papers td.col-criteria { min-width: 15rem; }
 .glossary-list dt { font: 600 15px/1.35 var(--serif); }
 .glossary-list dd { margin: 0; color: var(--ink-2); }
 @media (max-width: 600px) { .glossary-list div { grid-template-columns: 1fr; gap: 2px; } }
+.crit-line { display: inline-flex; gap: 4px; align-items: baseline; font-weight: 500; white-space: nowrap; border-bottom: 1px dotted var(--rule-2); }
+.crit-line--ok { color: var(--ok-fg); }
+.crit-line--bad { color: var(--bad-fg); }
+.crit-line--warn { color: var(--warn-fg); }
+.crit-tip .tip-trigger:hover .crit-line, .crit-tip .tip-trigger[aria-expanded="true"] .crit-line { border-bottom-style: solid; }

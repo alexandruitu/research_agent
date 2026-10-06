@@ -30,7 +30,7 @@ describe("screening cells", () => {
   it("shows the Jev probability with a Jev badge when Jev decided", () => {
     render(<CriteriaCell screen={paperRow().screen} />);
     expect(screen.getByText("0.99")).toBeInTheDocument();
-    expect(screen.getByText("Jev")).toBeInTheDocument();
+    expect(screen.getByText("Jev", { selector: ".term" })).toBeInTheDocument();
   });
 
   it("marks an escalated paper and names the deciding tier", () => {
@@ -132,5 +132,18 @@ describe("provisional scores", () => {
     const { PanelScoreCell } = await import("./cells");
     render(<PanelScoreCell score={90} coverage={0.8} provisional={false} answered={8} total={10} />);
     expect(screen.queryByText("provisional")).not.toBeInTheDocument();
+  });
+});
+
+describe("compact criteria line", () => {
+  it("summarises the criteria and lists each one on focus", async () => {
+    const { CriteriaLine } = await import("./cells");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    render(<CriteriaLine screen={fieldScreen()} texts={{ i1: "Uses deep learning." }} />);
+    expect(screen.getByRole("button", { name: /dropped by incl 1/ })).toBeInTheDocument();
+    await userEvent.tab();
+    const tip = screen.getByRole("tooltip");
+    expect(within(tip).getByText(/Uses deep learning/)).toHaveTextContent("incl 1 Uses deep learning.: fails · Jev p 0.01 · ◆ decided");
+    expect(within(tip).getAllByRole("listitem")).toHaveLength(3);
   });
 });
