@@ -162,7 +162,9 @@ describe("FieldEditorPage", () => {
     expect(screen.getByRole("checkbox", { name: "OpenAlex (disabled in Settings)" })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: "IEEE Xplore (needs a key)" })).toBeDisabled();
     const biomedical = screen.getByRole("group", { name: "Biomedical" });
-    expect(within(biomedical).getAllByRole("checkbox").map((c) => c.closest("label")?.textContent)).toEqual(["Europe PMC", "PubMed (disabled in Settings)"]);
+    expect(within(biomedical).getAllByRole("checkbox").map((c) => c.closest("label")?.textContent)).toEqual(["Europe PMC", "Required", "PubMed (disabled in Settings)"]);
+    // Partial search: a selected source gets a Required toggle, off by default
+    expect(screen.getByRole("checkbox", { name: "Europe PMC required" })).not.toBeChecked();
     expect(screen.queryByRole("checkbox", { name: /Unpaywall/ })).not.toBeInTheDocument();
   });
 

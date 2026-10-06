@@ -164,7 +164,9 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
   };
 
   const toggleSource = (name: string, on: boolean) =>
-    update({ sources: on ? [...form.sources, name] : form.sources.filter((s) => s !== name) });
+    update({ sources: on ? [...form.sources, name] : form.sources.filter((s) => s !== name), required: (form.required ?? []).filter((s) => on || s !== name) });
+  const requireSource = (name: string, on: boolean) =>
+    update({ required: on ? [...(form.required ?? []), name] : (form.required ?? []).filter((s) => s !== name) });
   const canPreview = hasKeywords(form) || !!draftOverrides(form);
 
   return (
@@ -227,7 +229,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                   </div>
                   <CriteriaList kind="include" items={form.include} onChange={(include) => update({ include })} />
                   <CriteriaList kind="exclude" items={form.exclude} onChange={(exclude) => update({ exclude })} />
-                  <SourcePicker sources={sources} chosen={form.sources} disabled={!canEdit} onToggle={toggleSource} />
+                  <SourcePicker sources={sources} chosen={form.sources} required={form.required ?? []} disabled={!canEdit} onToggle={toggleSource} onRequire={requireSource} />
                   <div className="two-up">
                     <fieldset>
                       <legend>Years</legend>

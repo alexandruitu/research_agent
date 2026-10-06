@@ -10,6 +10,7 @@ import { AblationReport } from "../features/evals/AblationReport";
 import { PanelReport } from "../features/evals/PanelReport";
 import { ScreeningReport } from "../features/evals/ScreeningReport";
 import { KIND_LABEL, KIND_WHAT, dateText, kindOf } from "../features/evals/words";
+import { partialSearchSentence } from "../features/runs/SearchWarnings";
 
 function Body({ detail }: { detail: EvalDetailOut }) {
   switch (kindOf(detail.kind)) {
@@ -53,6 +54,11 @@ export function EvalReportPage() {
           </p>
         )}
       </header>
+      {!!d.source_search_warnings?.length && (
+        <p className="eval-caveat" role="note">
+          <span aria-hidden="true">⚠ </span><strong>Caveat:</strong> this report was built from a run with a partial search. {partialSearchSentence(d.source_search_warnings)}
+        </p>
+      )}
       <Body detail={d} />
     </section>
   );

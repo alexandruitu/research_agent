@@ -9,6 +9,8 @@ export type Overrides = Record<QuerySource, string>;
 export type FieldForm = {
   name: string; description: string; topic: string; keywords: Keywords; overrides: Overrides;
   include: string[]; exclude: string[]; sources: string[]; yearFrom: string; yearTo: string; note: string;
+  /** Sources that fail the run when they fail (partial search skips the others with a warning). */
+  required?: string[];
 };
 
 export const MAX_TERMS = 20;
@@ -30,6 +32,7 @@ export const formFromVersion = (version: FieldVersionOut): FieldForm => ({
   include: version.include.map((c) => c.text),
   exclude: version.exclude.map((c) => c.text),
   sources: [...version.sources],
+  required: [...(version.required_sources ?? [])],
   yearFrom: version.years.from == null ? "" : String(version.years.from),
   yearTo: version.years.to == null ? "" : String(version.years.to),
   note: "",
@@ -116,6 +119,8 @@ export const toDraft = (form: FieldForm): FieldDraft => {
   if (keywords) draft.keywords = keywords;
   const overrides = draftOverrides(form);
   if (overrides) draft.query_override = overrides;
+  const required = draft.sources.filter((s) => (form.required ?? []).includes(s));
+  if (required.length) draft.required_sources = required;
   return draft;
 };
 

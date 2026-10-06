@@ -24,6 +24,7 @@ import { PaperTable } from "../features/papers/PaperTable";
 import { parseView, patchView } from "../features/papers/papersState";
 import { PapersSidePanel } from "../features/papers/PapersSidePanel";
 import { SaveDialog } from "../features/library/SaveDialog";
+import { PartialSearchBanner } from "../features/runs/SearchWarnings";
 import { useSaveFlow } from "../features/library/saveFlow";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
@@ -168,6 +169,7 @@ export function PapersPage() {
           </p>
         )}
       </div>
+      {selected && <PartialSearchBanner key={runId} runId={runId} warnings={selected.search_warnings} />}
       {member && selectedIds.size > 0 && (
         <div className="selection-bar" role="region" aria-label="Selection">
           <strong>{selectedIds.size} selected</strong>

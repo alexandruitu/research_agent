@@ -943,3 +943,16 @@ table.papers td.col-criteria { min-width: 15rem; }
 .group-rule { margin: 0 0 var(--s2) calc(1em + var(--s3)); font-size: 12px; color: var(--ink-2); max-width: 70ch; }
 .group-more { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
 .group-empty { margin: 0 0 var(--s2) calc(1em + var(--s3)); }
+
+/* Partial search: a source a run skipped (warning, never only colour: icon + words) */
+.runs__partial { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 12px; border: 1px solid var(--warn-line); border-radius: 4px; background: var(--warn-bg); color: var(--warn-fg); }
+.search-warnings { margin: 12px 0; padding: 10px 14px; border: 1px solid var(--warn-line); border-left-width: 4px; border-radius: 6px; background: var(--warn-bg); color: var(--warn-fg); }
+.search-warnings h2 { margin: 0 0 6px; font-size: 16px; }
+.search-warnings ul { margin: 6px 0; padding-left: 20px; }
+.search-warnings a { color: inherit; }
+.partial-search-banner { display: flex; gap: 8px; align-items: baseline; margin: 8px 0; padding: 6px 12px; border: 1px solid var(--warn-line); border-radius: 6px; background: var(--warn-bg); color: var(--warn-fg); }
+.partial-search-banner .link-button { margin-left: auto; color: inherit; }
+.source-choice-row { display: inline-flex; gap: 6px; align-items: baseline; margin-right: 16px; }
+.source-choice-row .source-choice { margin-right: 0; }
+.source-required { font-size: 12px; color: var(--ink-2); }
+.eval-caveat { margin: 8px 0; padding: 6px 12px; border: 1px solid var(--warn-line); border-radius: 6px; background: var(--warn-bg); color: var(--warn-fg); }

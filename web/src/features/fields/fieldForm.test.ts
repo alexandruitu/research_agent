@@ -38,7 +38,7 @@ describe("field form", () => {
       name: "ML CT-FFR", topic: "deep learning CT-FFR", description: "", keywords: { all: [], any: [], none: [] },
       overrides: noOverrides(),
       include: ["The study uses machine learning or deep learning.", "FFR is estimated from coronary CT angiography."],
-      exclude: ["The paper is a review or an editorial."], sources: ["europepmc"], yearFrom: "2018", yearTo: "", note: "",
+      exclude: ["The paper is a review or an editorial."], sources: ["europepmc"], yearFrom: "2018", yearTo: "", note: "", required: [],
     });
     expect(formFromVersion(legacyVersion())).toMatchObject({ include: [], exclude: [], yearFrom: "", yearTo: "" });
   });

@@ -8,6 +8,7 @@ import { MenuButton } from "../components/ui/MenuButton";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useRunActions } from "../features/runs/RunActions";
 import { RunStatus } from "../features/runs/RunList";
+import { SearchWarningPanel } from "../features/runs/SearchWarnings";
 import { formatSeconds, formatUsd, runLabel } from "../features/runs/runWords";
 
 /** One run: what it was started with, how long each stage took, what it found and cost, and its log. */
@@ -53,6 +54,7 @@ export function RunDetailPage() {
         </div>
       </header>
 
+      <SearchWarningPanel warnings={data.search_warnings} failed={data.status === "failed"} />
       {data.status === "failed" && <div role="alert" className="banner banner--bad"><p><strong>The run failed.</strong> {data.error ?? "No details were stored."}</p></div>}
       {data.status === "cancelled" && <div className="banner"><p><strong>Cancelled.</strong> The checkpoint is kept{data.can_manage && data.resume?.allowed ? "; Resume continues where it stopped." : "."}</p></div>}
       {data.resume?.code === "prompt_version_changed" && (
