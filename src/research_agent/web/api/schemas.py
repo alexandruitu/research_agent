@@ -681,7 +681,16 @@ class EvalJobOut(Model):
 
 class EvalDetailOut(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["kind", "parent_id", "config", "chips", "headline", "children", "rating_sample_ids"]
+        [
+            "kind",
+            "parent_id",
+            "config",
+            "chips",
+            "headline",
+            "children",
+            "rating_sample_ids",
+            "source_search_warnings",
+        ]
     )
     id: uuid.UUID
     gold_set: GoldSetOut | None
@@ -696,6 +705,9 @@ class EvalDetailOut(Model):
     headline: EvalHeadline | None = None
     children: list["EvalChildOut"] = []  # ablation/human reports computed from this one
     rating_sample_ids: list[uuid.UUID] = []
+    # Partial search of the research run this report was built from (null: built from a gold set, or the run
+    # recorded none). A caveat: the run may be missing papers from the skipped sources.
+    source_search_warnings: list["SearchWarningOut"] | None = None
 
 
 class EvalChildOut(Model):

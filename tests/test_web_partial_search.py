@@ -117,3 +117,22 @@ def test_migration_adds_and_drops_the_column(pg_url, pg_engine):
     finally:
         with pg_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
             connection.execute(sa.text(f'drop database "{name}" with (force)'))
+
+
+def test_an_eval_built_from_a_run_carries_its_search_warnings(db, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from research_agent.web.api.routers.evals import source_search_warnings
+
+    spec = DomainSpec.model_validate(DOMAIN)
+    monkeypatch.setattr(
+        runner,
+        "make_connector",
+        lambda c, store: MultiSource([(DemoConnector(store, source="europepmc"), 5), (Down(), 5)]),
+    )
+    folder = tmp_path / "run"
+    run_research(folder, Contract(topic=spec.topic, domain=spec, max_papers=2))
+    run = db.get(Run, import_research_run(db, folder).run_id)
+    report = SimpleNamespace(config={"source": {"run_dir": run.folder, "report_sha256": "x"}})
+    assert source_search_warnings(db, report)[0]["source"] == "semantic_scholar"
+    assert source_search_warnings(db, SimpleNamespace(config={"kind": "screening", "gold": "g"})) is None

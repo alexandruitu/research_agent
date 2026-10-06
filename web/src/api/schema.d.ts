@@ -1767,6 +1767,8 @@ export interface components {
             children?: components["schemas"]["EvalChildOut"][];
             /** Rating Sample Ids */
             rating_sample_ids?: string[];
+            /** Source Search Warnings */
+            source_search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
         };
         /**
          * EvalHeadline

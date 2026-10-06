@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy import select
 
 from ... import evals as svc
-from ...db.models import EvalReport, GoldSet, Job, RatingSample
+from ...db.models import EvalReport, GoldSet, Job, RatingSample, Run
 from ...jobs import enqueue
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
@@ -21,7 +21,7 @@ from ..schemas import (
     GoldSetOut,
     JobOut,
 )
-from .runs import check_active_cap, job_out
+from .runs import check_active_cap, job_out, search_warnings
 
 router = APIRouter(prefix="/evals", tags=["evals"])
 ACTIVE_JOBS_LISTED = 20
@@ -49,6 +49,27 @@ def summary(db, settings, report):
         parent_id=report.parent_id,
         chips=svc.chips(report, name),
     )
+
+
+def _run_dirs(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "run_dir" and isinstance(item, str):
+                yield item
+            else:
+                yield from _run_dirs(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _run_dirs(item)
+
+
+def source_search_warnings(db, report):
+    """Warnings of the research run a report was built from (`run_dir` in its frozen config), if any."""
+    for folder in _run_dirs(report.config or {}):
+        run = db.scalar(select(Run).where(Run.folder == folder))
+        if run is not None and (warnings := search_warnings(run)):
+            return warnings
+    return None
 
 
 def _pending(db):
@@ -188,4 +209,5 @@ def get_eval(
             for c in svc.latest_children(db, report.id)
         ],
         rating_sample_ids=list(samples),
+        source_search_warnings=source_search_warnings(db, report),
     )
