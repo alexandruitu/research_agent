@@ -728,6 +728,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/papers/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Paper Groups
+         * @description The groups of a run's papers under the active filters: key, label, count and the rule that forms them.
+         */
+        get: operations["list_paper_groups_api_v1_runs__run_id__papers_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runs/{run_id}/papers/{paper_id}": {
         parameters: {
             query?: never;
@@ -2551,6 +2571,17 @@ export interface components {
             /** Can Delete */
             can_delete: boolean;
         };
+        /** PaperGroupOut */
+        PaperGroupOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+            /** Rule */
+            rule: string;
+        };
         /** PaperPage */
         PaperPage: {
             /** Items */
@@ -2604,6 +2635,8 @@ export interface components {
             /** Text Licence */
             text_licence?: string | null;
             library?: components["schemas"]["LibraryRef"] | null;
+            /** Group */
+            group?: string | null;
         };
         /**
          * PreviewRequest
@@ -5148,6 +5181,8 @@ export interface operations {
                 decided_by?: string | null;
                 source?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus") | "demo" | null;
                 has_red_flags?: boolean | null;
+                group_by?: "quality" | "source" | "year" | "decided_by" | "library";
+                group?: string | null;
             };
             header?: never;
             path: {
@@ -5164,6 +5199,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaperPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_paper_groups_api_v1_runs__run_id__papers_groups_get: {
+        parameters: {
+            query?: {
+                by?: "quality" | "source" | "year" | "decided_by" | "library";
+                page?: number;
+                page_size?: number;
+                sort?: string;
+                direction?: "asc" | "desc";
+                decision?: ("include" | "exclude" | "uncertain") | null;
+                tier?: ("jev" | "llm" | "rule") | null;
+                escalated?: boolean | null;
+                in_sr?: boolean | null;
+                criterion?: string | null;
+                p_min?: number | null;
+                p_max?: number | null;
+                decided_by?: string | null;
+                source?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus") | "demo" | null;
+                has_red_flags?: boolean | null;
+                group_by?: "quality" | "source" | "year" | "decided_by" | "library";
+                group?: string | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperGroupOut"][];
                 };
             };
             /** @description Validation Error */

@@ -27,6 +27,7 @@ export type DeleteOut = S["DeleteOut"];
 export type RunStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 export type PaperRow = S["PaperRow"];
 export type PaperPage = S["PaperPage"];
+export type PaperGroupOut = S["PaperGroupOut"];
 export type ScreenCell = S["ScreenCell"];
 export type DrawerOut = S["DrawerOut"];
 export type ScreeningOut = S["ScreeningOut"];

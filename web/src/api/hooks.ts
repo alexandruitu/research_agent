@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
+  BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -11,7 +11,10 @@ export type PaperParams = {
   page: number; page_size: number; sort: string; direction: "asc" | "desc";
   decision?: string; tier?: string; escalated?: boolean; in_sr?: boolean; criterion?: string; p_min?: number; p_max?: number;
   decided_by?: string; source?: string; has_red_flags?: boolean;
+  /** One group of one dimension (rows of that group only). */
+  group_by?: GroupDimension; group?: string;
 };
+export type GroupDimension = "quality" | "source" | "year" | "decided_by" | "library";
 
 export const keys = {
   allFields: ["fields"] as const,
@@ -25,6 +28,8 @@ export const keys = {
   runCalls: (id: string) => ["run", id, "calls"] as const,
   runCompare: (a: string, b: string) => ["runs", "compare", a, b] as const,
   papers: (runId: string, params: PaperParams) => ["papers", runId, params] as const,
+  // under "papers" so whatever refreshes a run's papers refreshes its group counts too
+  paperGroups: (runId: string, by: GroupDimension, params: PaperParams) => ["papers", runId, "groups", by, params] as const,
   paper: (runId: string, paperId: string) => ["paper", runId, paperId] as const,
   stages: ["stages"] as const,
   evals: ["evals"] as const,
@@ -108,6 +113,11 @@ export const usePapers = (runId: string | null, params: PaperParams) =>
   useQuery({
     queryKey: keys.papers(runId ?? "", params), enabled: !!runId, placeholderData: keepPreviousData,
     queryFn: () => api.get<PaperPage>(`/runs/${runId}/papers`, params),
+  });
+export const usePaperGroups = (runId: string | null, by: GroupDimension, params: PaperParams) =>
+  useQuery({
+    queryKey: keys.paperGroups(runId ?? "", by, params), enabled: !!runId, placeholderData: keepPreviousData,
+    queryFn: () => api.get<PaperGroupOut[]>(`/runs/${runId}/papers/groups`, { ...params, by, page: undefined, page_size: undefined, group: undefined, group_by: undefined }),
   });
 export const usePaper = (runId: string | null, paperId: string | null) =>
   useQuery({ queryKey: keys.paper(runId ?? "", paperId ?? ""), enabled: !!runId && !!paperId, queryFn: () => api.get<DrawerOut>(`/runs/${runId}/papers/${paperId}`) });
