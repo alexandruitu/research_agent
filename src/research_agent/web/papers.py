@@ -4,7 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from sqlalchemy import and_, case, exists, func, literal, or_, select
+from sqlalchemy import String, and_, case, cast, exists, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import aliased
 
 from ..agents import validate_evidence
@@ -13,6 +14,7 @@ from .db.models import (
     CriterionScore,
     EvidenceClaim,
     GoldLabel,
+    LibraryItem,
     PanelReport,
     Paper,
     PaperReview,
@@ -220,6 +222,7 @@ def _filtered(run, q):
             PaperReview,
             and_(PaperReview.run_id == Screening.run_id, PaperReview.paper_id == Screening.paper_id),
         )
+        .outerjoin(LibraryItem, LibraryItem.paper_id == Screening.paper_id)
         .where(Screening.run_id == run.id)
     )
     if q.decision:
@@ -258,11 +261,83 @@ def _filtered(run, q):
     return stmt, quality
 
 
+GROUP_RULES = {
+    "source": "Grouped by the source that found the paper; a paper found by several is in each of their groups.",
+    "year": "Grouped by publication year.",
+    "decided_by": "Dropped papers grouped by the criterion that dropped them; kept papers together.",
+    "library": "Grouped by the paper's status in the team library.",
+}
+SPECIAL_LABELS = {
+    ("source", "none"): "No source search (eval candidates)",
+    ("year", "none"): "Year unknown",
+    ("decided_by", "kept"): "Kept by screening",
+    ("decided_by", "not_screened"): "Not screened (no abstract)",
+    ("decided_by", "unattributed"): "Dropped, no single criterion",
+    ("library", "not_saved"): "Not in the library",
+}
+
+
+def _no_sources():
+    return func.jsonb_array_length(func.coalesce(Screening.sources, literal([], JSONB))) == 0
+
+
+def dimension_expr(by, quality):
+    """The group key of a row for every dimension except source (a paper can have several sources)."""
+    if by == "quality":
+        return quality
+    if by == "year":
+        return func.coalesce(cast(Paper.year, String), literal("none"))
+    if by == "decided_by":
+        return case(
+            (Screening.tier == NOT_SCREENED, literal("not_screened")),
+            (Screening.decision == "exclude", func.coalesce(Screening.decided_by, literal("unattributed"))),
+            else_=literal("kept"),
+        )
+    if by == "library":
+        return func.coalesce(LibraryItem.status, literal("not_saved"))
+    raise ValueError(f"unknown grouping {by!r}")
+
+
 def group_key(by, quality, key):
     """The condition "the row is in group `key` of dimension `by`"."""
+    if by == "source":
+        return _no_sources() if key == "none" else Screening.sources.contains([key])
+    return dimension_expr(by, quality) == key
+
+
+def paper_groups(db, run, q, by):
+    """[{key, label, count, rule}] for the filtered rows of a run (`q.group` is ignored)."""
+    q = PaperQuery(**{**q.__dict__, "group": None})
+    stmt, quality = _filtered(run, q)
+    if by == "source":
+        ids = stmt.with_only_columns(Screening.id, Screening.sources, maintain_column_froms=True).subquery()
+        names = select(func.jsonb_array_elements_text(ids.c.sources).label("value")).subquery()
+        counts = dict(db.execute(select(names.c.value, func.count()).group_by(names.c.value)).all())
+        empty = db.scalar(
+            select(func.count())
+            .select_from(ids)
+            .where(func.jsonb_array_length(func.coalesce(ids.c.sources, literal([], JSONB))) == 0)
+        )
+        if empty:
+            counts["none"] = empty
+    else:
+        keyed = stmt.with_only_columns(
+            dimension_expr(by, quality).label("key"), maintain_column_froms=True
+        ).subquery()
+        counts = dict(db.execute(select(keyed.c.key, func.count()).group_by(keyed.c.key)).all())
     if by == "quality":
-        return quality == key
-    raise ValueError(f"unknown grouping {by!r}")
+        return [
+            {"key": k, "label": label, "count": counts.get(k, 0), "rule": rule}
+            for k, label, rule in QUALITY_GROUPS
+            if k != "not_reviewed" or counts.get(k)
+        ]
+    order = sorted(counts, key=lambda k: (k in ("none", "not_saved", "kept"), str(k)))
+    if by == "year":
+        order = sorted(counts, key=lambda k: (k == "none", -int(k) if k != "none" else 0))
+    return [
+        {"key": k, "label": SPECIAL_LABELS.get((by, k), k), "count": counts[k], "rule": GROUP_RULES[by]}
+        for k in order
+    ]
 
 
 def paper_table(db, run, q):

@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, Query
 from ...callstore import HEX64, CallStoreError, read_call, safe_folder
 from ...db.models import Paper, Run
 from ...library import library_refs
-from ...papers import PaperQuery, paper_drawer, paper_table
+from ...papers import PaperQuery, paper_drawer, paper_groups, paper_table
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import CallOut, DrawerOut, PaperPage, SourceName
+from ..schemas import CallOut, DrawerOut, PaperGroupOut, PaperPage, SourceName
 from .files import files_of
 
 router = APIRouter(prefix="/runs", tags=["papers"])
@@ -17,8 +17,7 @@ GroupBy = Literal["quality", "source", "year", "decided_by", "library"]
 MAX_PAGE = 100_000  # keeps (page - 1) * page_size far inside a SQL bigint offset
 
 
-@router.get("/{run_id}/papers", response_model=PaperPage)
-def list_papers(
+def paper_filters(
     run_id: uuid.UUID,
     page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1),
@@ -40,6 +39,7 @@ def list_papers(
     db=Depends(get_db),
     settings=Depends(get_settings),
 ):
+    """The run and its validated paper filters (shared by the table and its groups)."""
     if page_size > settings.max_page_size:
         raise ApiError(422, "validation_error", f"page_size must be at most {settings.max_page_size}")
     if (p_min is not None or p_max is not None) and criterion is None:
@@ -69,8 +69,21 @@ def list_papers(
         group_by,
         group,
     )
+    return run, query
+
+
+@router.get("/{run_id}/papers", response_model=PaperPage)
+def list_papers(filters=Depends(paper_filters), db=Depends(get_db)):
+    run, query = filters
     items, total = paper_table(db, run, query)
-    return PaperPage(items=items, total=total, page=page, page_size=page_size)
+    return PaperPage(items=items, total=total, page=query.page, page_size=query.page_size)
+
+
+@router.get("/{run_id}/papers/groups", response_model=list[PaperGroupOut])
+def list_paper_groups(by: GroupBy = "quality", filters=Depends(paper_filters), db=Depends(get_db)):
+    """The groups of a run's papers under the active filters: key, label, count and the rule that forms them."""
+    run, query = filters
+    return paper_groups(db, run, query, by)
 
 
 @router.get("/{run_id}/papers/{paper_id}", response_model=DrawerOut)

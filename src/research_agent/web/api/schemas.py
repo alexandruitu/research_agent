@@ -938,6 +938,13 @@ class PaperRow(Model):
     group: str | None = None
 
 
+class PaperGroupOut(Model):
+    key: str  # a quality group, source, year, criterion key, library status, or none / kept / not_saved
+    label: str
+    count: int
+    rule: str  # how the group is formed, shown on its header
+
+
 class PaperPage(Model):
     items: list[PaperRow]
     total: int
