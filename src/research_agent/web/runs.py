@@ -2,6 +2,7 @@
 compare and export. No provider calls happen here; files are only read from run folders inside the runs root."""
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -286,3 +287,133 @@ def delete_run(db, settings, user, run):
     db.delete(run)
     db.flush()
     return trash_folder(settings, run)
+
+
+# --- debug: log tail, calls -------------------------------------------------------------------------------------
+
+LOG_READ_BYTES = 256 * 1024
+LOG_MAX_LINES = 2000
+ATTEMPT = re.compile(r"^\S+: attempt \d+ failed \(")
+
+
+def log_tail(settings, run, lines=200):
+    """The last `lines` lines of worker.log (at most 256 KiB read), every secret value replaced by ***.
+    Also the failed stage and reason from progress.json and the model-retry lines."""
+    from .runner import failure_message, redact
+
+    folder = folder_of(settings, run)
+    path = folder / "worker.log" if folder else None
+    text, size, exists = "", 0, bool(path and path.is_file())
+    if exists:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            handle.seek(max(0, size - LOG_READ_BYTES))
+            text = handle.read().decode("utf-8", errors="replace")
+        if size > LOG_READ_BYTES:
+            text = text.split("\n", 1)[-1]  # drop the partial first line
+        text = redact(text)
+    all_lines = text.splitlines()
+    keep = all_lines[-max(1, min(lines, LOG_MAX_LINES)) :] if all_lines else []
+    progress = folder_json(settings, run, "progress.json") or {}
+    failed = [name for name, state in (progress.get("stages") or {}).items() if state == "failed"]
+    reason = None
+    if progress.get("status") == "failed" and folder:
+        reason = failure_message(folder, None)
+    elif run.error:
+        reason = run.error
+    return {
+        "exists": exists,
+        "size": size,
+        "text": "\n".join(keep) + ("\n" if keep else ""),
+        "full": text,
+        "truncated": size > LOG_READ_BYTES or len(all_lines) > len(keep),
+        "failed_stage": failed[0] if failed else None,
+        "reason": redact(reason) if reason else None,
+        "attempts": [line for line in all_lines if ATTEMPT.match(line)][-50:],
+    }
+
+
+STAGE_OF_ROLE = {
+    "plan": "plan",
+    "screen": "screen",
+    "screen_criteria": "screen",
+    "jev_screen": "screen",
+    "extract": "extract",
+    "review_a": "review",
+    "review_b": "review",
+    "adjudicate": "review",
+    "editor": "review",
+}
+
+
+def provider_of(model):
+    if not model:
+        return None
+    if ":" in model:
+        return model.split(":", 1)[0]
+    if model.startswith("jev"):
+        return "typesafe"
+    if model.startswith("claude"):
+        return "anthropic"
+    if model.startswith("gemini"):
+        return "google_genai"
+    return None
+
+
+def calls_summary(settings, run):
+    """Per role and model: calls, characters in and out and an estimated cost (approximate list prices).
+    The call cache keeps one row per distinct call and no timing, so cache hits and durations are null."""
+    import sqlite3
+
+    from .callstore import CallStoreError, connect_readonly
+    from .evals import price
+
+    folder = folder_of(settings, run)
+    rows, recorded = [], False
+    if folder is not None:
+        try:
+            connection = connect_readonly(folder)
+            try:
+                found = connection.execute(
+                    "select role, model, count(*), coalesce(sum(length(input)), 0), "
+                    "coalesce(sum(length(output)), 0) from calls group by role, model order by role, model"
+                ).fetchall()
+                recorded = True
+            finally:
+                connection.close()
+        except (CallStoreError, sqlite3.Error):
+            found = []
+        for role, model, count, input_chars, output_chars in found:
+            stage = STAGE_OF_ROLE.get(role) or ("review" if str(role).startswith("review:") else role)
+            cost = None if str(model).startswith("jev") else price(model, input_chars, output_chars / 4)
+            rows.append(
+                {
+                    "stage": stage,
+                    "role": role,
+                    "model": model,
+                    "provider": provider_of(model),
+                    "calls": count,
+                    "input_chars": input_chars,
+                    "output_chars": output_chars,
+                    "cost_usd": cost,
+                    "cache_hits": None,
+                    "seconds": None,
+                }
+            )
+    unpriced = sorted({r["model"] for r in rows if r["cost_usd"] is None and r["model"]})
+    providers = {}
+    for r in rows:
+        entry = providers.setdefault(r["provider"] or "unknown", {"calls": 0, "cost_usd": 0.0})
+        entry["calls"] += r["calls"]
+        entry["cost_usd"] = round(entry["cost_usd"] + (r["cost_usd"] or 0.0), 4)
+    return {
+        "recorded": recorded,
+        "estimate": True,
+        "rows": rows,
+        "providers": [{"provider": k, **v} for k, v in sorted(providers.items())],
+        "totals": {
+            "calls": sum(r["calls"] for r in rows),
+            "cost_usd": round(sum(r["cost_usd"] or 0.0 for r in rows), 4),
+            "unpriced_models": unpriced,
+        },
+    }

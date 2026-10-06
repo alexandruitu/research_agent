@@ -476,6 +476,49 @@ class BulkDeleteOut(Model):
     refused: list[RefusedOut]
 
 
+class RunLogOut(Model):
+    exists: bool
+    size: int  # bytes of worker.log
+    text: str  # the last lines, secrets replaced by ***
+    truncated: bool
+    failed_stage: str | None
+    reason: str | None
+    attempts: list[str]  # "<role>: attempt N failed (...)" lines
+
+
+class CallRowOut(Model):
+    stage: str
+    role: str
+    model: str | None
+    provider: str | None
+    calls: int
+    input_chars: int
+    output_chars: int
+    cost_usd: float | None  # estimate; null: no price for this model
+    cache_hits: int | None  # null: not recorded by the call cache
+    seconds: float | None  # null: not recorded
+
+
+class ProviderCostOut(Model):
+    provider: str
+    calls: int
+    cost_usd: float
+
+
+class CallTotalsOut(Model):
+    calls: int
+    cost_usd: float
+    unpriced_models: list[str]
+
+
+class CallsSummaryOut(Model):
+    recorded: bool  # the run folder has a readable call cache
+    estimate: bool
+    rows: list[CallRowOut]
+    providers: list[ProviderCostOut]
+    totals: CallTotalsOut
+
+
 class RerunRequest(Model):
     config: Literal["same", "current"]
 

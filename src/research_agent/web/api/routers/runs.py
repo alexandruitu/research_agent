@@ -27,12 +27,14 @@ from ..errors import ApiError
 from ..schemas import (
     BulkDeleteOut,
     BulkIds,
+    CallsSummaryOut,
     CancelOut,
     DeleteOut,
     JobOut,
     RerunRequest,
     RunCounts,
     RunDetailOut,
+    RunLogOut,
     RunOut,
     RunPatch,
     RunRequest,
@@ -547,3 +549,40 @@ def delete_run(
     folder = runs_svc.delete_run(db, settings, user, run)
     db.commit()
     return DeleteOut(id=run_id, folder=folder)
+
+
+@router.get(
+    "/{run_id}/log",
+    response_model=RunLogOut,
+    responses={200: {"content": {"text/plain": {}}}},
+)
+def run_log(
+    run_id: uuid.UUID,
+    lines: int = Query(200, ge=1, le=runs_svc.LOG_MAX_LINES),
+    download: bool = False,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """The tail of the run's worker.log with every secret value replaced by ***, the failed stage and reason,
+    and the model retry lines. `download=true` returns the tail read (at most 256 KiB) as a text file."""
+    run = get_run_or_404(db, run_id)
+    tail = runs_svc.log_tail(settings, run, lines)
+    if download:
+        return Response(
+            content=tail["full"].encode("utf-8"),
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="run-{run.id.hex[:8]}-worker.log"'},
+        )
+    return RunLogOut(**{k: v for k, v in tail.items() if k != "full"})
+
+
+@router.get("/{run_id}/calls", response_model=CallsSummaryOut)
+def run_calls(
+    run_id: uuid.UUID,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Model calls of the run per role and model, with an estimated cost (approximate list prices)."""
+    return runs_svc.calls_summary(settings, get_run_or_404(db, run_id))
