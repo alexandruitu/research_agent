@@ -86,7 +86,6 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                     {row.paper.title}
                   </button>
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
-                  {row.text_source === "abstract" && <span className="abstract-only" title="The panel read only the abstract">abstract only</span>}
                   <LibraryBadge library={row.library ?? null} />
                 </td>
                 <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>

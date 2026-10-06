@@ -105,14 +105,18 @@ describe("criteria values", () => {
 });
 
 describe("paper column", () => {
-  it("clamps the title but keeps the full title on hover, and marks abstract-only reviews", async () => {
+  it("clamps the title but keeps the full title on hover, and says abstract only once, in the Text reviewed column", async () => {
     const { PaperTable } = await import("./PaperTable");
     const row = paperRow({ text_source: "abstract", score: 70, coverage: 0.8, red_flag_count: 0 });
     render(<PaperTable rows={[row]} stages={[]} sort="title" direction="asc" onSort={() => {}} selectedPaperId={null} onOpen={() => {}} selectedStageId={null} onSelectStage={() => {}} legacy={true} />);
     const title = screen.getByRole("button", { name: row.paper.title });
     expect(title).toHaveClass("title-clamp");
     expect(title).toHaveAttribute("title", row.paper.title);
-    expect(screen.getByText("abstract only", { selector: ".abstract-only" })).toBeInTheDocument();
+    const marks = screen.getAllByText("abstract only");
+    expect(marks).toHaveLength(1);
+    const cell = marks[0].closest("td")!;
+    const headers = Array.from(cell.closest("table")!.querySelectorAll("thead tr:last-child th")).map((th) => th.textContent ?? "");
+    expect(headers[Array.from(cell.parentElement!.children).indexOf(cell)]).toMatch(/Text reviewed/);
   });
 });
 

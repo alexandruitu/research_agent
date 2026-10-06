@@ -8,7 +8,7 @@ with readable criteria values and a narrower title column.
 
 ## Layout
 - Paper column: title clamped to 2 lines (`-webkit-line-clamp`), full title in `title=` (hover) and in the
-  drawer; year · source id below; library badge and an **abstract only** marker (`text_source = "abstract"`).
+  drawer; year · source id below; library badge. "abstract only" appears once, in words, in the Text reviewed column.
 - Criteria column: one line per criterion, `label  value` where value is the Jev probability (2 decimals)
   and/or the LLM answer (`yes`/`no`/`unclear`); the deciding criterion is marked with `◆` and the word
   "decided" (never colour alone). No truncation: values wrap. The summary line ("dropped by …") stays.

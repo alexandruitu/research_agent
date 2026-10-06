@@ -919,7 +919,6 @@ table.runs--ledger .pill { white-space: nowrap; display: inline-flex; align-item
 /* Slice 8: a narrower paper column, readable criteria values, quality groups */
 table.papers th.col-paper, table.papers td.col-paper { width: 18rem; max-width: 18rem; }
 .title-clamp { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: left; font-family: var(--serif); font-size: 15px; line-height: 1.3; }
-.abstract-only { display: inline-block; margin-top: 2px; font-size: 11px; color: var(--warn-fg); background: var(--warn-bg); border: 1px dashed var(--warn-line); border-radius: var(--r1); padding: 0 5px; }
 table.papers td.col-criteria { min-width: 15rem; }
 .crit-values { list-style: none; margin: var(--s1) 0 0; padding: 0; display: grid; gap: 1px; font-size: 12px; }
 .crit-values li { display: flex; flex-wrap: wrap; gap: 0 var(--s2); align-items: baseline; }
