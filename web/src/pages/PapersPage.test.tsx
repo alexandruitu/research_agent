@@ -76,12 +76,12 @@ describe("PapersPage", () => {
   it("labels every stage with its status in words and only measured stages look measured", async () => {
     setup();
     await screen.findByRole("table");
-    const strip = screen.getAllByRole("button", { name: /^(Search|Screen|Extract|Reviewers|Rank)/ });
+    const strip = screen.getAllByRole("button", { name: /^(Search|Screen|Extract|Review panel|Rank)/ });
     const status = (label: RegExp) => strip.find((b) => label.test(b.textContent ?? ""))!;
     expect(status(/Search/)).toHaveAttribute("data-status", "measured");
     expect(status(/Screen/)).toHaveAttribute("data-status", "measured");
-    expect(status(/Reviewers/)).toHaveAttribute("data-status", "caveat");
-    expect(status(/Reviewers/)).toHaveTextContent("one model family");
+    expect(status(/Review panel/)).toHaveAttribute("data-status", "caveat");
+    expect(status(/Review panel/)).toHaveTextContent("one model family");
     expect(status(/Rank/)).toHaveAttribute("data-status", "unmeasured");
     expect(status(/Rank/)).toHaveTextContent("not measured");
     expect(status(/Search/)).toHaveTextContent("recall 15/16");
