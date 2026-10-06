@@ -6,10 +6,14 @@ import type { DrawerOut, LibraryItemDetail, LibraryPage, LibraryPatch, LibraryRe
 import { statusMeta } from "../../components/ui/StatusMark";
 import { useToast } from "../../components/ui/Toast";
 
+/** True for a cached paper page; the group-count queries share the "papers" key prefix but hold an array. */
+const isPaperPage = (page: unknown): page is PaperPage =>
+  !!page && typeof page === "object" && Array.isArray((page as PaperPage).items);
+
 /** Paper rows and drawers show the library state; patch them all by paper id (null: not saved). */
 export function setPaperLibrary(client: QueryClient, refs: Record<string, LibraryRef | null>) {
   client.setQueriesData<PaperPage>({ queryKey: ["papers"] }, (page) =>
-    page ? { ...page, items: page.items.map((row) => (row.paper.id in refs ? { ...row, library: refs[row.paper.id] } : row)) } : page,
+    isPaperPage(page) ? { ...page, items: page.items.map((row) => (row.paper.id in refs ? { ...row, library: refs[row.paper.id] } : row)) } : page,
   );
   client.setQueriesData<DrawerOut>({ queryKey: ["paper"] }, (drawer) =>
     drawer && drawer.paper.id in refs ? { ...drawer, library: refs[drawer.paper.id] } : drawer,
@@ -23,7 +27,7 @@ export function setItemStatus(client: QueryClient, itemId: string, status: strin
     page ? { ...page, items: page.items.map((i) => (i.id === itemId ? { ...i, status } : i)) } : page,
   );
   client.setQueriesData<PaperPage>({ queryKey: ["papers"] }, (page) =>
-    page ? { ...page, items: page.items.map((row) => (row.library?.item_id === itemId ? { ...row, library: { ...row.library, status } } : row)) } : page,
+    isPaperPage(page) ? { ...page, items: page.items.map((row) => (row.library?.item_id === itemId ? { ...row, library: { ...row.library, status } } : row)) } : page,
   );
   client.setQueriesData<DrawerOut>({ queryKey: ["paper"] }, (drawer) =>
     drawer?.library?.item_id === itemId ? { ...drawer, library: { ...drawer.library, status } } : drawer,

@@ -12,7 +12,7 @@ export type SaveChoice = Pick<LibrarySaveRequest, "collection_ids" | "new_collec
 function currentRefs(client: ReturnType<typeof useQueryClient>, paperIds: string[]): Record<string, LibraryRef | null> {
   const refs: Record<string, LibraryRef | null> = Object.fromEntries(paperIds.map((id) => [id, null]));
   for (const [, page] of client.getQueriesData<PaperPage>({ queryKey: ["papers"] })) {
-    for (const row of page?.items ?? []) if (row.paper.id in refs && row.library) refs[row.paper.id] = row.library;
+    for (const row of Array.isArray(page?.items) ? page.items : []) if (row.paper.id in refs && row.library) refs[row.paper.id] = row.library;
   }
   for (const [, drawer] of client.getQueriesData<DrawerOut>({ queryKey: ["paper"] })) {
     if (drawer && drawer.paper.id in refs && drawer.library) refs[drawer.paper.id] = drawer.library;
