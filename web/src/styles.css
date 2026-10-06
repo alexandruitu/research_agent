@@ -810,3 +810,34 @@ form.inline label { display: inline-flex; gap: 6px; align-items: center; }
 .reveal { margin-bottom: var(--s4); }
 .reveal tr.is-disagree th { box-shadow: inset 3px 0 0 var(--warn-line); }
 .quote { display: block; font: italic 13px/1.4 var(--serif); color: var(--ink-2); margin-top: 2px; }
+
+/* --- slice 7: menu button, confirm dialog --------------------------------------------------------------------- */
+.menu-button { position: relative; display: inline-block; }
+.menu-button__trigger { min-width: 32px; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 196px; margin: 0; padding: var(--s1);
+  list-style: none; background: var(--card); border: 1px solid var(--rule-2); border-radius: var(--r2); box-shadow: var(--shadow-lift);
+  animation: menu-in 120ms ease-out;
+}
+@keyframes menu-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .menu, .confirm { animation: none; } }
+.menu__item {
+  display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 10px; border-radius: var(--r1);
+  font: inherit; color: var(--ink); cursor: pointer;
+}
+.menu__item:hover, .menu__item:focus-visible { background: var(--accent-wash); outline-offset: -2px; }
+.menu__item[aria-disabled="true"] { color: var(--ink-2); opacity: 0.6; cursor: not-allowed; }
+.menu__item--danger { color: var(--bad-fg); }
+.menu__item--danger::before { content: "⚠ "; }
+.confirm-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: var(--s4);
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.confirm {
+  width: min(460px, 100%); background: var(--card); border: 1px solid var(--rule-2); border-top: 4px solid var(--bad-line);
+  border-radius: var(--r3); box-shadow: var(--shadow-lift); padding: var(--s5); animation: menu-in 140ms ease-out;
+}
+.confirm h2 { font: 600 20px/1.25 var(--serif); margin: 0 0 var(--s2); }
+.confirm__body { color: var(--ink-2); }
+.confirm__actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
+button.danger { background: var(--bad-fg); color: var(--card); border-color: var(--bad-fg); }
