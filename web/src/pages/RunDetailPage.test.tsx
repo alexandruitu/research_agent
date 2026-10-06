@@ -93,7 +93,7 @@ describe("run detail", () => {
   it("members read the redacted log on demand; viewers see neither log nor calls", async () => {
     setup();
     await userEvent.click(await screen.findByText(/Show the last 300 lines/));
-    expect(await screen.findByLabelText("Worker log")).toHaveTextContent("key ***");
+    expect(await screen.findByLabelText("Worker log lines")).toHaveTextContent("key ***");
     expect(screen.getByRole("link", { name: "Download the log" })).toHaveAttribute("href", `/api/v1/runs/${RUN_ID}/log?download=true`);
   });
 

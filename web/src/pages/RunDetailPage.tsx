@@ -195,7 +195,7 @@ function Log({ runId, active }: { runId: string; active: boolean }) {
             {log.data.exists ? (
               <>
                 <p className="hint">Secrets are replaced by ***. {log.data.truncated ? "Earlier lines are left out." : ""} <a href={`/api/v1/runs/${runId}/log?download=true`} download>Download the log</a></p>
-                <pre className="log" tabIndex={0} aria-label="Worker log">{log.data.text}</pre>
+                <pre className="log" tabIndex={0} aria-label="Worker log lines">{log.data.text}</pre>
               </>
             ) : <p className="hint">No worker.log in the run folder (runs imported from the command line have none).</p>}
           </>
