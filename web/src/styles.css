@@ -956,3 +956,29 @@ table.papers td.col-criteria { min-width: 15rem; }
 .source-choice-row .source-choice { margin-right: 0; }
 .source-required { font-size: 12px; color: var(--ink-2); }
 .eval-caveat { margin: 8px 0; padding: 6px 12px; border: 1px solid var(--warn-line); border-radius: 6px; background: var(--warn-bg); color: var(--warn-fg); }
+
+/* --- Plain-language help: <Term>, <Tooltip>, the glossary ------------------------------------------- */
+.tip-wrap { position: relative; display: inline; }
+.tip-trigger { all: unset; cursor: help; border-radius: var(--r1); }
+.tip-trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.term { white-space: nowrap; }
+.term-tip .tip-trigger {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 3px; vertical-align: 1px;
+  border: 1px solid var(--rule-2); border-radius: 50%; font: 600 10px/1 var(--sans); color: var(--ink-2); background: var(--card);
+}
+.term-tip .tip-trigger:hover, .term-tip .tip-trigger[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.tip {
+  position: fixed; z-index: 60; width: max-content; max-width: min(320px, calc(100vw - 16px)); padding: var(--s2) var(--s3);
+  background: var(--ink); color: var(--paper); border-radius: var(--r2); box-shadow: var(--shadow-lift);
+  font: 400 12.5px/1.45 var(--sans); white-space: normal; text-align: left; text-transform: none; letter-spacing: 0;
+}
+.tip strong { font-weight: 600; }
+.tip ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.page-foot { max-width: 1440px; margin: 0 auto; padding: var(--s4) var(--s5) var(--s6); border-top: 1px solid var(--rule); color: var(--ink-2); font-size: 12px; }
+.page-foot .linklike { font-size: 12px; }
+.sheet--glossary { width: min(680px, calc(100vw - 32px)); max-height: 85vh; }
+.glossary-list { margin: var(--s4) 0 0; display: grid; gap: var(--s3); }
+.glossary-list div { display: grid; grid-template-columns: 11rem 1fr; gap: var(--s3); padding-bottom: var(--s3); border-bottom: 1px solid var(--rule); }
+.glossary-list dt { font: 600 15px/1.35 var(--serif); }
+.glossary-list dd { margin: 0; color: var(--ink-2); }
+@media (max-width: 600px) { .glossary-list div { grid-template-columns: 1fr; gap: 2px; } }

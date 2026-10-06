@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { GlossaryLink } from "./Glossary";
+
 export type ShortcutHelpItem = { keys: string[]; what: string };
 
 /** The "?" sheet: a modal dialog listing the shortcuts of the page. Escape or Close returns focus. */
@@ -29,7 +31,7 @@ export function ShortcutsHelp({ title, items, onClose }: { title: string; items:
           </div>
         ))}
       </dl>
-      <p className="hint">Shortcuts are off while you type in a field.</p>
+      <p className="hint">Shortcuts are off while you type in a field. Unfamiliar word? <GlossaryLink onBeforeOpen={onClose}>Open the glossary</GlossaryLink>.</p>
     </dialog>
   );
 }

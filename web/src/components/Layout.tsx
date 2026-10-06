@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { GlossaryLink, GlossaryProvider } from "./ui/Glossary";
 import { StaleBanner } from "./StaleBanner";
 import { ToastProvider } from "./ui/Toast";
 
@@ -44,6 +45,9 @@ function Chrome() {
           <Outlet />
         </ErrorBoundary>
       </main>
+      <footer className="page-foot">
+        <span>Unfamiliar word? Every technical term has a <span aria-hidden="true">?</span> next to it, or see the</span> <GlossaryLink>glossary</GlossaryLink>.
+      </footer>
     </>
   );
 }
@@ -52,7 +56,9 @@ export function Layout() {
   return (
     <ToastProvider>
       <DirtyGuardProvider>
-        <Chrome />
+        <GlossaryProvider>
+          <Chrome />
+        </GlossaryProvider>
       </DirtyGuardProvider>
     </ToastProvider>
   );

@@ -44,7 +44,7 @@ without reading pipeline jargon or mistaking pipeline measurements for the quali
 8. **`<Term>` + glossary**: `components/ui/Term.tsx` renders the term text plus a small "?" button;
    the definition is a `role="tooltip"` element referenced by `aria-describedby`, shown on hover, focus
    and click/tap (toggle), dismissed with Escape or outside click. Definitions live in one file,
-   `components/ui/glossary.ts`. A Glossary dialog lists every term; it is linked from every `?` help sheet
+   `components/ui/terms.ts`. A Glossary dialog lists every term; it is linked from every `?` help sheet
    and from a footer link present on every page.
 9. **Drawer**: the head (title, Save/status) is sticky; the first content line is the Why sentence;
    "Show details" (a `details`/`summary`) wraps the timeline tables, collapsed by default in Simple view,
