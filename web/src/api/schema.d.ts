@@ -489,11 +489,75 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Runs */
+        /**
+         * List Runs
+         * @description Pinned runs first, then by `sort`. `q` matches the run's name, topic or field name.
+         */
         get: operations["list_runs_api_v1_runs_get"];
         put?: never;
         /** Start Run */
         post: operations["start_run_api_v1_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Runs
+         * @description Two runs side by side: configuration rows and the papers whose outcome differs.
+         */
+        get: operations["compare_runs_api_v1_runs_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Runs
+         * @description Several runs in one file: CSV (a `run` column) or BibTeX of their kept papers.
+         */
+        get: operations["export_runs_api_v1_runs_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Run
+         * @description One run: CSV of its papers, BibTeX of its kept papers, or a zip bundle of its reports and frozen
+         *     requests (never the call cache, checkpoints, uploads, logs or keys).
+         */
+        get: operations["export_run_api_v1_runs__run_id__export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -511,6 +575,37 @@ export interface paths {
         get: operations["get_run_api_v1_runs__run_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Delete Run
+         * @description Delete a finished, failed or cancelled research run (its creator or an admin). Library items keep their
+         *     snapshot; the folder moves to the trash under the runs directory (never deleted).
+         */
+        delete: operations["delete_run_api_v1_runs__run_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Run
+         * @description Rename, annotate or pin a run (its creator or an admin). A blank name removes it.
+         */
+        patch: operations["patch_run_api_v1_runs__run_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rerun
+         * @description A new run from this one: `same` reuses its frozen domain and review requests (field version, review
+         *     settings, panel versions) exactly; `current` uses the field's current version and the current review
+         *     settings. Both keep its max_papers and mode; the new run belongs to the caller.
+         */
+        post: operations["rerun_api_v1_runs__run_id__rerun_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -528,6 +623,88 @@ export interface paths {
         put?: never;
         /** Resume Run */
         post: operations["resume_run_api_v1_runs__run_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Runs
+         * @description Delete several runs; each is checked on its own and refusals are listed, not raised.
+         */
+        post: operations["delete_runs_api_v1_runs_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Run
+         * @description Queued: cancelled now (200). Running: its worker stops the child at the next poll (202); the run then
+         *     shows `cancelled` and can be resumed from its checkpoint.
+         */
+        post: operations["cancel_run_api_v1_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Log
+         * @description The tail of the run's worker.log with every secret value replaced by ***, the failed stage and reason,
+         *     and the model retry lines. `download=true` returns the tail read (at most 256 KiB) as a text file.
+         */
+        get: operations["run_log_api_v1_runs__run_id__log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Calls
+         * @description Model calls of the run per role and model, with an estimated cost (approximate list prices).
+         */
+        get: operations["run_calls_api_v1_runs__run_id__calls_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1090,6 +1267,18 @@ export interface components {
             /** In Settings */
             in_settings: boolean;
         };
+        /** BulkDeleteOut */
+        BulkDeleteOut: {
+            /** Deleted */
+            deleted: string[];
+            /** Refused */
+            refused: components["schemas"]["RefusedOut"][];
+        };
+        /** BulkIds */
+        BulkIds: {
+            /** Ids */
+            ids: string[];
+        };
         /** CallOut */
         CallOut: {
             /** Key */
@@ -1108,6 +1297,58 @@ export interface components {
             output: {
                 [key: string]: unknown;
             };
+        };
+        /** CallRowOut */
+        CallRowOut: {
+            /** Stage */
+            stage: string;
+            /** Role */
+            role: string;
+            /** Model */
+            model: string | null;
+            /** Provider */
+            provider: string | null;
+            /** Calls */
+            calls: number;
+            /** Input Chars */
+            input_chars: number;
+            /** Output Chars */
+            output_chars: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Cache Hits */
+            cache_hits: number | null;
+            /** Seconds */
+            seconds: number | null;
+        };
+        /** CallTotalsOut */
+        CallTotalsOut: {
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Unpriced Models */
+            unpriced_models: string[];
+        };
+        /** CallsSummaryOut */
+        CallsSummaryOut: {
+            /** Recorded */
+            recorded: boolean;
+            /** Estimate */
+            estimate: boolean;
+            /** Rows */
+            rows: components["schemas"]["CallRowOut"][];
+            /** Providers */
+            providers: components["schemas"]["ProviderCostOut"][];
+            totals: components["schemas"]["CallTotalsOut"];
+        };
+        /** CancelOut */
+        CancelOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "cancelled" | "cancelling";
         };
         /**
          * ChecklistItemIn
@@ -1208,6 +1449,17 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CompareConfigRow */
+        CompareConfigRow: {
+            /** Label */
+            label: string;
+            /** A */
+            a: string | null;
+            /** B */
+            b: string | null;
+            /** Differs */
+            differs: boolean;
+        };
         /** CompareOut */
         CompareOut: {
             /**
@@ -1221,6 +1473,20 @@ export interface components {
             metrics: components["schemas"]["CompareRow"][];
             /** Config */
             config: components["schemas"]["CompareRow"][];
+        };
+        /** ComparePaper */
+        ComparePaper: {
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year: number | null;
         };
         /** CompareRow */
         CompareRow: {
@@ -1316,6 +1582,19 @@ export interface components {
             key: string;
             /** Text */
             text: string;
+        };
+        /** DeleteOut */
+        DeleteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Folder
+             * @enum {string}
+             */
+            folder: "trashed" | "missing" | "outside";
         };
         /** DisagreementOut */
         DisagreementOut: {
@@ -2343,6 +2622,15 @@ export interface components {
              */
             mode: "live" | "demo";
         };
+        /** ProviderCostOut */
+        ProviderCostOut: {
+            /** Provider */
+            provider: string;
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+        };
         /** ProviderOut */
         ProviderOut: {
             /** Provider */
@@ -2566,6 +2854,35 @@ export interface components {
             source: string | null;
             /** Raised By */
             raised_by: components["schemas"]["RaisedByOut"][];
+        };
+        /** RefusedOut */
+        RefusedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** RerunRequest */
+        RerunRequest: {
+            /**
+             * Config
+             * @enum {string}
+             */
+            config: "same" | "current";
+        };
+        /** ResumeOut */
+        ResumeOut: {
+            /** Allowed */
+            allowed: boolean;
+            /** Code */
+            code: string | null;
+            /** Reason */
+            reason: string | null;
         };
         /** RevealAnswer */
         RevealAnswer: {
@@ -2828,6 +3145,58 @@ export interface components {
             /** Extract */
             extract?: string | null;
         };
+        /** RunCompareOut */
+        RunCompareOut: {
+            /** Runs */
+            runs: components["schemas"]["RunOut"][];
+            /** Config */
+            config: components["schemas"]["CompareConfigRow"][];
+            /** Kept Only A */
+            kept_only_a: components["schemas"]["ComparePaper"][];
+            /** Kept Only B */
+            kept_only_b: components["schemas"]["ComparePaper"][];
+            /** Only In A */
+            only_in_a: components["schemas"]["ComparePaper"][];
+            /** Only In B */
+            only_in_b: components["schemas"]["ComparePaper"][];
+            /** Score Changes */
+            score_changes: components["schemas"]["ScoreChange"][];
+        };
+        /**
+         * RunConfigOut
+         * @description What the run was started with, frozen.
+         */
+        RunConfigOut: {
+            /**
+             * Field Id
+             * Format: uuid
+             */
+            field_id: string;
+            /** Field Name */
+            field_name: string;
+            /** Field Version */
+            field_version: number | null;
+            /** Topic */
+            topic: string;
+            /** Sources */
+            sources: components["schemas"]["RunSourceOut"][];
+            /** Settings Version */
+            settings_version: number | null;
+            /** Panel */
+            panel: components["schemas"]["RunPanelOut"][];
+            /** Models */
+            models: {
+                [key: string]: string;
+            };
+            /** Mode */
+            mode: string | null;
+            /** Max Papers */
+            max_papers: number | null;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Jev */
+            jev: boolean | null;
+        };
         /** RunCounts */
         RunCounts: {
             /** Screened */
@@ -2880,11 +3249,76 @@ export interface components {
             field_version?: number | null;
             /** Settings Version */
             settings_version?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Note */
+            note?: string;
+            /** Pinned */
+            pinned?: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /** Topic */
+            topic?: string;
+            /** Started At */
+            started_at?: string | null;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
             };
             counts: components["schemas"]["RunCounts"];
+            config?: components["schemas"]["RunConfigOut"] | null;
+            timeline?: components["schemas"]["RunTimelineOut"] | null;
+            /** Wall Seconds */
+            wall_seconds?: number | null;
+            resume?: components["schemas"]["ResumeOut"] | null;
+            links?: components["schemas"]["RunLinksOut"] | null;
+            /** Can Manage */
+            can_manage?: boolean;
+            /** Active Job Id */
+            active_job_id?: string | null;
+        };
+        /** RunEvalLink */
+        RunEvalLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** RunLinksOut */
+        RunLinksOut: {
+            /** Papers */
+            papers: string;
+            /** Evals */
+            evals: components["schemas"]["RunEvalLink"][];
+            /** Library Count */
+            library_count: number;
+        };
+        /** RunLogOut */
+        RunLogOut: {
+            /** Exists */
+            exists: boolean;
+            /** Size */
+            size: number;
+            /** Text */
+            text: string;
+            /** Truncated */
+            truncated: boolean;
+            /** Failed Stage */
+            failed_stage: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Attempts */
+            attempts: string[];
         };
         /** RunOut */
         RunOut: {
@@ -2925,6 +3359,38 @@ export interface components {
             field_version?: number | null;
             /** Settings Version */
             settings_version?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Note */
+            note?: string;
+            /** Pinned */
+            pinned?: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /** Topic */
+            topic?: string;
+            /** Started At */
+            started_at?: string | null;
+        };
+        /** RunPanelOut */
+        RunPanelOut: {
+            /** Key */
+            key: string | null;
+            /** Name */
+            name: string | null;
+            /** Version */
+            version: number | null;
+        };
+        /** RunPatch */
+        RunPatch: {
+            /** Name */
+            name?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Pinned */
+            pinned?: boolean | null;
         };
         /** RunRequest */
         RunRequest: {
@@ -2944,6 +3410,59 @@ export interface components {
              * @enum {string}
              */
             mode: "live" | "demo";
+        };
+        /** RunSourceOut */
+        RunSourceOut: {
+            /** Name */
+            name: string | null;
+            /** Max Results */
+            max_results: number | null;
+        };
+        /** RunStageOut */
+        RunStageOut: {
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Seconds */
+            seconds: number | null;
+        };
+        /** RunTimelineOut */
+        RunTimelineOut: {
+            /** Stages */
+            stages: components["schemas"]["RunStageOut"][];
+            /** Started At */
+            started_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Status */
+            status: string | null;
+            /** Recorded */
+            recorded: boolean;
+        };
+        /** ScoreChange */
+        ScoreChange: {
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year: number | null;
+            /** A */
+            a: number;
+            /** B */
+            b: number;
+            /** Delta */
+            delta: number;
         };
         /** ScreenCell */
         ScreenCell: {
@@ -4148,6 +4667,13 @@ export interface operations {
             query?: {
                 kind?: string | null;
                 field_id?: string | null;
+                status?: string | null;
+                mine?: boolean;
+                created_from?: string | null;
+                created_to?: string | null;
+                q?: string | null;
+                sort?: "created" | "name" | "status" | "papers";
+                direction?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -4210,6 +4736,106 @@ export interface operations {
             };
         };
     };
+    compare_runs_api_v1_runs_compare_get: {
+        parameters: {
+            query: {
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunCompareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_runs_api_v1_runs_export_get: {
+        parameters: {
+            query: {
+                ids: string;
+                format?: "csv" | "bibtex";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/x-bibtex": unknown;
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_run_api_v1_runs__run_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "bibtex" | "bundle";
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/x-bibtex": unknown;
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_run_api_v1_runs__run_id__get: {
         parameters: {
             query?: never;
@@ -4241,6 +4867,109 @@ export interface operations {
             };
         };
     };
+    delete_run_api_v1_runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_run_api_v1_runs__run_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rerun_api_v1_runs__run_id__rerun_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RerunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     resume_run_api_v1_runs__run_id__resume_post: {
         parameters: {
             query?: never;
@@ -4259,6 +4988,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StartRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_runs_api_v1_runs_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkIds"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_run_api_v1_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_log_api_v1_runs__run_id__log_get: {
+        parameters: {
+            query?: {
+                lines?: number;
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunLogOut"];
+                    "text/plain": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_calls_api_v1_runs__run_id__calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallsSummaryOut"];
                 };
             };
             /** @description Validation Error */

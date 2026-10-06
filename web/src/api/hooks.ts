@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  CallOut, CollectionOut, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
+  BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -20,6 +20,10 @@ export const keys = {
   fieldVersion: (id: string, version: number) => ["field", id, "version", version] as const,
   runs: ["runs"] as const,
   run: (id: string) => ["run", id] as const,
+  runList: (params: RunListParams) => ["runs", "list", params] as const,
+  runLog: (id: string, lines: number) => ["run", id, "log", lines] as const,
+  runCalls: (id: string) => ["run", id, "calls"] as const,
+  runCompare: (a: string, b: string) => ["runs", "compare", a, b] as const,
   papers: (runId: string, params: PaperParams) => ["papers", runId, params] as const,
   paper: (runId: string, paperId: string) => ["paper", runId, paperId] as const,
   stages: ["stages"] as const,
@@ -69,9 +73,37 @@ export const useFieldVersion = (id: string | null, version: number | null | unde
     queryKey: keys.fieldVersion(id ?? "", version ?? 0), enabled: !!id && !!version, retry: false,
     queryFn: () => api.get<FieldVersionOut>(`/fields/${id}/versions/${version}`),
   });
-export const useRuns = () => useQuery({ queryKey: keys.runs, queryFn: () => api.get<RunOut[]>("/runs") });
+export type RunListParams = {
+  kind?: "research" | "eval"; status?: string; field_id?: string; mine?: boolean; created_from?: string; created_to?: string;
+  q?: string; sort?: "created" | "name" | "status" | "papers"; direction?: "asc" | "desc";
+};
+const RUN_ACTIVE = ["queued", "running"];
+export const isActive = (status: string | undefined) => RUN_ACTIVE.includes(status ?? "");
+
+/** Without params: every run (the Papers run picker). With params: the Runs list, polled while a run is active. */
+export const useRuns = (params?: RunListParams) =>
+  useQuery({
+    queryKey: params ? keys.runList(params) : keys.runs,
+    queryFn: () => api.get<RunOut[]>("/runs", params),
+    placeholderData: params ? keepPreviousData : undefined,
+    refetchInterval: (query) => (params && query.state.data?.some((run) => isActive(run.status)) ? 3000 : false),
+  });
 export const useRun = (id: string | null) =>
-  useQuery({ queryKey: keys.run(id ?? ""), enabled: !!id, queryFn: () => api.get<RunDetailOut>(`/runs/${id}`) });
+  useQuery({
+    queryKey: keys.run(id ?? ""), enabled: !!id, queryFn: () => api.get<RunDetailOut>(`/runs/${id}`),
+    refetchInterval: (query) => (isActive(query.state.data?.status) ? 3000 : false),
+  });
+export const useRunLog = (id: string, lines: number, enabled: boolean) =>
+  useQuery({ queryKey: keys.runLog(id, lines), enabled, retry: false, queryFn: () => api.get<RunLogOut>(`/runs/${id}/log`, { lines }) });
+export const useRunCalls = (id: string, enabled: boolean) =>
+  useQuery({ queryKey: keys.runCalls(id), enabled, retry: false, queryFn: () => api.get<CallsSummaryOut>(`/runs/${id}/calls`) });
+export const useRunCompare = (a: string | null, b: string | null) =>
+  useQuery({
+    queryKey: keys.runCompare(a ?? "", b ?? ""), enabled: !!a && !!b && a !== b, retry: false,
+    queryFn: () => api.get<RunCompareOut>("/runs/compare", { ids: `${a},${b}` }),
+  });
+export const runExportUrl = (id: string, format: "csv" | "bibtex" | "bundle") => `/api/v1/runs/${id}/export?format=${format}`;
+export const runsExportUrl = (ids: string[], format: "csv" | "bibtex") => `/api/v1/runs/export?ids=${ids.join(",")}&format=${format}`;
 export const usePapers = (runId: string | null, params: PaperParams) =>
   useQuery({
     queryKey: keys.papers(runId ?? "", params), enabled: !!runId, placeholderData: keepPreviousData,
@@ -111,6 +143,55 @@ export function useResumeRun() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (runId: string) => api.post<StartRunOut>(`/runs/${runId}/resume`),
+    onSuccess: (_data, runId) => {
+      void client.invalidateQueries({ queryKey: keys.runs });
+      void client.invalidateQueries({ queryKey: keys.run(runId) });
+    },
+  });
+}
+
+/** A new run from an old one: `same` reuses its frozen configuration, `current` today's field and review settings. */
+export function useRerun() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runId, config }: { runId: string; config: "same" | "current" }) =>
+      api.post<StartRunOut>(`/runs/${runId}/rerun`, { body: { config }, headers: { "Idempotency-Key": newIdempotencyKey() } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.runs }),
+  });
+}
+
+export function useCancelRun() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) => api.post<CancelOut>(`/runs/${runId}/cancel`),
+    onSuccess: (_data, runId) => {
+      void client.invalidateQueries({ queryKey: keys.runs });
+      void client.invalidateQueries({ queryKey: keys.run(runId) });
+    },
+  });
+}
+
+export function usePatchRun() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runId, patch }: { runId: string; patch: RunPatch }) => api.patch<RunOut>(`/runs/${runId}`, { body: patch }),
+    onSuccess: (_data, { runId }) => {
+      void client.invalidateQueries({ queryKey: keys.runs });
+      void client.invalidateQueries({ queryKey: keys.run(runId) });
+    },
+  });
+}
+
+export function useDeleteRuns() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<BulkDeleteOut> => {
+      if (ids.length === 1) {
+        await api.delete<DeleteOut>(`/runs/${ids[0]}`);
+        return { deleted: ids, refused: [] };
+      }
+      return api.post<BulkDeleteOut>("/runs/delete", { body: { ids } });
+    },
     onSuccess: () => client.invalidateQueries({ queryKey: keys.runs }),
   });
 }
