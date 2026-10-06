@@ -851,7 +851,7 @@ table.runs--ledger tbody tr { box-shadow: inset 3px 0 0 transparent; }
 table.runs--ledger tr.runs__row--failed { box-shadow: inset 3px 0 0 var(--bad-line); }
 table.runs--ledger tr.runs__row--running, table.runs--ledger tr.runs__row--queued { box-shadow: inset 3px 0 0 var(--warn-line); }
 table.runs--ledger tr.is-selected td, table.runs--ledger tr.is-selected th { background: var(--accent-wash); }
-table.runs--ledger th[scope="row"] { font-weight: 400; max-width: 46ch; }
+table.runs--ledger th[scope="row"] { font-weight: 400; min-width: 28ch; max-width: 60ch; }
 .runs__check { width: 36px; }
 .runs__name { font: 600 16px/1.3 var(--serif); color: var(--ink); text-decoration: none; }
 .runs__name:hover { text-decoration: underline; }
@@ -907,3 +907,11 @@ table.compact td, table.compact th { padding: 4px 8px; }
 .compare-list ul { margin: 0; padding-left: 18px; font-family: var(--serif); }
 .count { font: 600 12px/1 var(--sans); color: var(--ink-2); background: var(--sunk); border-radius: 10px; padding: 2px 7px; }
 .compare-table tr.is-different th, .compare-table tr.is-different td { background: var(--warn-bg); }
+
+table.runs--ledger td { vertical-align: middle; }
+table.runs--ledger .pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.runs__date { white-space: nowrap; }
+.runs__error { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.runs__actions .menu-button__trigger { white-space: nowrap; }
+.run-filters .check { flex-direction: row; align-self: end; white-space: nowrap; padding-bottom: 8px; color: var(--ink); }
+.run-filters .check input { width: auto; }

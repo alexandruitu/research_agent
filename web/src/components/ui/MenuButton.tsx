@@ -7,7 +7,7 @@ export type MenuItem = { label: string; onSelect: () => void; danger?: boolean; 
  * ArrowUp on the last; ArrowUp/ArrowDown/Home/End move; Enter or Space choose; Escape or Tab close and focus
  * returns to the button. Disabled items are skipped.
  */
-export function MenuButton({ label, items, className = "" }: { label: string; items: MenuItem[]; className?: string }) {
+export function MenuButton({ label, items, className = "", text }: { label: string; items: MenuItem[]; className?: string; text?: string }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const button = useRef<HTMLButtonElement>(null);
@@ -75,8 +75,9 @@ export function MenuButton({ label, items, className = "" }: { label: string; it
         aria-controls={open ? id : undefined}
         onClick={() => (open ? close() : openAt(enabled[0]))}
         onKeyDown={onButtonKey}
+        aria-label={text ? label : undefined}
       >
-        {label}
+        {text ? <>{text} <span aria-hidden="true">▾</span></> : label}
       </button>
       {open && (
         <ul id={id} role="menu" aria-label={label} className="menu" onKeyDown={onMenuKey}>

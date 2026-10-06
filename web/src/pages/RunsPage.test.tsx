@@ -37,7 +37,7 @@ describe("RunsPage list", () => {
     expect(within(table).getByText(/mlffrct-2024/)).toBeInTheDocument();
     expect(within(table).getAllByRole("link", { name: /^Papers/ })[1]).toHaveAttribute("href", `/?run=${RUN_ID}`);
     expect(within(table).getAllByRole("link", { name: "ML CT-FFR" })[0]).toHaveAttribute("href", `/runs/${FAILED.id}`);
-    expect(within(table).getByText(/Etapa nu s-a încheiat/)).toBeInTheDocument();
+    expect(within(table).getByText("Failed at screen (ValidationError)")).toHaveAttribute("title", expect.stringMatching(/Etapa nu s-a încheiat/));
   });
 
   it("names a run by its own name and marks pinned runs and cancelled status in words", async () => {

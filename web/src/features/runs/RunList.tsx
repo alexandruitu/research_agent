@@ -50,18 +50,18 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
               <th scope="row">
                 <Link to={`/runs/${run.id}`} className="runs__name">{label}</Link>
                 {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
-                <span className="runs__sub">{run.name ? `${run.field_name}${run.field_version ? ` · v${run.field_version}` : ""} · ` : ""}{run.topic}</span>
+                {run.name && <span className="runs__sub">{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</span>}
                 {run.note && <span className="runs__note">{run.note}</span>}
-                {run.status === "failed" && run.error && <span className="runs__error">{run.error}</span>}
+                {run.status === "failed" && run.error && <span className="runs__error" title={run.error}>{shortError(run.error)}</span>}
               </th>
               <td>{run.kind}{run.gold_set_name ? ` · ${run.gold_set_name}` : ""}</td>
               <td><RunStatus status={run.status} /></td>
               <td className="num">{run.paper_count}</td>
               <td>{run.created_by_name ?? "imported"}</td>
-              <td><time dateTime={run.created_at}>{new Date(run.created_at).toLocaleString()}</time></td>
+              <td className="runs__date"><time dateTime={run.created_at} title={new Date(run.created_at).toLocaleString()}>{shortDate(run.created_at)}</time></td>
               <td className="runs__actions">
                 <Link to={`/?run=${run.id}`}>Papers<span className="sr-only"> of {label}</span></Link>
-                <MenuButton label={`Actions for ${label}`} items={items(run)} />
+                <MenuButton label={`Actions for ${label}`} text="Actions" items={items(run)} />
               </td>
             </tr>
           );
@@ -69,4 +69,15 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
       </tbody>
     </table>
   );
+}
+
+/** "failed at stage 'review_methodologist': EvidenceQuoteError: …" → "Failed at review methodologist (EvidenceQuoteError)". */
+export function shortError(error: string): string {
+  const m = /failed at stage '([^']+)':\s*([A-Za-z]+)/.exec(error);
+  if (m) return `Failed at ${m[1].replace(/_/g, " ")} (${m[2]})`;
+  return error.length > 90 ? `${error.slice(0, 87)}…` : error;
+}
+
+export function shortDate(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
