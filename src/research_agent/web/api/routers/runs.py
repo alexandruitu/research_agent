@@ -72,6 +72,17 @@ def _topic(run):
     ) or ""
 
 
+def search_warnings(run):
+    """The run's skipped sources; a malformed entry (hand-edited report) is left out rather than failing."""
+    rows = run.search_warnings
+    if rows is None:
+        return None
+    keys = ("source", "error_type", "reason", "detail")
+    return [
+        {k: str(row.get(k) or "") for k in keys} for row in rows if isinstance(row, dict) and row.get("source")
+    ]
+
+
 def _run_out(db, run, cls=RunOut, names=None, **extra):
     field = db.get(Field, run.field_id)
     gold = db.get(GoldSet, run.gold_set_id) if run.gold_set_id else None
@@ -102,6 +113,7 @@ def _run_out(db, run, cls=RunOut, names=None, **extra):
         ),
         topic=_topic(run) or (field.topic if field else ""),
         started_at=run.started_at,
+        search_warnings=search_warnings(run),
         **extra,
     )
 

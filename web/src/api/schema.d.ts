@@ -1936,6 +1936,8 @@ export interface components {
             description?: string;
             keywords?: components["schemas"]["KeywordsIO"] | null;
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Required Sources */
+            required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             /**
              * Note
              * @default
@@ -1962,6 +1964,8 @@ export interface components {
             description?: string;
             keywords?: components["schemas"]["KeywordsIO"] | null;
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Required Sources */
+            required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
         };
         /** FieldOut */
         FieldOut: {
@@ -2021,6 +2025,8 @@ export interface components {
             description?: string;
             keywords?: components["schemas"]["KeywordsIO"] | null;
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Required Sources */
+            required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
             /**
              * Note
              * @default
@@ -2063,6 +2069,8 @@ export interface components {
             description?: string;
             keywords?: components["schemas"]["KeywordsIO"] | null;
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
+            /** Required Sources */
+            required_sources?: string[];
             /** Queries */
             queries?: {
                 [key: string]: string;
@@ -3302,6 +3310,8 @@ export interface components {
             topic?: string;
             /** Started At */
             started_at?: string | null;
+            /** Search Warnings */
+            search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
@@ -3412,6 +3422,8 @@ export interface components {
             topic?: string;
             /** Started At */
             started_at?: string | null;
+            /** Search Warnings */
+            search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
         };
         /** RunPanelOut */
         RunPanelOut: {
@@ -3555,6 +3567,20 @@ export interface components {
             decided_by?: string | null;
             /** Criteria Table */
             criteria_table?: components["schemas"]["CriterionRowOut"][];
+        };
+        /**
+         * SearchWarningOut
+         * @description A source a run skipped (partial search). All fields are safe to show.
+         */
+        SearchWarningOut: {
+            /** Source */
+            source: string;
+            /** Error Type */
+            error_type: string;
+            /** Reason */
+            reason: string;
+            /** Detail */
+            detail: string;
         };
         /** SessionOut */
         SessionOut: {

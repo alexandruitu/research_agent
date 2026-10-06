@@ -64,6 +64,7 @@ def version_out(db, version):
         keywords=version.keywords,
         query_override=version.query_override,
         queries=version_queries(version),
+        required_sources=stored.get("required") or [],
     )
 
 

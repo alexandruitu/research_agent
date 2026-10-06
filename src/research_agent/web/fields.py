@@ -127,7 +127,10 @@ def _make_current(field, version):
 
 
 def _body_sources(body):
-    return {"names": list(body.sources), "years": {"from": body.years.start, "to": body.years.end}}
+    sources = {"names": list(body.sources), "years": {"from": body.years.start, "to": body.years.end}}
+    if body.required_sources:  # left out when empty, so versions saved before partial search look the same
+        sources["required"] = [n for n in body.sources if n in set(body.required_sources)]
+    return sources
 
 
 def body_keywords(body):
@@ -302,7 +305,15 @@ def version_for_domain(db, domain, created_by=None):
         topic=domain["topic"],
         include=wanted["include"],
         exclude=wanted["exclude"],
-        sources={"names": wanted["sources"], "years": wanted["years"]},
+        sources={
+            "names": wanted["sources"],
+            "years": wanted["years"],
+            **(
+                {"required": required}
+                if (required := [s["name"] for s in domain["sources"] if s.get("required")])
+                else {}
+            ),
+        },
         note="imported",
         created_by=created_by,
         description=domain.get("description") or "",
@@ -339,6 +350,7 @@ def build_domain(
     description="",
     keywords=None,
     query_override=None,
+    required=(),
 ):
     """domain.json for a run or a criteria test: the version's criteria, its sources that are enabled (with
     their limits and the contact email) and the default thresholds, plus the per-source queries built from
@@ -352,6 +364,8 @@ def build_domain(
             entry = {"name": name, "max_results": enabled[name].max_results}
             if name == "openalex" and contact:
                 entry["contact"] = contact
+            if name in required:
+                entry["required"] = True
             sources.append(entry)
     if not sources:
         raise FieldConflict(422, "no_enabled_source", "None of this field's sources is enabled")
@@ -398,6 +412,7 @@ def domain_for_version(db, field, version):
         exclude=[c.question for c in grouped["exclude"]],
         names=stored.get("names", []),
         years=stored.get("years") or NO_YEARS,
+        required=stored.get("required") or (),
         description=version.description,
         keywords=version.keywords,
         query_override=version.query_override,

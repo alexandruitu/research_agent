@@ -153,6 +153,8 @@ class Run(Base):
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)  # a user's label; null: none
     note: Mapped[str] = mapped_column(Text, default="", server_default="")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Partial search: [{source, error_type, reason, detail}] the run skipped; null: legacy or older import
+    search_warnings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = created()
 
 

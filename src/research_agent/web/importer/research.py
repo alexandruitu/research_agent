@@ -101,6 +101,7 @@ def _import(db, folder, digest, run, state, manifest, created_by):
     run.field_version_id = version_row.id
     run.manifest, run.source_sha256, run.status, run.error = manifest, digest, "done", None
     run.finished_at = _finished_at(folder)
+    run.search_warnings = state.get("search_warnings") if domain else None
     db.flush()
     try:
         calls = CallIndex(folder)

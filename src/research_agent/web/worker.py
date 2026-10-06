@@ -41,6 +41,7 @@ from .runner import (
     eval_command,
     failure_message,
     progress_snapshot,
+    read_progress,
     redact,
     sanitize_error,
     spawn_command,
@@ -339,6 +340,8 @@ class Worker:
             run.status = "done"
             db.commit()
         else:
+            if (warnings := read_progress(run_dir).get("search_warnings")) is not None:
+                run.search_warnings = warnings  # every source failed: say which and why
             self._fail(db, job, failure_message(run_dir, process.returncode))
         return True
 

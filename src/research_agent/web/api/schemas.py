@@ -155,7 +155,7 @@ def _keyword_rule(keywords):
 class FieldDraft(Model):
     """A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save."""
 
-    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override"])
+    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override", "required_sources"])
 
     name: str = Field(min_length=1, max_length=200, pattern=PLAIN)
     topic: str = Field(min_length=3, max_length=500, pattern=PLAIN)
@@ -166,6 +166,8 @@ class FieldDraft(Model):
     description: str = Field(default="", max_length=2000, pattern=TEXT)
     keywords: KeywordsIO | None = None
     query_override: QueryOverrideIO | None = None
+    # Partial search: these sources stop the run when they fail; the others are skipped with a warning.
+    required_sources: list[SourceName] = Field(default_factory=list, max_length=len(SEARCH_SOURCES))
 
     @field_validator("name", "topic", "description", mode="before")
     @classmethod
@@ -178,6 +180,8 @@ class FieldDraft(Model):
             raise ValueError("at least one inclusion or exclusion criterion is required")
         if len(set(self.sources)) != len(self.sources):
             raise ValueError("each source may be listed once")
+        if not set(self.required_sources) <= set(self.sources):
+            raise ValueError("a required source must be one of the field's sources")
         _keyword_rule(self.keywords)
         return self
 
@@ -196,7 +200,9 @@ class CriterionText(Model):
 
 
 class FieldVersionOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override", "queries"])
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["description", "keywords", "query_override", "queries", "required_sources"]
+    )
     version: int
     name: str
     topic: str
@@ -213,6 +219,7 @@ class FieldVersionOut(Model):
     description: str = ""
     keywords: KeywordsIO | None = None  # null: a field defined by its topic only
     query_override: QueryOverrideIO | None = None
+    required_sources: list[str] = Field(default_factory=list)  # fail the run when they fail
     queries: dict[str, str] | None = None  # per source, as a run of this version would search (null: planned)
 
 
@@ -343,9 +350,18 @@ class RunCounts(Model):
     in_sr: int | None  # null: the run has no gold set
 
 
+class SearchWarningOut(Model):
+    """A source a run skipped (partial search). All fields are safe to show."""
+
+    source: str
+    error_type: str
+    reason: str  # e.g. "rate limited (HTTP 429)"
+    detail: str  # the fix, e.g. "set S2_API_KEY in the worker environment"
+
+
 class RunOut(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at"]
+        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at", "search_warnings"]
     )
     id: uuid.UUID
     field_id: uuid.UUID
@@ -367,6 +383,8 @@ class RunOut(Model):
     created_by_name: str | None = None
     topic: str = ""
     started_at: datetime | None = None
+    # Partial search: sources skipped by this run (null: not recorded, e.g. a legacy run; []: none skipped)
+    search_warnings: list[SearchWarningOut] | None = None
 
 
 class RunSourceOut(Model):
