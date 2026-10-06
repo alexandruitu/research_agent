@@ -2634,6 +2634,12 @@ export interface components {
             text_source?: string | null;
             /** Text Licence */
             text_licence?: string | null;
+            /** Provisional */
+            provisional?: boolean | null;
+            /** Checklist Answered */
+            checklist_answered?: number | null;
+            /** Checklist Total */
+            checklist_total?: number | null;
             library?: components["schemas"]["LibraryRef"] | null;
             /** Group */
             group?: string | null;
@@ -5181,6 +5187,7 @@ export interface operations {
                 decided_by?: string | null;
                 source?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus") | "demo" | null;
                 has_red_flags?: boolean | null;
+                provisional?: boolean | null;
                 group_by?: "quality" | "source" | "year" | "decided_by" | "library";
                 group?: string | null;
             };
@@ -5230,6 +5237,7 @@ export interface operations {
                 decided_by?: string | null;
                 source?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus") | "demo" | null;
                 has_red_flags?: boolean | null;
+                provisional?: boolean | null;
                 group_by?: "quality" | "source" | "year" | "decided_by" | "library";
                 group?: string | null;
             };

@@ -82,3 +82,11 @@ describe("patchView", () => {
     expect(bad.params.source).toBeUndefined();
   });
 });
+
+describe("provisional filter", () => {
+  it("reads prov=true|false into the provisional param and ignores anything else", () => {
+    expect(parseView(new URLSearchParams("prov=true")).params.provisional).toBe(true);
+    expect(parseView(new URLSearchParams("prov=false")).params.provisional).toBe(false);
+    expect(parseView(new URLSearchParams("prov=x")).params.provisional).toBeUndefined();
+  });
+});

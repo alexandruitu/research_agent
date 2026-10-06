@@ -10,7 +10,7 @@ import type {
 export type PaperParams = {
   page: number; page_size: number; sort: string; direction: "asc" | "desc";
   decision?: string; tier?: string; escalated?: boolean; in_sr?: boolean; criterion?: string; p_min?: number; p_max?: number;
-  decided_by?: string; source?: string; has_red_flags?: boolean;
+  decided_by?: string; source?: string; has_red_flags?: boolean; provisional?: boolean;
   /** One group of one dimension (rows of that group only). */
   group_by?: GroupDimension; group?: string;
 };

@@ -1,7 +1,7 @@
 import { criterionLabel, sourceLabel } from "../fields/labels";
 import { PAPER_SOURCES, type PapersView } from "./papersState";
 
-type Change = Partial<{ flags: boolean | null; decision: string | null; tier: string | null; escalated: boolean | null; in_sr: boolean | null; pmin: number | null; pmax: number | null; by: string | null; src: string | null }>;
+type Change = Partial<{ flags: boolean | null; prov: boolean | null; decision: string | null; tier: string | null; escalated: boolean | null; in_sr: boolean | null; pmin: number | null; pmax: number | null; by: string | null; src: string | null }>;
 export type CriterionOption = { key: string; text: string };
 
 const CHIPS: { label: string; sr?: boolean; panel?: boolean; active: (v: PapersView) => boolean; toggle: (v: PapersView) => Change }[] = [
@@ -12,6 +12,7 @@ const CHIPS: { label: string; sr?: boolean; panel?: boolean; active: (v: PapersV
   { label: "Decided by the LLM", active: (v) => v.params.tier === "llm", toggle: (v) => ({ tier: v.params.tier === "llm" ? null : "llm" }) },
   { label: "Only escalated", active: (v) => v.params.escalated === true, toggle: (v) => ({ escalated: v.params.escalated === true ? null : true }) },
   { label: "Has red flags", panel: true, active: (v) => v.params.has_red_flags === true, toggle: (v) => ({ flags: v.params.has_red_flags ? null : true }) },
+  { label: "Provisional", panel: true, active: (v) => v.params.provisional === true, toggle: (v) => ({ prov: v.params.provisional === true ? null : true }) },
   { label: "In the SR", sr: true, active: (v) => v.params.in_sr === true, toggle: (v) => ({ in_sr: v.params.in_sr === true ? null : true }) },
   { label: "Not in the SR", sr: true, active: (v) => v.params.in_sr === false, toggle: (v) => ({ in_sr: v.params.in_sr === false ? null : false }) },
 ];

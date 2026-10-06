@@ -33,6 +33,7 @@ def paper_filters(
     decided_by: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
     source: SourceName | Literal["demo"] | None = None,
     has_red_flags: bool | None = None,
+    provisional: bool | None = None,
     group_by: GroupBy = "quality",
     group: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
     user=Depends(require_role("viewer")),
@@ -68,6 +69,7 @@ def paper_filters(
         has_red_flags,
         group_by,
         group,
+        provisional,
     )
     return run, query
 

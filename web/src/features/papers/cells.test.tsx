@@ -115,3 +115,18 @@ describe("paper column", () => {
     expect(screen.getByText("abstract only", { selector: ".abstract-only" })).toBeInTheDocument();
   });
 });
+
+describe("provisional scores", () => {
+  it("marks a panel score from under half of the checklist as provisional, in words with an explanation", async () => {
+    const { PanelScoreCell } = await import("./cells");
+    render(<PanelScoreCell score={90} coverage={0.3} provisional={true} answered={3} total={10} />);
+    const marker = screen.getByText("provisional");
+    expect(marker).toHaveAttribute("title", "Only 3 of 10 checklist items could be answered (abstract only) — upload the full text to firm this up");
+  });
+
+  it("shows no marker on a firm score", async () => {
+    const { PanelScoreCell } = await import("./cells");
+    render(<PanelScoreCell score={90} coverage={0.8} provisional={false} answered={8} total={10} />);
+    expect(screen.queryByText("provisional")).not.toBeInTheDocument();
+  });
+});

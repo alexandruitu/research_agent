@@ -142,3 +142,64 @@ def test_groups_need_a_real_run_and_a_known_dimension(sign_in, imported):
     missing = viewer.get("/api/v1/runs/00000000-0000-0000-0000-000000000000/papers/groups")
     assert missing.status_code == 404
     assert viewer.get(f"/api/v1/runs/{imported['eval']}/papers/groups", params={"by": "x"}).status_code == 422
+
+
+def panel_review(db, run_id, source_id, verdict, flags, coverage, score, items=10):
+    """A panel review with one reviewer report of `items` checklist answers."""
+    from research_agent.web.db.models import PanelReport
+
+    paper = db.scalar(select(Paper).where(Paper.source_id == source_id))
+    review_row = PaperReview(
+        run_id=run_id,
+        paper_id=paper.id,
+        text_source="abstract",
+        editor_verdict=verdict,
+        red_flag_count=flags,
+        score=score,
+        coverage=coverage,
+    )
+    db.add(review_row)
+    db.flush()
+    db.add(
+        PanelReport(
+            paper_review_id=review_row.id,
+            reviewer_key="methods",
+            name="Methods",
+            verdict=verdict or "uncertain",
+            answers=[{"key": f"q{i}", "answer": "yes"} for i in range(items)],
+        )
+    )
+    db.commit()
+
+
+def test_provisional_papers_are_never_read_first(sign_in, imported, db):
+    from research_agent.web.papers import PROVISIONAL_COVERAGE, QUALITY_GROUPS
+
+    assert PROVISIONAL_COVERAGE == 0.5
+    rule = {k: r for k, _, r in QUALITY_GROUPS}["read_first"]
+    assert "at least half of the checklist answered" in rule
+    viewer, _ = sign_in("viewer")
+    run = imported["research"]
+    kept = [s for s, r in rows(viewer, run).items() if r["screen"]["decision"] != "exclude"]
+    firm, half, thin, flagged = kept[:4]
+    panel_review(db, run, firm, "include", 0, 0.8, 60.0)
+    panel_review(db, run, half, "include", 0, 0.5, 70.0)
+    panel_review(db, run, thin, "include", 0, 0.3, 95.0)
+    panel_review(db, run, flagged, "include", 2, 0.2, 40.0)
+    got = rows(viewer, run)
+    assert got[firm]["group"] == "read_first" and got[firm]["provisional"] is False
+    assert got[half]["group"] == "read_first" and got[half]["provisional"] is False
+    assert got[thin]["group"] == "worth_a_look" and got[thin]["provisional"] is True
+    assert got[thin]["checklist_answered"] == 3 and got[thin]["checklist_total"] == 10
+    assert got[flagged]["group"] == "has_problems" and got[flagged]["provisional"] is True
+    legacy = [r for s, r in got.items() if s not in (firm, half, thin, flagged)]
+    assert all(r["provisional"] is None for r in legacy)
+    # the quick filter
+    only = rows(viewer, run, provisional="true")
+    assert set(only) == {thin, flagged}
+    assert thin not in rows(viewer, run, provisional="false")
+    # within a group, provisional papers come after the others despite a higher score
+    panel_review(db, run, kept[4], "uncertain", 0, 0.9, 10.0)
+    look = page(viewer, run, group="worth_a_look", sort="score", direction="desc")["items"]
+    ids = [r["paper"]["source_id"] for r in look]
+    assert ids.index(kept[4]) < ids.index(thin)

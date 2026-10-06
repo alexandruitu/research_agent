@@ -24,6 +24,10 @@ Evaluated in order, first match wins:
 2. `has_problems` "Has problems" — `f ≥ 2` or `v = exclude`.
 3. `read_first` "Read first" — `v = include` and `f = 0` (a measured zero: **D** legacy papers never qualify,
    their red flags were not checked).
+   A **provisional** paper (panel coverage < `PROVISIONAL_COVERAGE` = 0.5: the score counts too few answered
+   items, typically abstract only) never qualifies and falls to `worth_a_look`. `PaperRow.provisional` (+
+   `checklist_answered`/`checklist_total`) marks it; filter `provisional=true|false` (URL `prov`); inside a
+   group provisional papers sort after the firm ones.
 4. `worth_a_look` "Worth a look" — `v ∈ {include, uncertain}` and (`f ≤ 1` or `f` unknown).
 5. `not_reviewed` "Not reviewed" (**D**, fifth group) — everything else: kept but no verdict (outside an
    eval agreement sample, panel did not review it, no editor verdict), and papers never screened

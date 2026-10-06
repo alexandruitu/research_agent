@@ -95,7 +95,7 @@ export function PaperTable({ rows, stages, sort, direction, onSort, selectedPape
                 <td><ExtractCellView cell={row.extract} /></td>
                 {panel ? (
                   <>
-                    <td><PanelScoreCell score={row.score} coverage={row.coverage} /></td>
+                    <td><PanelScoreCell score={row.score} coverage={row.coverage} provisional={row.provisional} answered={row.checklist_answered} total={row.checklist_total} /></td>
                     <td><RedFlagsCell count={row.red_flag_count} /></td>
                     <td><TextSourceCell source={row.text_source} /></td>
                   </>

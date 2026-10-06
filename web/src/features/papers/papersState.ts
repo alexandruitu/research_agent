@@ -42,6 +42,8 @@ export function parseView(search: URLSearchParams): PapersView {
   const by = search.get("by");
   if (by && CRITERION_KEY.test(by)) params.decided_by = by;
   if (search.get("flags") === "true") params.has_red_flags = true;
+  const provisional = flag(search.get("prov"));
+  if (provisional !== undefined) params.provisional = provisional;
   const src = search.get("src");
   if (src && PAPER_SOURCES.includes(src)) params.source = src;
   let pMin = number(search.get("pmin"), 0, 1);
@@ -56,7 +58,7 @@ export function parseView(search: URLSearchParams): PapersView {
 type Changes = Partial<{
   run: string | null; page: number | null; sort: string | null; dir: "asc" | "desc" | null; decision: string | null; tier: string | null;
   escalated: boolean | null; in_sr: boolean | null; pmin: number | null; pmax: number | null; paper: string | null; stage: string | null;
-  by: string | null; src: string | null; flags: boolean | null; group: GroupBy | null;
+  by: string | null; src: string | null; flags: boolean | null; prov: boolean | null; group: GroupBy | null;
 }>;
 
 /** Returns new search parameters. Any change other than `page`, `paper` or `stage` goes back to page 1; changing the run closes the panels and drops the criterion filter. */

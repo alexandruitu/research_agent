@@ -16,6 +16,7 @@ export function activeFilterChips(view: PapersView, criteria: CriterionOption[])
   if (p.tier) chips.push({ label: TIER[p.tier] ?? p.tier, clear: { tier: null } });
   if (p.escalated) chips.push({ label: "Only escalated", clear: { escalated: null } });
   if (p.has_red_flags) chips.push({ label: "Has red flags", clear: { flags: null } });
+  if (p.provisional !== undefined) chips.push({ label: p.provisional ? "Provisional" : "Not provisional", clear: { prov: null } });
   if (p.in_sr !== undefined) chips.push({ label: p.in_sr ? "In the SR" : "Not in the SR", clear: { in_sr: null } });
   if (p.decided_by) {
     const text = criteria.find((c) => c.key === p.decided_by)?.text;
@@ -27,4 +28,4 @@ export function activeFilterChips(view: PapersView, criteria: CriterionOption[])
 }
 
 export const clearPaperFilters = (search: URLSearchParams) =>
-  patchView(search, { decision: null, tier: null, escalated: null, flags: null, in_sr: null, by: null, src: null, pmin: null, pmax: null });
+  patchView(search, { decision: null, tier: null, escalated: null, flags: null, prov: null, in_sr: null, by: null, src: null, pmin: null, pmax: null });

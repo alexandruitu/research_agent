@@ -915,6 +915,9 @@ class PaperRow(Model):
             "text_licence",
             "library",
             "group",
+            "provisional",
+            "checklist_answered",
+            "checklist_total",
         ]
     )
     paper: PaperRef
@@ -933,6 +936,10 @@ class PaperRow(Model):
     text_licence: str | None = (
         None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
     )
+    # panel rows: true when coverage < papers.PROVISIONAL_COVERAGE (score from too few answered items)
+    provisional: bool | None = None
+    checklist_answered: int | None = None  # checklist items answered yes or no (all reviewers)
+    checklist_total: int | None = None  # checklist items asked (all reviewers)
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
     # read_first | worth_a_look | has_problems | not_relevant | not_reviewed (rules: papers.QUALITY_GROUPS)
     group: str | None = None

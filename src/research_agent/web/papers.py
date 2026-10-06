@@ -46,16 +46,25 @@ class PaperQuery:
     has_red_flags: bool | None = None
     group_by: str = "quality"
     group: str | None = None
+    provisional: bool | None = None
 
+
+# A panel score counts only the answered checklist items: below this coverage (answered / total) the score is
+# provisional (typically abstract only) and the paper can never be "Read first".
+PROVISIONAL_COVERAGE = 0.5
 
 QUALITY_GROUPS = (
-    ("read_first", "Read first", "Kept by screening, editor verdict include and 0 red flags."),
+    (
+        "read_first",
+        "Read first",
+        "Kept by screening, editor verdict include, 0 red flags and at least half of the checklist answered.",
+    ),
     (
         "worth_a_look",
         "Worth a look",
         (
-            "Kept, verdict include or uncertain and at most 1 red flag "
-            "(legacy A/B runs: red flags were not checked)."
+            "Kept, verdict include or uncertain and at most 1 red flag (legacy A/B runs: red flags were not "
+            "checked); also papers that would be read first but have less than half of the checklist answered."
         ),
     ),
     ("has_problems", "Has problems", "Kept, but 2 or more red flags or verdict exclude."),
@@ -66,6 +75,24 @@ QUALITY_GROUPS = (
         "Kept (or never screened: no abstract) but without a review verdict.",
     ),
 )
+
+
+def provisional_expr():
+    """True for a panel row with coverage below PROVISIONAL_COVERAGE, False for other panel rows, null otherwise."""
+    return case(
+        (PaperReview.coverage.is_(None), None),
+        else_=PaperReview.coverage < PROVISIONAL_COVERAGE,
+    )
+
+
+def checklist_total_expr():
+    """The number of checklist items the panel answered over (every reviewer's items), null without a panel."""
+    return (
+        select(func.sum(func.jsonb_array_length(PanelReport.answers)))
+        .where(PanelReport.paper_review_id == PaperReview.id)
+        .correlate(PaperReview)
+        .scalar_subquery()
+    )
 
 
 def quality_expr(ra, rb, rj):
@@ -82,7 +109,14 @@ def quality_expr(ra, rb, rj):
     return case(
         (and_(Screening.decision == "exclude", Screening.tier != NOT_SCREENED), literal("not_relevant")),
         (or_(flags >= 2, verdict == "exclude"), literal("has_problems")),
-        (and_(verdict == "include", flags == 0), literal("read_first")),
+        (
+            and_(
+                verdict == "include",
+                flags == 0,
+                or_(PaperReview.coverage.is_(None), PaperReview.coverage >= PROVISIONAL_COVERAGE),
+            ),
+            literal("read_first"),
+        ),
         (
             and_(verdict.in_(["include", "uncertain"]), or_(flags.is_(None), flags <= 1)),
             literal("worth_a_look"),
@@ -134,7 +168,18 @@ PANEL_COLUMNS = ("score", "coverage", "red_flag_count", "text_source", "text_lic
 
 
 def build_row(
-    run, screening, paper, cells, quotes, verdicts, adjudication_expected, rank, label, panel=None, group=None
+    run,
+    screening,
+    paper,
+    cells,
+    quotes,
+    verdicts,
+    adjudication_expected,
+    rank,
+    label,
+    panel=None,
+    group=None,
+    checklist_total=None,
 ):
     expected = expects_downstream(run, screening, any(v is not None for v in verdicts))
     if quotes:
@@ -167,6 +212,19 @@ def build_row(
         "rank": {"score": rank[0], "position": rank[1]} if rank[0] is not None else None,
         "group": group,
         **dict(zip(PANEL_COLUMNS, panel or (None,) * len(PANEL_COLUMNS), strict=True)),
+        **checklist_fields(panel[1] if panel else None, checklist_total),
+    }
+
+
+def checklist_fields(coverage, total):
+    """provisional (null without a panel coverage), and answered / total checklist items when known."""
+    if coverage is None:
+        return {"provisional": None, "checklist_answered": None, "checklist_total": None}
+    total = int(total) if total else None
+    return {
+        "provisional": coverage < PROVISIONAL_COVERAGE,
+        "checklist_answered": round(coverage * total) if total else None,
+        "checklist_total": total,
     }
 
 
@@ -210,6 +268,7 @@ def _filtered(run, q):
             PaperReview.red_flag_count,
             PaperReview.text_source,
             PaperReview.text_licence,
+            checklist_total_expr(),
             quality,
         )
         .join(Paper, Paper.id == Screening.paper_id)
@@ -247,6 +306,10 @@ def _filtered(run, q):
         stmt = stmt.where(PaperReview.red_flag_count > 0)
     elif q.has_red_flags is False:
         stmt = stmt.where(or_(PaperReview.id.is_(None), PaperReview.red_flag_count == 0))
+    if q.provisional is True:
+        stmt = stmt.where(PaperReview.coverage < PROVISIONAL_COVERAGE)
+    elif q.provisional is False:
+        stmt = stmt.where(or_(PaperReview.coverage.is_(None), PaperReview.coverage >= PROVISIONAL_COVERAGE))
     if q.criterion:
         conditions = [CriterionScore.screening_id == Screening.id, Criterion.key == q.criterion]
         if q.p_min is not None:
@@ -349,8 +412,10 @@ def paper_table(db, run, q):
     )
     key = _sort_key(q.sort)
     ordering = key.desc().nulls_last() if q.direction == "desc" else key.asc().nulls_last()
+    # Inside a group, provisional papers (thin checklist coverage) come after the firm ones.
+    first = (func.coalesce(provisional_expr(), False).asc(),) if q.group is not None else ()
     rows = db.execute(
-        stmt.order_by(ordering, Paper.source_id).limit(q.page_size).offset((q.page - 1) * q.page_size)
+        stmt.order_by(*first, ordering, Paper.source_id).limit(q.page_size).offset((q.page - 1) * q.page_size)
     ).all()
 
     cells, quotes = defaultdict(dict), defaultdict(list)
@@ -390,8 +455,9 @@ def paper_table(db, run, q):
             any((d or {}).get("adjudicated") is True for d in (da, db_)),
             (score, position),
             label,
-            panel[:-1],
+            panel[:-2],
             panel[-1],
+            panel[-2],
         )
         for s, p, va, vb, vj, da, db_, score, position, label, *panel in rows
     ]

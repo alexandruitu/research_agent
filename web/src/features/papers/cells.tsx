@@ -128,11 +128,23 @@ export const textSourceLabel = (source: string) => (source === "abstract" ? "abs
 /** Coverage is the share of checklist items the reviewers could answer, in tenths ("8/10 answered"). */
 export const coverageWords = (coverage: number) => `${Math.round(coverage * 10)}/10 answered`;
 
-export function PanelScoreCell({ score, coverage }: { score: number | null | undefined; coverage: number | null | undefined }) {
+type PanelScoreProps = {
+  score: number | null | undefined; coverage: number | null | undefined;
+  /** Under half of the checklist answered (API `provisional`): the score may move once the full text is read. */
+  provisional?: boolean | null; answered?: number | null; total?: number | null;
+};
+
+export const provisionalTitle = (answered: number | null | undefined, total: number | null | undefined) =>
+  answered != null && total != null
+    ? `Only ${answered} of ${total} checklist items could be answered (abstract only) — upload the full text to firm this up`
+    : "Under half of the checklist items could be answered (abstract only) — upload the full text to firm this up";
+
+export function PanelScoreCell({ score, coverage, provisional, answered, total }: PanelScoreProps) {
   if (score == null && coverage == null) return <NotApplicable />;
   return (
     <span className="panel-score">
       <strong>{score == null ? "no score" : Math.round(score)}</strong>
+      {provisional && <span className="chip chip--warn provisional" title={provisionalTitle(answered, total)}>provisional</span>}
       {coverage != null && (
         <>
           <span className="sub"> · {coverageWords(coverage)}</span>
