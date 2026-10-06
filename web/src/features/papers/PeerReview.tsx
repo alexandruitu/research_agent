@@ -3,8 +3,12 @@ import type { PanelOut, PanelReportOut } from "../../api/types";
 import { coverageWords } from "./cells";
 import { answerJudgement, answerParts, disagreementSentence, listWords, reviewerNames, textSentence, verdictWord } from "./panel";
 
-const scoreText = (score: number | null, coverage: number | null) =>
-  `${score == null ? "no score" : `score ${Math.round(score)}`}${coverage == null ? "" : ` · ${coverageWords(coverage)}`}`;
+/** A score from under half of the checklist is provisional: said in words before the (tentative) number. */
+const scoreText = (score: number | null, coverage: number | null) => {
+  const provisional = coverage != null && coverage < 0.5;
+  const value = score == null ? "no score" : provisional ? `provisional (tentative score ${Math.round(score)})` : `score ${Math.round(score)}`;
+  return `${value}${coverage == null ? "" : ` · ${coverageWords(coverage)}`}`;
+};
 
 const JUDGEMENT = { meets: { icon: "●", word: "meets" }, concern: { icon: "▲", word: "concern" } } as const;
 

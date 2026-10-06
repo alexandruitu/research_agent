@@ -168,12 +168,28 @@ export const provisionalTitle = (answered: number | null | undefined, total: num
     ? `Only ${answered} of ${total} checklist items could be answered (abstract only) — upload the full text to firm this up`
     : "Under half of the checklist items could be answered (abstract only) — upload the full text to firm this up";
 
+/** The provisional marker: the word, with its explanation on hover, focus or tap. */
+export function ProvisionalMark({ answered, total }: { answered?: number | null; total?: number | null }) {
+  return (
+    <Tooltip className="provisional-tip" trigger={<span className="chip chip--warn provisional">provisional</span>}
+      tip={<><strong>Provisional</strong>: {provisionalTitle(answered, total)}.</>} />
+  );
+}
+
+/**
+ * The panel score is shown as a number only when at least half of the checklist was answered. A
+ * provisional score (Detailed view) stays visible but de-emphasised next to the word "provisional".
+ */
 export function PanelScoreCell({ score, coverage, provisional, answered, total }: PanelScoreProps) {
   if (score == null && coverage == null) return <NotApplicable />;
   return (
     <span className="panel-score">
-      <strong>{score == null ? "no score" : Math.round(score)}</strong>
-      {provisional && <span className="chip chip--warn provisional" title={provisionalTitle(answered, total)}>provisional</span>}
+      {provisional ? (
+        <>
+          <ProvisionalMark answered={answered} total={total} />
+          {score != null && <span className="score-muted"><span className="sr-only">tentative score </span>{Math.round(score)}</span>}
+        </>
+      ) : <strong>{score == null ? "no score" : Math.round(score)}</strong>}
       {coverage != null && (
         <>
           <span className="sub"> · {coverageWords(coverage)}</span>

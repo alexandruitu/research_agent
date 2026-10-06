@@ -1001,3 +1001,5 @@ table.papers td.col-criteria { min-width: 15rem; }
 .view-toggle button + button { border-left: 1px solid var(--rule-2); }
 .view-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .view-toggle-wrap { display: grid; gap: 2px; font-size: 12px; color: var(--ink-2); }
+.score-muted { margin-left: 6px; color: var(--ink-2); font-size: 12px; text-decoration: line-through dotted; text-decoration-color: var(--rule-2); }
+.provisional-tip .chip { margin-left: 0; }

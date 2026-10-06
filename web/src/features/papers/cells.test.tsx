@@ -124,8 +124,12 @@ describe("provisional scores", () => {
   it("marks a panel score from under half of the checklist as provisional, in words with an explanation", async () => {
     const { PanelScoreCell } = await import("./cells");
     render(<PanelScoreCell score={90} coverage={0.3} provisional={true} answered={3} total={10} />);
-    const marker = screen.getByText("provisional");
-    expect(marker).toHaveAttribute("title", "Only 3 of 10 checklist items could be answered (abstract only) — upload the full text to firm this up");
+    const marker = screen.getByRole("button", { name: "provisional" });
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Only 3 of 10 checklist items could be answered (abstract only) — upload the full text to firm this up");
+    expect(marker).toHaveAttribute("aria-describedby", screen.getByRole("tooltip", { hidden: true }).id);
+    // the number stays (Detailed view) but is de-emphasised, never the big figure
+    expect(screen.getByText("90")).toHaveClass("score-muted");
+    expect(document.querySelector(".panel-score > strong")).toBeNull();
   });
 
   it("shows no marker on a firm score", async () => {
