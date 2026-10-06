@@ -59,11 +59,11 @@ def test_upgrade_backfills_existing_fields_into_version_1(blank_url):
         assert rows(engine, "select kind, field_version_id from criteria") == [("legacy", version_id)]
         assert rows(engine, "select current_version, archived_at from fields") == [(1, None)]
         assert rows(engine, "select field_version_id from runs") == [(version_id,)]
-        assert rows(engine, "select name, enabled, max_results from sources order by name") == [
-            ("arxiv", False, 100),
-            ("europepmc", True, 100),
-            ("openalex", False, 100),
-        ]
+        # every catalogued source gets a row; only the legacy default (Europe PMC) starts enabled
+        seeded = rows(engine, "select name, enabled, max_results from sources order by name")
+        assert {"arxiv", "europepmc", "openalex"} <= {name for name, _, _ in seeded}
+        assert [(name, enabled) for name, enabled, _ in seeded if enabled] == [("europepmc", True)]
+        assert {limit for _, _, limit in seeded} == {100}
         assert rows(engine, "select id, contact_email from app_settings") == [(1, None)]
         # topic is no longer unique: a second field may share it (versions own the topic now)
         with engine.begin() as connection:

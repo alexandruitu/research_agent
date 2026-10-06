@@ -72,7 +72,8 @@ def matrix(imported, paper_id, field_id):
         ("GET", "/evals", "viewer"),
         ("POST", "/users", "admin"),
         ("POST", "/runs", "member"),
-        ("POST", f"/runs/{run}/resume", "member"),
+        # a member may resume only their own runs; this one was imported, so only an admin manages it
+        ("POST", f"/runs/{run}/resume", "admin"),
         ("GET", f"/jobs/{'00000000-0000-0000-0000-000000000000'}", "member"),
         ("POST", "/imports", "admin"),
         ("GET", "/sources", "viewer"),

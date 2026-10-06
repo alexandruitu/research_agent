@@ -408,7 +408,7 @@ def test_decided_by_and_source_filters(screened):
     assert paper_rows(viewer, run_id, decided_by="e2") == {}
     assert set(paper_rows(viewer, run_id, source="arxiv")) == {"demo:3"}
     assert len(paper_rows(viewer, run_id, source="europepmc")) == 4
-    assert viewer.get(f"{API}/runs/{run_id}/papers", params={"source": "pubmed"}).status_code == 422
+    assert viewer.get(f"{API}/runs/{run_id}/papers", params={"source": "no-such-source"}).status_code == 422
     assert viewer.get(f"{API}/runs/{run_id}/papers", params={"decided_by": "E1;--"}).status_code == 422
     assert set(paper_rows(viewer, run_id, sort="criterion:i1", direction="desc")) == {
         f"demo:{i}" for i in range(1, 5)
