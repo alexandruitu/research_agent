@@ -256,6 +256,51 @@ the worker after a change.
   key is set but that no role uses gets a `key:<provider>` row in the workers status, and `/models/available` lists the
   curated Gemini ids once the key is accepted. Structured output uses the same `json_schema` path as Anthropic.
 
+## Runs management (slice 7)
+
+Every research run has a page, `/runs/<id>`, and the list at `/runs` can filter, sort, select and act.
+
+- **Who may do what.** Everyone reads runs, compares them and exports them. Members also run any research run
+  again (the new run is theirs) and read its worker log and calls summary. The run's creator or an admin also
+  resumes, cancels, renames, annotates, pins and deletes it; imported runs (no creator) are admin-only for that.
+- **Detail.** The frozen configuration (field and version, sources with their caps, review settings version,
+  panel reviewers with versions, models per role, mode, papers to screen, prompt version), the stage timeline
+  (start, end, duration from `progress.json` `timings`, recorded since this slice; older runs say "not recorded"),
+  counts, wall time, links to the papers, evaluations made from the run and library items saved from it.
+- **Run again.** `POST /runs/{id}/rerun {"config": "same"|"current"}` (send an `Idempotency-Key`): `same` reuses
+  the frozen domain and review requests, field version, review settings and panel versions exactly; `current` uses
+  the field's current version and the current review settings. Both keep `max_papers` and `mode`.
+- **Resume** works for `failed` and `cancelled` runs. When the run folder's `manifest.json` has another prompt
+  version than the code, it is refused with 409 `prompt_version_changed`; the page says why and offers
+  "Run again (same configuration)".
+- **Cancel.** `POST /runs/{id}/cancel`: a queued run is cancelled at once (200); a running one gets
+  `jobs.cancel_requested`, its worker stops the child at the next poll and marks job and run `cancelled`
+  (202 `cancelling`). The checkpoint stays, so a cancelled run can be resumed. A stale job with a cancel request
+  is cancelled, not requeued.
+- **Delete.** `DELETE /runs/{id}` and `POST /runs/delete {"ids": [...]}` (per-run results). Not while queued or
+  running (409 `run_active`), never an eval run, and not when a panel evaluation was computed from the run
+  (409 `referenced_by_eval`). The run's rows go by `ON DELETE CASCADE`; library items keep their snapshot with
+  `run_id` set to null; papers stay. The folder is moved, never erased, to
+  `<RESEARCH_RUNS_DIR>/.trash/<run id>-<UTC time>`; a folder outside the runs directory is left where it is. To
+  restore one, move it back out of `.trash` and import it (`POST /api/v1/imports` as an admin, or `research-web dev --import-all`).
+- **Debug.** `GET /runs/{id}/log?lines=N` (members): the tail of `worker.log` (at most 256 KiB read) with every
+  secret value replaced by `***`, the failed stage and reason, and the `"<role>: attempt N failed (...)"` retry
+  lines; `&download=true` returns it as a file. `GET /runs/{id}/calls` (members): calls per role and model from the
+  call cache with characters in/out and an estimated cost (the evaluation estimate's approximate list prices).
+  Cache hits and per-call durations are not recorded by the cache and show as "not recorded".
+- **Compare.** `/runs/compare?ids=a,b` (`GET /runs/compare`): configuration rows marked "differs", papers kept in
+  one run and dropped in the other, papers screened in only one, and score changes.
+- **Export.** `GET /runs/{id}/export?format=csv|bibtex|bundle` and `GET /runs/export?ids=a,b&format=csv|bibtex`.
+  The bundle is a zip of `report.json`, `report.md`, `domain.json`, `review.json`, `manifest.json` and a README;
+  never the call cache, checkpoints, uploads, logs or keys. Full texts are never in `report.json` (only hashes);
+  quotes from `publisher_licensed` texts are blanked and `report.md` is left out when there are any.
+- **List.** Filters (status including `cancelled`, field, only mine, date range), search over name, topic and
+  field, sort and order, pinned runs first; the list refreshes every 3 s while a run is queued or running. Tick
+  runs for bulk CSV/BibTeX export, Compare (exactly two) or Delete; every row has an actions menu (Open, Run
+  again, Resume, Cancel, Export, Rename or add a note, Pin, Delete) operable with the keyboard; destructive
+  actions ask first; results arrive as toasts. `?field=<id>` still preselects the start form; the field filter
+  is `?in=<id>`.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19
@@ -323,8 +368,9 @@ Screens and who sees them:
   (removes only the items that save created) and a refusal rolls the rows back. A saved row's badge links to its
   library item. The drawer's sticky header has **Save to library…** or, once saved, the badge and the status
   radio group. Active filters show as chips with **Clear all**.
-- **Runs** (every role; the Start form and Resume are for members and admins): runs with their status, start a
-  run (1 to 12 papers, demo mode when the server allows it), follow its job, resume a failed run.
+- **Runs** (every role; the Start form and Run again are for members and admins; resume, cancel, rename, pin and
+  delete for the run's creator or an admin): the filterable runs list, start a run (1 to 12 papers, demo mode when
+  the server allows it), follow its job, and `/runs/<id>` and `/runs/compare` (see "Runs management (slice 7)").
 - **Evals** (every role reads; members start evaluations; admins create rating samples): `/evals` lists report
   cards (kind, date, config chips, headline numbers in words, parent/follow-up links), evaluations in progress
   with their step, a kind filter and compare selection (2–3 reports of one family → `/evals/compare?ids=`).
