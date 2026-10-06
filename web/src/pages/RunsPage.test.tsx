@@ -29,6 +29,13 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
 }
 
 describe("RunsPage list", () => {
+  it("each run row explains its coverage on hover, focus or tap", async () => {
+    setup("viewer", { "GET /api/v1/runs": { body: [runOut({ coverage: { searched: ["europepmc", "openalex"], skipped: [], max_papers: 12, full_text: 3, abstract_only: 7 } })] } });
+    const trigger = await screen.findByRole("button", { name: /coverage of/ });
+    await userEvent.click(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Searched: Europe PMC, OpenAlex · Skipped: none · Max papers: 12 · Text: 3 full text / 7 abstract only");
+  });
+
   it("lists runs with a status in words, a link to each run and its papers", async () => {
     setup("viewer");
     const table = await screen.findByRole("table");

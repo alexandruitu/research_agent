@@ -9,7 +9,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { useRunActions } from "../features/runs/RunActions";
 import { RunStatus } from "../features/runs/RunList";
 import { SearchWarningPanel } from "../features/runs/SearchWarnings";
-import { formatSeconds, formatUsd, runLabel } from "../features/runs/runWords";
+import { coverageLine, formatSeconds, formatUsd, runLabel } from "../features/runs/runWords";
 
 /** One run: what it was started with, how long each stage took, what it found and cost, and its log. */
 export function RunDetailPage() {
@@ -43,6 +43,7 @@ export function RunDetailPage() {
             <RunStatus status={data.status} /> · {data.kind} · {data.field_name}{data.field_version ? ` v${data.field_version}` : ""} · started by {data.created_by_name ?? "import"} · <time dateTime={data.created_at}>{new Date(data.created_at).toLocaleString()}</time>
             {isActive(data.status) && <span className="sr-only"> (updates every few seconds)</span>}
           </p>
+          {coverageLine(data.coverage) && <p className="run-detail__coverage">{coverageLine(data.coverage)}</p>}
           {data.note && <p className="run-detail__note">{data.note}</p>}
         </div>
         <div className="run-detail__actions">

@@ -39,6 +39,11 @@ function setup(role: "viewer" | "member" = "member", data = detail(), extra: Par
 }
 
 describe("run detail", () => {
+  it("says in one line what the run searched, skipped, capped and read", async () => {
+    setup("member", detail({ coverage: { searched: ["europepmc"], skipped: [{ source: "semantic_scholar", error_type: "x", reason: "rate limited (HTTP 429)", detail: "" }], max_papers: 12, full_text: 3, abstract_only: 7 } }));
+    expect(await screen.findByText("Searched: Europe PMC · Skipped: Semantic Scholar (rate limited) · Max papers: 12 · Text: 3 full text / 7 abstract only")).toBeInTheDocument();
+  });
+
   it("shows the name, note, frozen configuration, stage times, counts and cost estimate", async () => {
     setup();
     expect(await screen.findByRole("heading", { level: 1, name: "Baseline" })).toBeInTheDocument();

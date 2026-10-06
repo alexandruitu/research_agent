@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageRun, formatSeconds, formatUsd, runLabel } from "./runWords";
+import { canManageRun, coverageLine, formatSeconds, formatUsd, runLabel } from "./runWords";
 
 const me = { id: "u1", email: "m@x", name: "M", role: "member", active: true };
 
@@ -24,5 +24,20 @@ describe("run words", () => {
     expect(formatUsd(null)).toBe("no price");
     expect(formatUsd(0.004)).toBe("< $0.01");
     expect(formatUsd(1.234)).toBe("$1.23");
+  });
+});
+
+describe("coverage line", () => {
+  it("says what the run searched, skipped, capped and read", () => {
+    expect(coverageLine({
+      searched: ["europepmc", "openalex"], skipped: [{ source: "semantic_scholar", error_type: "x", reason: "rate limited (HTTP 429)", detail: "" }],
+      max_papers: 12, full_text: 3, abstract_only: 7,
+    })).toBe("Searched: Europe PMC, OpenAlex · Skipped: Semantic Scholar (rate limited) · Max papers: 12 · Text: 3 full text / 7 abstract only");
+  });
+  it("says what is unknown instead of showing zeros", () => {
+    expect(coverageLine({ searched: [], skipped: null, max_papers: null, full_text: null, abstract_only: null }))
+      .toBe("Searched: not recorded · Max papers: not recorded · Text: not reviewed by the panel");
+    expect(coverageLine({ searched: ["europepmc"], skipped: [], max_papers: 5, full_text: null, abstract_only: null })).toContain("Skipped: none");
+    expect(coverageLine(null)).toBeNull();
   });
 });

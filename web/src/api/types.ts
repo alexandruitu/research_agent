@@ -11,6 +11,7 @@ export type FieldDraft = S["FieldDraft"];
 export type RunOut = S["RunOut"];
 export type RunDetailOut = S["RunDetailOut"];
 export type RunCounts = S["RunCounts"];
+export type RunCoverageOut = S["RunCoverageOut"];
 export type RunConfigOut = S["RunConfigOut"];
 export type RunStageOut = S["RunStageOut"];
 export type RunTimelineOut = S["RunTimelineOut"];

@@ -15,6 +15,7 @@ from ...db.models import (
     GoldLabel,
     GoldSet,
     Job,
+    PaperReview,
     Run,
     RunReviewer,
     Screening,
@@ -83,6 +84,34 @@ def search_warnings(run):
     ]
 
 
+def run_coverage(db, run):
+    """{searched, skipped, max_papers, full_text, abstract_only}: the sources the run searched (minus the
+    skipped ones), the paper cap, and the panel's text counts (null without any panel review)."""
+    manifest = run.manifest or {}
+    contract = manifest.get("contract") or {}
+    # web runs keep the request; runs from the command line carry the domain inside the contract
+    domain = manifest.get("domain_request") or contract.get("domain") or {}
+    skipped = search_warnings(run)
+    gone = {w["source"] for w in skipped or []}
+    names = [
+        s.get("name")
+        for s in domain.get("sources") or []
+        if isinstance(s, dict) and s.get("name") and s.get("enabled", True) is not False
+    ]
+    if not domain and contract.get("topic"):
+        names = ["demo" if contract.get("mode") == "demo" else "europepmc"]  # legacy topic run
+    texts = db.scalars(select(PaperReview.text_source).where(PaperReview.run_id == run.id)).all()
+    abstract = sum(1 for t in texts if t == "abstract")
+    cap = contract.get("max_papers")
+    return {
+        "searched": [n for n in names if n not in gone],
+        "skipped": skipped,
+        "max_papers": int(cap) if isinstance(cap, int | float | str) and str(cap).isdigit() else None,
+        "full_text": len(texts) - abstract if texts else None,
+        "abstract_only": abstract if texts else None,
+    }
+
+
 def _run_out(db, run, cls=RunOut, names=None, **extra):
     field = db.get(Field, run.field_id)
     gold = db.get(GoldSet, run.gold_set_id) if run.gold_set_id else None
@@ -114,6 +143,7 @@ def _run_out(db, run, cls=RunOut, names=None, **extra):
         topic=_topic(run) or (field.topic if field else ""),
         started_at=run.started_at,
         search_warnings=search_warnings(run),
+        coverage=run_coverage(db, run),
         **extra,
     )
 

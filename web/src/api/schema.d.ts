@@ -3259,6 +3259,23 @@ export interface components {
             /** In Sr */
             in_sr: number | null;
         };
+        /**
+         * RunCoverageOut
+         * @description What a run covered, for one line in the UI: sources searched and skipped, the paper cap, and how many
+         *     papers the review panel read in full text vs abstract only (null: no panel review, so unknown).
+         */
+        RunCoverageOut: {
+            /** Searched */
+            searched: string[];
+            /** Skipped */
+            skipped: components["schemas"]["SearchWarningOut"][] | null;
+            /** Max Papers */
+            max_papers: number | null;
+            /** Full Text */
+            full_text: number | null;
+            /** Abstract Only */
+            abstract_only: number | null;
+        };
         /** RunDetailOut */
         RunDetailOut: {
             /**
@@ -3314,6 +3331,7 @@ export interface components {
             started_at?: string | null;
             /** Search Warnings */
             search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
+            coverage?: components["schemas"]["RunCoverageOut"] | null;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
@@ -3426,6 +3444,7 @@ export interface components {
             started_at?: string | null;
             /** Search Warnings */
             search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
+            coverage?: components["schemas"]["RunCoverageOut"] | null;
         };
         /** RunPanelOut */
         RunPanelOut: {

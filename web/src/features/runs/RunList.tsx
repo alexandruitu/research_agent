@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import type { RunOut } from "../../api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { MenuButton, type MenuItem } from "../../components/ui/MenuButton";
-import { runLabel, runStatusMeta } from "./runWords";
+import { Tooltip } from "../../components/ui/Tooltip";
+import { coverageLine, runLabel, runStatusMeta } from "./runWords";
 import { PartialSearchMarker } from "./SearchWarnings";
 
 export function RunStatus({ status }: { status: string }) {
@@ -52,6 +53,9 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
                 <Link to={`/runs/${run.id}`} className="runs__name">{label}</Link>
                 {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
                 <PartialSearchMarker warnings={run.search_warnings} />
+                {coverageLine(run.coverage) && (
+                  <Tooltip className="runs__coverage" trigger={<span>coverage<span className="sr-only"> of {label}</span></span>} tip={coverageLine(run.coverage)} />
+                )}
                 {run.name && <span className="runs__sub">{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</span>}
                 {run.note && <span className="runs__note">{run.note}</span>}
                 {run.status === "failed" && run.error && <span className="runs__error" title={run.error}>{shortError(run.error)}</span>}

@@ -359,9 +359,20 @@ class SearchWarningOut(Model):
     detail: str  # the fix, e.g. "set S2_API_KEY in the worker environment"
 
 
+class RunCoverageOut(Model):
+    """What a run covered, for one line in the UI: sources searched and skipped, the paper cap, and how many
+    papers the review panel read in full text vs abstract only (null: no panel review, so unknown)."""
+
+    searched: list[str]
+    skipped: list[SearchWarningOut] | None  # null: not recorded (legacy run)
+    max_papers: int | None
+    full_text: int | None
+    abstract_only: int | None
+
+
 class RunOut(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at", "search_warnings"]
+        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at", "search_warnings", "coverage"]
     )
     id: uuid.UUID
     field_id: uuid.UUID
@@ -385,6 +396,7 @@ class RunOut(Model):
     started_at: datetime | None = None
     # Partial search: sources skipped by this run (null: not recorded, e.g. a legacy run; []: none skipped)
     search_warnings: list[SearchWarningOut] | None = None
+    coverage: RunCoverageOut | None = None
 
 
 class RunSourceOut(Model):

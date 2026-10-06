@@ -1,4 +1,6 @@
 import type { RunOut, UserOut } from "../../api/types";
+import { sourceLabel } from "../fields/labels";
+import { skippedList } from "./SearchWarnings";
 
 export const RUN_STATUSES = ["queued", "running", "done", "failed", "cancelled"] as const;
 export const RUN_STATUS_META: Record<string, { icon: string; word: string }> = {
@@ -29,3 +31,18 @@ export function formatSeconds(seconds: number | null | undefined): string {
 
 export const formatUsd = (value: number | null | undefined) =>
   value === null || value === undefined ? "no price" : value < 0.01 && value > 0 ? "< $0.01" : `$${value.toFixed(2)}`;
+
+/**
+ * "Searched: Europe PMC, OpenAlex · Skipped: Semantic Scholar (rate limited) · Max papers: 12 · Text: 3 full
+ * text / 7 abstract only". Unknown parts say so ("not recorded"), never a silent zero.
+ */
+export function coverageLine(coverage: RunOut["coverage"]): string | null {
+  if (!coverage) return null;
+  const parts = [`Searched: ${coverage.searched.length ? coverage.searched.map(sourceLabel).join(", ") : "not recorded"}`];
+  if (coverage.skipped) parts.push(`Skipped: ${coverage.skipped.length ? skippedList(coverage.skipped) : "none"}`);
+  parts.push(`Max papers: ${coverage.max_papers ?? "not recorded"}`);
+  parts.push(coverage.full_text == null || coverage.abstract_only == null
+    ? "Text: not reviewed by the panel"
+    : `Text: ${coverage.full_text} full text / ${coverage.abstract_only} abstract only`);
+  return parts.join(" · ");
+}
