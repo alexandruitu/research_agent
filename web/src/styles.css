@@ -927,3 +927,20 @@ table.papers td.col-criteria { min-width: 15rem; }
 .crit-p, .crit-llm { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 .crit-decided { font-weight: 600; color: var(--accent); white-space: nowrap; }
 .crit-values li.is-decider .crit-key { color: var(--ink); font-weight: 600; }
+.paper-groups { display: grid; gap: var(--s4); }
+.group-tools { display: flex; gap: var(--s2); justify-content: flex-end; }
+.paper-group { border-left: 3px solid var(--rule-2); padding-left: var(--s3); }
+.paper-group--read_first { border-left-color: var(--ok-line); }
+.paper-group--worth_a_look { border-left-color: var(--accent); }
+.paper-group--has_problems { border-left-color: var(--bad-line); border-left-style: double; border-left-width: 4px; }
+.paper-group--not_relevant, .paper-group--not_reviewed { border-left-style: dashed; }
+.paper-group-head { margin: 0; font-family: var(--serif); font-size: 20px; font-weight: 500; }
+.paper-group-head button { all: unset; cursor: pointer; display: inline-flex; align-items: baseline; gap: var(--s2); padding: 2px var(--s1); border-radius: var(--r1); }
+.paper-group-head button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.paper-group-head button:hover .group-name { text-decoration: underline; text-underline-offset: 3px; }
+.group-chevron { font-size: 13px; color: var(--ink-2); width: 1em; }
+.group-icon { font-size: 17px; }
+.group-count { font-family: var(--sans); font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.group-rule { margin: 0 0 var(--s2) calc(1em + var(--s3)); font-size: 12px; color: var(--ink-2); max-width: 70ch; }
+.group-more { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
+.group-empty { margin: 0 0 var(--s2) calc(1em + var(--s3)); }

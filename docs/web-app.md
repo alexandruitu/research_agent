@@ -301,6 +301,25 @@ Every research run has a page, `/runs/<id>`, and the list at `/runs` can filter,
   actions ask first; results arrive as toasts. `?field=<id>` still preselects the start form; the field filter
   is `?in=<id>`.
 
+## Papers grouped by quality (slice 8)
+
+The Papers tab opens grouped. **Group by** (URL `group=`): Quality groups (default) | Source | Year |
+Dropped by criterion | Library status | None (the flat list with its pager). Groups honour every filter;
+each section loads 25 rows with "Show more" (up to 200, then pages of 200); j/k/o/x/s and the
+selection span the open groups in order. Open/closed sections are remembered per user in this browser
+(`localStorage`, `papers.collapsed.<user>.<grouping>`); "Not relevant" starts closed.
+
+Quality groups are computed in SQL (`research_agent.web.papers.quality_expr`), first match wins:
+⊘ Not relevant (dropped by screening) → ⚑ Has problems (≥ 2 red flags or verdict exclude) →
+★ Read first (verdict include, 0 red flags) → ◐ Worth a look (include/uncertain, ≤ 1 red flag) →
+○ Not reviewed (kept or never screened, no verdict; listed only when non-empty). The verdict is the panel
+editor's; in legacy A/B runs the adjudicator's, else A's when A = B, else uncertain. Legacy runs have no
+red-flag check, so their papers are never "Read first". Within groups the default sort is score, best first.
+
+API: `PaperRow.group`; `GET /runs/{id}/papers?group_by=…&group=<key>`;
+`GET /runs/{id}/papers/groups?by=quality|source|year|decided_by|library` (+ the list's filters) →
+`[{key, label, count, rule}]`. A paper found by several sources is counted in each source group.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19
