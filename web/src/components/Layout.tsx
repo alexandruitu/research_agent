@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { GlossaryLink, GlossaryProvider } from "./ui/Glossary";
+import { GlossaryLink, GlossaryProvider } from "./ui/GlossaryDialog";
 import { StaleBanner } from "./StaleBanner";
 import { ToastProvider } from "./ui/Toast";
 

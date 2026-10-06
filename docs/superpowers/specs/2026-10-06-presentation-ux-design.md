@@ -41,7 +41,7 @@ without reading pipeline jargon or mistaking pipeline measurements for the quali
    row tooltip (`title` + `sr-only` text) and as a line on the run detail page:
    "Searched: Europe PMC, OpenAlex · Skipped: Semantic Scholar (rate limited) · Max papers: 12 · Text: 3
    full text / 7 abstract only". Needs an API restart.
-8. **`<Term>` + glossary**: `components/ui/Term.tsx` renders the term text plus a small "?" button;
+8. **`<Term>` + glossary**: `components/ui/Term.tsx` (dialog in `GlossaryDialog.tsx`) renders the term text plus a small "?" button;
    the definition is a `role="tooltip"` element referenced by `aria-describedby`, shown on hover, focus
    and click/tap (toggle), dismissed with Escape or outside click. Definitions live in one file,
    `components/ui/terms.ts`. A Glossary dialog lists every term; it is linked from every `?` help sheet

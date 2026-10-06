@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { GlossaryLink } from "./Glossary";
+import { GlossaryLink } from "./GlossaryDialog";
 
 export type ShortcutHelpItem = { keys: string[]; what: string };
 
