@@ -8,9 +8,23 @@ describe("parseView", () => {
   it("has sensible defaults", () => {
     const view = parseView(q(""));
     expect(view).toEqual({
-      runId: null, paperId: null, stageId: null,
-      params: { page: 1, page_size: PAGE_SIZE, sort: "title", direction: "asc" },
+      runId: null, paperId: null, stageId: null, groupBy: "quality",
+      // grouped by quality, best panel score first inside each group
+      params: { page: 1, page_size: PAGE_SIZE, sort: "score", direction: "desc" },
     });
+  });
+
+  it("reads the grouping; the flat list keeps sorting by title", () => {
+    expect(parseView(q("group=year")).groupBy).toBe("year");
+    expect(parseView(q("group=colour")).groupBy).toBe("quality");
+    const flat = parseView(q("group=none"));
+    expect(flat.groupBy).toBe("none");
+    expect(flat.params).toEqual({ page: 1, page_size: PAGE_SIZE, sort: "title", direction: "asc" });
+    expect(parseView(q("sort=title")).params).toMatchObject({ sort: "title", direction: "asc" }); // an explicit sort wins
+  });
+
+  it("changing the grouping goes back to page 1", () => {
+    expect(patchView(q("page=3"), { group: "year" }).toString()).toBe("group=year");
   });
 
   it("reads every parameter", () => {
@@ -24,12 +38,12 @@ describe("parseView", () => {
   });
 
   it("ignores values the API would reject", () => {
-    const view = parseView(q("page=0&sort=drop table&dir=sideways&decision=maybe&tier=x&pmin=abc&pmax=2"));
+    const view = parseView(q("group=none&page=0&sort=drop table&dir=sideways&decision=maybe&tier=x&pmin=abc&pmax=2"));
     expect(view.params).toEqual({ page: 1, page_size: PAGE_SIZE, sort: "title", direction: "asc" });
     expect(parseView(q("page=100001")).params.page).toBe(1); // the API caps page at 100000
     expect(parseView(q("page=100000")).params.page).toBe(100000);
     // p_min above p_max is a 422: drop the range rather than send it
-    expect(parseView(q("pmin=0.7&pmax=0.2")).params).toEqual({ page: 1, page_size: PAGE_SIZE, sort: "title", direction: "asc" });
+    expect(parseView(q("group=none&pmin=0.7&pmax=0.2")).params).toEqual({ page: 1, page_size: PAGE_SIZE, sort: "title", direction: "asc" });
   });
 });
 
