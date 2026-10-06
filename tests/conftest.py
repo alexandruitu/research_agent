@@ -7,6 +7,27 @@ pgserver = pytest.importorskip(
 )
 sa = pytest.importorskip("sqlalchemy")
 
+# Provider and source keys. Some modules call load_dotenv() on import (ui.py), which would leak the
+# developer's real .env into os.environ for every later test; tests set the keys they need themselves.
+KEY_VARIABLES = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "TYPESAFE_API_KEY",
+    "CORE_API_KEY",
+    "ELSEVIER_API_KEY",
+    "IEEE_API_KEY",
+    "NCBI_API_KEY",
+    "OPENALEX_API_KEY",
+    "SPRINGER_API_KEY",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_keys(monkeypatch):
+    for name in KEY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
 
 @pytest.fixture(scope="session")
 def pg_url(tmp_path_factory):
