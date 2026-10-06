@@ -21,10 +21,14 @@ from ...db.models import (
     SettingsVersion,
     SourceRow,
 )
-from ...jobs import active_research_job, enqueue
+from ...jobs import active_research_job, enqueue, request_cancel
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
 from ..schemas import (
+    BulkDeleteOut,
+    BulkIds,
+    CancelOut,
+    DeleteOut,
     JobOut,
     RerunRequest,
     RunCounts,
@@ -480,3 +484,66 @@ def resume_run(
     job, _ = enqueue(db, "research", payload, user.id)
     db.commit()
     return StartRunOut(job=job_out(job), run_id=run.id)
+
+
+@router.post("/delete", response_model=BulkDeleteOut)
+def delete_runs(
+    body: BulkIds,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Delete several runs; each is checked on its own and refusals are listed, not raised."""
+    deleted, refused = [], []
+    for run_id in dict.fromkeys(body.ids):
+        run = db.get(Run, run_id)
+        if run is None:
+            refused.append({"id": run_id, "code": "not_found", "message": "No such run"})
+            continue
+        try:
+            runs_svc.check_deletable(db, user, run)
+        except runs_svc.RunConflict as exc:
+            refused.append({"id": run_id, "code": exc.code, "message": exc.message})
+            continue
+        runs_svc.delete_run(db, settings, user, run)
+        db.commit()  # each folder move follows its own committed delete
+        deleted.append(run_id)
+    return BulkDeleteOut(deleted=deleted, refused=refused)
+
+
+@router.post("/{run_id}/cancel", response_model=CancelOut)
+def cancel_run(
+    run_id: uuid.UUID, response: Response, user=Depends(require_role("member")), db=Depends(get_db)
+):
+    """Queued: cancelled now (200). Running: its worker stops the child at the next poll (202); the run then
+    shows `cancelled` and can be resumed from its checkpoint."""
+    run = get_run_or_404(db, run_id)
+    require_manage(user, run)
+    outcome = request_cancel(db, run.id) if run.kind == "research" else None
+    if outcome is None:
+        raise ApiError(409, "not_active", "Only a queued or running research run can be cancelled")
+    db.commit()
+    if outcome == "requested":
+        response.status_code = 202
+        return CancelOut(status="cancelling")
+    return CancelOut(status="cancelled")
+
+
+@router.delete("/{run_id}", response_model=DeleteOut)
+def delete_run(
+    run_id: uuid.UUID,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Delete a finished, failed or cancelled research run (its creator or an admin). Library items keep their
+    snapshot; the folder moves to the trash under the runs directory (never deleted)."""
+    run = get_run_or_404(db, run_id)
+    try:
+        runs_svc.check_deletable(db, user, run)
+    except runs_svc.RunConflict as exc:
+        raise conflict(exc) from None
+    db.commit()
+    folder = runs_svc.delete_run(db, settings, user, run)
+    db.commit()
+    return DeleteOut(id=run_id, folder=folder)

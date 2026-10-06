@@ -452,6 +452,30 @@ class RunPatch(Model):
     pinned: bool | None = None
 
 
+class CancelOut(Model):
+    status: Literal["cancelled", "cancelling"]
+
+
+class DeleteOut(Model):
+    id: uuid.UUID
+    folder: Literal["trashed", "missing", "outside"]  # outside: not under the runs directory, left in place
+
+
+class BulkIds(Model):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class RefusedOut(Model):
+    id: uuid.UUID
+    code: str
+    message: str
+
+
+class BulkDeleteOut(Model):
+    deleted: list[uuid.UUID]
+    refused: list[RefusedOut]
+
+
 class RerunRequest(Model):
     config: Literal["same", "current"]
 

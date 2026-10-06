@@ -233,3 +233,56 @@ def user_names(db, ids):
     if not ids:
         return {}
     return dict(db.execute(select(User.id, User.name).where(User.id.in_(ids))).all())
+
+
+# --- delete -----------------------------------------------------------------------------------------------------
+
+
+def trash_folder(settings, run, now=None):
+    """Move the run folder to `<runs root>/.trash/<id hex>-<UTC time>`. Nothing is ever unlinked; a folder that
+    does not resolve strictly inside the runs root (or is already in the trash) is left where it is.
+    Returns "trashed", "missing" or "outside"."""
+    folder = folder_of(settings, run)
+    if folder is None:
+        return "missing" if not run.folder else "outside"
+    if not folder.is_dir():
+        return "missing"
+    trash = Path(settings.runs_dir).resolve() / TRASH
+    trash.mkdir(parents=True, exist_ok=True)
+    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
+    target = trash / f"{run.id.hex}-{stamp}"
+    n = 1
+    while target.exists():
+        n += 1
+        target = trash / f"{run.id.hex}-{stamp}-{n}"
+    folder.rename(target)  # same filesystem (inside the root): an atomic move
+    return "trashed"
+
+
+def check_deletable(db, user, run):
+    """Raise RunConflict unless `user` may delete `run` now."""
+    from .jobs import active_research_job
+
+    if run.kind != "research":
+        raise RunConflict(409, "conflict", "Evaluation runs are managed from Evals")
+    require_manage(user, run)
+    if run.status in ACTIVE or active_research_job(db, run.id) is not None:
+        raise RunConflict(409, "run_active", "Cancel the run before deleting it")
+    reports = evals_from(db, run)
+    if reports:
+        raise RunConflict(
+            409,
+            "referenced_by_eval",
+            f"{len(reports)} evaluation report(s) were computed from this run; they read its folder, "
+            "so it cannot be deleted while they exist",
+            detail=[str(r["id"]) for r in reports],
+        )
+
+
+def delete_run(db, settings, user, run):
+    """Delete the run's rows (children go by ON DELETE CASCADE; library items keep their snapshot with
+    run_id set to null) and move its folder to the trash. The caller commits."""
+    check_deletable(db, user, run)
+    db.delete(run)
+    db.flush()
+    return trash_folder(settings, run)
