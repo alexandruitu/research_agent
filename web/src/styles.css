@@ -1007,3 +1007,5 @@ table.papers td.col-criteria { min-width: 15rem; }
 .drawer-details { margin-top: var(--s3); }
 .drawer-details > summary { cursor: pointer; font-weight: 600; padding: var(--s2) 0; }
 .drawer-details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r1); }
+.groups-empty { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; margin: 0 0 var(--s3); font-size: 13px; color: var(--ink-2); }
+.groups-empty-item .tip-trigger { border-bottom: 1px dotted var(--rule-2); }

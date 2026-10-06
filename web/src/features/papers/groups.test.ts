@@ -39,3 +39,13 @@ describe("group names", () => {
     expect(groupName("year", "2021", "2021")).toBe("2021");
   });
 });
+
+describe("empty group reasons", () => {
+  it("explains an empty Read first, pointing at provisional papers when Worth a look has some", async () => {
+    const { emptyGroupReason } = await import("./groups");
+    const groups = [{ key: "read_first", count: 0 }, { key: "worth_a_look", count: 7 }];
+    expect(emptyGroupReason("read_first", groups)).toMatch(/^No paper has an include verdict from the editor, 0 red flags and at least half of the checklist answered\. Papers that would qualify .* provisional \(usually only the abstract was available\)/);
+    expect(emptyGroupReason("read_first", [{ key: "worth_a_look", count: 0 }])).not.toMatch(/provisional/);
+    expect(emptyGroupReason("has_problems", groups)).toBe("No kept paper has 2 or more red flags or an exclude verdict.");
+  });
+});

@@ -4,7 +4,8 @@ import { ApiError } from "../../api/client";
 import { usePaperGroups, usePapers, type GroupDimension, type PaperParams } from "../../api/hooks";
 import type { PaperGroupOut, PaperRow } from "../../api/types";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { groupIcon, groupName, readCollapsed, writeCollapsed } from "./groups";
+import { Tooltip } from "../../components/ui/Tooltip";
+import { emptyGroupReason, groupIcon, groupName, readCollapsed, writeCollapsed } from "./groups";
 
 const STEP = 25;
 const MAX_SIZE = 200; // the API's largest page
@@ -32,7 +33,10 @@ export function PaperGroups({ runId, by, params, userId, renderTable, onRows, on
     setCollapsed({ by, keys: next });
     writeCollapsed(userId, by, next);
   };
-  const list = useMemo(() => groups.data ?? [], [groups.data]);
+  const all = useMemo(() => groups.data ?? [], [groups.data]);
+  // empty groups are hidden; one line names them, each with a "why?" explanation
+  const list = useMemo(() => all.filter((g) => g.count > 0), [all]);
+  const empty = all.filter((g) => g.count === 0);
   useEffect(() => {
     onGroups?.(list.map((g) => g.key), keys);
   }, [list, keys, onGroups]);
@@ -40,6 +44,15 @@ export function PaperGroups({ runId, by, params, userId, renderTable, onRows, on
   if (groups.isError) return <p role="alert" className="form-error">{errorText(groups.error)}</p>;
   if (!groups.data) return <Skeleton label="the groups" rows={6} />;
   if (list.length === 0) return <p className="sub-inline">No papers to group.</p>;
+  const emptyLine = empty.length > 0 && (
+    <p className="groups-empty">
+      <span>Empty:</span>
+      {empty.map((g) => (
+        <Tooltip key={g.key} className="groups-empty-item" trigger={<span>{groupName(by, g.key, g.label)} <span className="sub-inline">— why?</span></span>}
+          tip={by === "quality" ? emptyGroupReason(g.key, all) : g.rule} />
+      ))}
+    </p>
+  );
   const toggle = (key: string) => {
     const next = new Set(keys);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -51,6 +64,7 @@ export function PaperGroups({ runId, by, params, userId, renderTable, onRows, on
         <button type="button" onClick={() => save(new Set())}>Expand all</button>
         <button type="button" onClick={() => save(new Set(list.map((g) => g.key)))}>Collapse all</button>
       </div>
+      {emptyLine}
       {list.map((group) => (
         <GroupSection key={group.key} by={by} group={group} open={!keys.has(group.key)} onToggle={() => toggle(group.key)}>
           <GroupBody runId={runId} by={by} group={group} params={params} renderTable={renderTable} onRows={onRows} />

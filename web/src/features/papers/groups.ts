@@ -54,3 +54,22 @@ export function writeCollapsed(userId: string, by: GroupBy, keys: Set<string>): 
     // private mode or blocked storage: the state lasts for this page only
   }
 }
+
+const EMPTY_REASON: Record<string, string> = {
+  read_first: "no paper has an include verdict from the editor, 0 red flags and at least half of the checklist answered",
+  worth_a_look: "no kept paper has an include or uncertain verdict with at most 1 red flag",
+  has_problems: "no kept paper has 2 or more red flags or an exclude verdict",
+  not_relevant: "screening dropped no paper",
+  not_reviewed: "every kept paper has a review verdict",
+};
+
+/** Why a quality group is empty, in words, using the other groups' counts for context. */
+export function emptyGroupReason(key: string, groups: { key: string; count: number }[]): string {
+  const count = (k: string) => groups.find((g) => g.key === k)?.count ?? 0;
+  const reason = EMPTY_REASON[key] ?? "no paper matches this group's rule";
+  const sentence = reason[0]!.toUpperCase() + reason.slice(1);
+  if (key === "read_first" && count("worth_a_look") > 0) {
+    return `${sentence}. Papers that would qualify but have under half of the checklist answered are provisional (usually only the abstract was available) and sit in Worth a look.`;
+  }
+  return `${sentence}.`;
+}

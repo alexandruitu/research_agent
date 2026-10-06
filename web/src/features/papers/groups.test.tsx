@@ -60,7 +60,11 @@ describe("quality groups", () => {
     expect(new URLSearchParams(request.search).get("group_by")).toBe("quality");
     expect(await head(/Not relevant 1 paper/)).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(/Change in CT-Derived FFR/)).not.toBeInTheDocument();
-    expect(within(await head(/Worth a look 0 papers/)).getByText("Worth a look")).toBeInTheDocument();
+    // empty groups are hidden, named on one line with a "why?" explanation
+    expect(screen.queryByRole("button", { name: /Worth a look 0 papers/ })).not.toBeInTheDocument();
+    const why = screen.getByRole("button", { name: /Worth a look — why\?/ });
+    await userEvent.click(why);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("No kept paper has an include or uncertain verdict with at most 1 red flag.");
   });
 
   it("opens and closes a group from the keyboard and remembers it for this user", async () => {
