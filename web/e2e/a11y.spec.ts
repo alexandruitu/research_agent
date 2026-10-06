@@ -24,22 +24,21 @@ test.describe("viewer", () => {
 
   test("papers table with the pipeline strip", async ({ page }) => {
     await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
     await expect(page.locator("table.papers tbody tr").first()).toBeVisible();
     await audit(page);
   });
 
   test("paper drawer open", async ({ page }) => {
     await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
     await page.locator("[data-open-paper]").first().click();
     await expect(page.getByRole("complementary", { name: "Paper details" })).toBeVisible();
     await audit(page);
   });
 
   test("stage panel open", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.goto("/system"); // the pipeline strip moved from Papers to the System map
     await page.getByRole("button", { name: /^Screen/ }).click();
     await expect(page.getByRole("complementary", { name: "About Screen" })).toBeVisible();
     await audit(page);

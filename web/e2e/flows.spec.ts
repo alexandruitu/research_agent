@@ -34,7 +34,9 @@ test.describe("viewer", () => {
 
   test("the paper the screen dropped: filter, open, read the story, all from the keyboard", async ({ page }) => {
     await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
+    await page.getByRole("combobox", { name: "Group by" }).selectOption({ label: "None (flat list)" }); // groups may start collapsed
     await page.getByRole("button", { name: "Dropped" }).click();
     await page.getByRole("button", { name: "In the SR", exact: true }).click();
     const row = page.getByRole("row", { name: /MED:3/ });
@@ -56,7 +58,7 @@ test.describe("viewer", () => {
 
   test("the URL is the view: reloading keeps the filters and the open paper", async ({ page }) => {
     await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
     await page.getByRole("button", { name: "Only escalated", exact: true }).click();
     await page.reload();
     await expect(page.getByRole("button", { name: "Only escalated", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -88,13 +90,13 @@ test.describe("member", () => {
   test("starts a demo run, follows it to done and reads its papers", async ({ page }) => {
     test.setTimeout(150_000);
     await page.goto("/runs");
-    await page.getByLabel("Field").selectOption({ index: 1 });
+    await page.getByRole("combobox", { name: "Field", exact: true }).selectOption({ index: 1 });
     await page.getByLabel("Papers to screen").fill("3");
     await page.getByLabel(/Demo mode/).check();
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
     const row = page.locator("table.runs tbody tr").filter({ hasText: "research" }).filter({ has: page.locator("td", { hasText: /^3$/ }) });
-    await row.first().getByRole("link", { name: /See papers/ }).click(); // newest first; other tests start 3-paper runs too
+    await row.first().getByRole("link", { name: /^Papers of / }).click(); // newest first; other tests start 3-paper runs too
     await expect(page.locator("table.papers tbody tr")).toHaveCount(3);
   });
   test("describe a field, accept suggestions, preview, save, run it, keep two papers in the library, find and export them", async ({ page }) => {
@@ -132,8 +134,9 @@ test.describe("member", () => {
     await page.getByLabel(/Demo mode/).check();
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
-    await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /See papers/ }).click();
+    await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /^Papers of / }).click();
     await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque · v1");
+    await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
     await expect(page.locator("table.papers tbody tr").first()).toContainText(/all met|dropped by (incl|excl) \d|no single criterion decided/);
 
     const rows = page.locator("table.papers tbody tr");
@@ -180,7 +183,7 @@ test.describe("member", () => {
 
   test("keyboard shortcuts on Papers and Library", async ({ page }) => {
     await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /See papers/ }).click();
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
     await expect(page.locator("table.papers tbody tr").first()).toBeVisible();
     await page.locator("h1").click();
     await page.keyboard.press("j");
