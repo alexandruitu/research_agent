@@ -1,11 +1,14 @@
 import uuid
+from datetime import date, datetime, time, timedelta
 from pathlib import PurePosixPath
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 
 from ... import fields as svc
 from ... import review as review_svc
+from ... import runs as runs_svc
 from ...db.models import (
     Field,
     FieldVersion,
@@ -18,17 +21,51 @@ from ...db.models import (
     SettingsVersion,
     SourceRow,
 )
-from ...jobs import enqueue
+from ...jobs import active_research_job, enqueue
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import JobOut, RunCounts, RunDetailOut, RunOut, RunRequest, StartRunOut
+from ..schemas import (
+    JobOut,
+    RerunRequest,
+    RunCounts,
+    RunDetailOut,
+    RunOut,
+    RunPatch,
+    RunRequest,
+    StartRunOut,
+)
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
 NOT_SCREENED = "rule"  # eval candidates without an abstract: a row in the table, but never screened
 
 
-def _run_out(db, run, cls=RunOut, **extra):
+def conflict(exc):
+    return ApiError(exc.status, exc.code, exc.message)
+
+
+def get_run_or_404(db, run_id):
+    run = db.get(Run, run_id)
+    if run is None:
+        raise ApiError(404, "not_found", "No such run")
+    return run
+
+
+def require_manage(user, run):
+    try:
+        runs_svc.require_manage(user, run)
+    except runs_svc.RunConflict as exc:
+        raise conflict(exc) from None
+
+
+def _topic(run):
+    manifest = run.manifest or {}
+    return (
+        (manifest.get("domain_request") or {}).get("topic") or (manifest.get("contract") or {}).get("topic")
+    ) or ""
+
+
+def _run_out(db, run, cls=RunOut, names=None, **extra):
     field = db.get(Field, run.field_id)
     gold = db.get(GoldSet, run.gold_set_id) if run.gold_set_id else None
     paper_count = db.scalar(select(func.count()).select_from(Screening).where(Screening.run_id == run.id))
@@ -49,6 +86,15 @@ def _run_out(db, run, cls=RunOut, **extra):
         models=models,
         field_version=version.version if version else None,
         settings_version=review.version if review else None,
+        name=run.name,
+        note=run.note or "",
+        pinned=bool(run.pinned),
+        created_by=run.created_by,
+        created_by_name=(names if names is not None else runs_svc.user_names(db, [run.created_by])).get(
+            run.created_by
+        ),
+        topic=_topic(run) or (field.topic if field else ""),
+        started_at=run.started_at,
         **extra,
     )
 
@@ -83,27 +129,108 @@ def counts_for(db, run):
     )
 
 
+SORTS = {"created": Run.created_at, "status": Run.status}
+
+
 @router.get("", response_model=list[RunOut])
 def list_runs(
     kind: str | None = Query(None, pattern="^(research|eval)$"),
     field_id: uuid.UUID | None = None,
+    status: str | None = Query(None, pattern="^(queued|running|done|failed|cancelled)$"),
+    mine: bool = False,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    q: str | None = Query(None, max_length=200),
+    sort: Literal["created", "name", "status", "papers"] = "created",
+    direction: Literal["asc", "desc"] = "desc",
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
 ):
-    stmt = select(Run).order_by(Run.created_at.desc())
+    """Pinned runs first, then by `sort`. `q` matches the run's name, topic or field name."""
+    papers = (
+        select(func.count())
+        .select_from(Screening)
+        .where(Screening.run_id == Run.id)
+        .correlate(Run)
+        .scalar_subquery()
+    )
+    label = func.lower(func.coalesce(Run.name, Field.name))
+    key = {"papers": papers, "name": label}.get(sort, SORTS.get(sort, Run.created_at))
+    order = key.asc() if direction == "asc" else key.desc()
+    stmt = select(Run).join(Field, Field.id == Run.field_id).order_by(Run.pinned.desc(), order, Run.id)
     if kind:
         stmt = stmt.where(Run.kind == kind)
     if field_id:
         stmt = stmt.where(Run.field_id == field_id)
-    return [_run_out(db, r) for r in db.scalars(stmt)]
+    if status:
+        stmt = stmt.where(Run.status == status)
+    if mine:
+        stmt = stmt.where(Run.created_by == user.id)
+    if created_from:
+        stmt = stmt.where(Run.created_at >= datetime.combine(created_from, time.min).astimezone())
+    if created_to:
+        stmt = stmt.where(
+            Run.created_at < datetime.combine(created_to + timedelta(days=1), time.min).astimezone()
+        )
+    if q and q.strip():
+        like = f"%{q.strip().lower()}%"
+        stmt = stmt.where(
+            or_(
+                func.lower(func.coalesce(Run.name, "")).like(like),
+                func.lower(Field.name).like(like),
+                func.lower(func.coalesce(Run.manifest["contract"]["topic"].astext, "")).like(like),
+                func.lower(func.coalesce(Run.manifest["domain_request"]["topic"].astext, "")).like(like),
+            )
+        )
+    rows = db.scalars(stmt).all()
+    names = runs_svc.user_names(db, [r.created_by for r in rows])
+    return [_run_out(db, r, names=names) for r in rows]
 
 
 @router.get("/{run_id}", response_model=RunDetailOut)
-def get_run(run_id: uuid.UUID, user=Depends(require_role("viewer")), db=Depends(get_db)):
-    run = db.get(Run, run_id)
-    if run is None:
-        raise ApiError(404, "not_found", "No such run")
-    return _run_out(db, run, RunDetailOut, manifest=public_manifest(run.manifest), counts=counts_for(db, run))
+def get_run(
+    run_id: uuid.UUID,
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    run = get_run_or_404(db, run_id)
+    line = runs_svc.timeline(settings, run)
+    active = active_research_job(db, run.id)
+    return _run_out(
+        db,
+        run,
+        RunDetailOut,
+        manifest=public_manifest(run.manifest),
+        counts=counts_for(db, run),
+        config=runs_svc.frozen_config(db, settings, run),
+        timeline=line,
+        wall_seconds=runs_svc.wall_seconds(run, line),
+        resume=runs_svc.resume_state(settings, run),
+        links={
+            "papers": f"/?run={run.id}",
+            "evals": runs_svc.evals_from(db, run),
+            "library_count": runs_svc.library_count(db, run),
+        },
+        can_manage=runs_svc.can_manage(user, run),
+        active_job_id=active.id if active else None,
+    )
+
+
+@router.patch("/{run_id}", response_model=RunOut)
+def patch_run(run_id: uuid.UUID, body: RunPatch, user=Depends(require_role("member")), db=Depends(get_db)):
+    """Rename, annotate or pin a run (its creator or an admin). A blank name removes it."""
+    run = get_run_or_404(db, run_id)
+    require_manage(user, run)
+    sent = body.model_fields_set
+    if "name" in sent:
+        run.name = (body.name or "").strip() or None
+    if "note" in sent:
+        run.note = (body.note or "").strip()
+    if "pinned" in sent and body.pinned is not None:
+        run.pinned = body.pinned
+    db.commit()
+    return _run_out(db, run)
 
 
 def public_manifest(value):
@@ -141,31 +268,19 @@ def check_active_cap(db, user, settings):
         raise ApiError(429, "too_many_active_runs", "You already have the maximum number of active runs")
 
 
-@router.post("", response_model=StartRunOut, status_code=202)
-def start_run(
-    body: RunRequest,
-    response: Response,
-    idempotency_key: str | None = Header(None, max_length=100),
-    user=Depends(require_role("member")),
-    db=Depends(get_db),
-    settings=Depends(get_settings),
-):
-    field = db.get(Field, body.field_id)
-    if field is None:
-        raise ApiError(404, "not_found", "No such field")
-    if body.max_papers > settings.max_papers_cap:
-        raise ApiError(422, "validation_error", f"max_papers must be at most {settings.max_papers_cap}")
-    if body.mode == "demo" and not settings.allow_demo:
-        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
-    if idempotency_key:
-        existing = db.scalar(
-            select(Job).where(Job.created_by == user.id, Job.idempotency_key == idempotency_key)
-        )
-        if existing is not None:
-            response.status_code = 200
-            return StartRunOut(job=job_out(existing), run_id=uuid.UUID(existing.payload["run_id"]))
-    if field.archived_at is not None:
-        raise ApiError(409, "archived", "This field is archived; restore it first")
+def _existing(db, user, idempotency_key, response):
+    if not idempotency_key:
+        return None
+    existing = db.scalar(select(Job).where(Job.created_by == user.id, Job.idempotency_key == idempotency_key))
+    if existing is None:
+        return None
+    response.status_code = 200
+    return StartRunOut(job=job_out(existing), run_id=uuid.UUID(existing.payload["run_id"]))
+
+
+def _current_requests(db, field):
+    """(field version, domain request or None, review request, review settings, reviewer versions) for a new run
+    from the field's current version and the current review settings."""
     version = svc.get_version(db, field)
     domain = None
     if version is None or svc.is_legacy(db, version):
@@ -182,15 +297,22 @@ def start_run(
         review, review_settings, reviewers = review_svc.review_for_run(db)
     except review_svc.ReviewConflict as exc:
         raise ApiError(exc.status, exc.code, exc.message) from None
-    check_active_cap(db, user, settings)
-    contract = {"topic": field.topic if domain is None else domain["topic"]}
-    contract |= {"max_papers": body.max_papers, "mode": body.mode}
+    return version, domain, review, review_settings.id, [r.id for r in reviewers]
+
+
+def _create_run(db, user, settings, response, idempotency_key, field, plan):
+    """Queue a new research run. `plan` = {field_version_id, settings_version_id, reviewer_version_ids, domain,
+    review, topic, max_papers, mode}."""
+    domain, review = plan["domain"], plan["review"]
+    contract = {"topic": plan["topic"] if domain is None else domain["topic"]}
+    contract |= {"max_papers": plan["max_papers"], "mode": plan["mode"]}
     manifest = {"contract": contract} | ({"domain_request": domain} if domain else {})
-    manifest["review_request"] = review
+    if review:
+        manifest["review_request"] = review
     run = Run(
         field_id=field.id,
-        field_version_id=version.id if version else None,
-        settings_version_id=review_settings.id,
+        field_version_id=plan["field_version_id"],
+        settings_version_id=plan["settings_version_id"],
         kind="research",
         status="queued",
         manifest=manifest,
@@ -198,13 +320,14 @@ def start_run(
     )
     db.add(run)
     db.flush()
-    for position, reviewer in enumerate(reviewers):
-        db.add(RunReviewer(run_id=run.id, position=position, reviewer_version_id=reviewer.id))
+    for position, reviewer_version_id in enumerate(plan["reviewer_version_ids"]):
+        db.add(RunReviewer(run_id=run.id, position=position, reviewer_version_id=reviewer_version_id))
     run.folder = str(settings.runs_dir / run.id.hex)
     payload = {"run_id": str(run.id), "field_id": str(field.id), **contract, "resume": False}
     if domain:
         payload["domain"] = domain
-    payload["review"] = review
+    if review:
+        payload["review"] = review
     job, created = enqueue(db, "research", payload, user.id, idempotency_key)
     if not created:  # lost a race with an identical request: drop the run we just made
         db.delete(run)
@@ -215,6 +338,97 @@ def start_run(
     return StartRunOut(job=job_out(job), run_id=run.id)
 
 
+@router.post("", response_model=StartRunOut, status_code=202)
+def start_run(
+    body: RunRequest,
+    response: Response,
+    idempotency_key: str | None = Header(None, max_length=100),
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    field = db.get(Field, body.field_id)
+    if field is None:
+        raise ApiError(404, "not_found", "No such field")
+    if body.max_papers > settings.max_papers_cap:
+        raise ApiError(422, "validation_error", f"max_papers must be at most {settings.max_papers_cap}")
+    if body.mode == "demo" and not settings.allow_demo:
+        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    if (existing := _existing(db, user, idempotency_key, response)) is not None:
+        return existing
+    if field.archived_at is not None:
+        raise ApiError(409, "archived", "This field is archived; restore it first")
+    version, domain, review, settings_id, reviewer_ids = _current_requests(db, field)
+    check_active_cap(db, user, settings)
+    plan = {
+        "field_version_id": version.id if version else None,
+        "settings_version_id": settings_id,
+        "reviewer_version_ids": reviewer_ids,
+        "domain": domain,
+        "review": review,
+        "topic": field.topic,
+        "max_papers": body.max_papers,
+        "mode": body.mode,
+    }
+    return _create_run(db, user, settings, response, idempotency_key, field, plan)
+
+
+@router.post("/{run_id}/rerun", response_model=StartRunOut, status_code=202)
+def rerun(
+    run_id: uuid.UUID,
+    body: RerunRequest,
+    response: Response,
+    idempotency_key: str | None = Header(None, max_length=100),
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """A new run from this one: `same` reuses its frozen domain and review requests (field version, review
+    settings, panel versions) exactly; `current` uses the field's current version and the current review
+    settings. Both keep its max_papers and mode; the new run belongs to the caller."""
+    source = get_run_or_404(db, run_id)
+    if source.kind != "research":
+        raise ApiError(409, "conflict", "Only a research run can be run again")
+    if (existing := _existing(db, user, idempotency_key, response)) is not None:
+        return existing
+    field = db.get(Field, source.field_id)
+    if field.archived_at is not None:
+        raise ApiError(409, "archived", "This field is archived; restore it first")
+    contract = (source.manifest or {}).get("contract") or {}
+    mode = contract.get("mode") or "live"
+    if mode == "demo" and not settings.allow_demo:
+        raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    max_papers = min(int(contract.get("max_papers") or settings.max_papers_cap), settings.max_papers_cap)
+    if body.config == "same":
+        plan = {
+            "field_version_id": source.field_version_id,
+            "settings_version_id": source.settings_version_id,
+            "reviewer_version_ids": list(
+                db.scalars(
+                    select(RunReviewer.reviewer_version_id)
+                    .where(RunReviewer.run_id == source.id)
+                    .order_by(RunReviewer.position)
+                )
+            ),
+            "domain": (source.manifest or {}).get("domain_request"),
+            "review": (source.manifest or {}).get("review_request"),
+            "topic": contract.get("topic") or field.topic,
+        }
+    else:
+        version, domain, review, settings_id, reviewer_ids = _current_requests(db, field)
+        plan = {
+            "field_version_id": version.id if version else None,
+            "settings_version_id": settings_id,
+            "reviewer_version_ids": reviewer_ids,
+            "domain": domain,
+            "review": review,
+            "topic": field.topic,
+        }
+    check_active_cap(db, user, settings)
+    plan |= {"max_papers": max_papers, "mode": mode}
+    return _create_run(db, user, settings, response, idempotency_key, field, plan)
+
+
 @router.post("/{run_id}/resume", response_model=StartRunOut, status_code=202)
 def resume_run(
     run_id: uuid.UUID,
@@ -222,12 +436,14 @@ def resume_run(
     db=Depends(get_db),
     settings=Depends(get_settings),
 ):
-    run = db.get(Run, run_id)
-    if run is None:
-        raise ApiError(404, "not_found", "No such run")
-    conflict = ApiError(409, "conflict", "Only a failed research run can be resumed")
+    run = get_run_or_404(db, run_id)
+    refused = ApiError(409, "conflict", "Only a failed or cancelled research run can be resumed")
     if run.kind != "research":
-        raise conflict
+        raise refused
+    require_manage(user, run)
+    state = runs_svc.resume_state(settings, run)
+    if state["code"] == "prompt_version_changed":
+        raise ApiError(409, state["code"], state["reason"])
     check_active_cap(db, user, settings)
     active = db.scalar(
         select(func.count())
@@ -235,17 +451,17 @@ def resume_run(
         .where(Job.status.in_(("queued", "running")), Job.payload["run_id"].astext == str(run.id))
     )
     if active:
-        raise conflict
-    # Check and act in one statement: of two concurrent resumes only one UPDATE finds the row `failed`
+        raise refused
+    # Check and act in one statement: of two concurrent resumes only one UPDATE finds the row resumable
     # (the other waits for its row lock, then re-reads the row as `queued`).
     flipped = db.execute(
         update(Run)
-        .where(Run.id == run.id, Run.kind == "research", Run.status == "failed")
-        .values(status="queued", error=None)
+        .where(Run.id == run.id, Run.kind == "research", Run.status.in_(runs_svc.RESUMABLE))
+        .values(status="queued", error=None, finished_at=None)
         .execution_options(synchronize_session=False)
     ).rowcount
     if flipped != 1:
-        raise conflict
+        raise refused
     db.refresh(run)
     contract = run.manifest.get("contract") or {}
     field = db.get(Field, run.field_id)

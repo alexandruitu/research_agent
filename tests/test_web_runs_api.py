@@ -114,11 +114,12 @@ def test_a_member_cannot_have_more_active_runs_than_the_cap(sign_in, field_id):
     assert third.status_code == 429 and third.json()["code"] == "too_many_active_runs"
 
 
-def test_resume_only_for_failed_research_runs(sign_in, field_id, db, imported):
+def test_resume_only_for_failed_research_runs(sign_in, field_id, db, imported, users):
     member, csrf = sign_in("member")
     failed = Run(
         field_id=uuid.UUID(field_id),
         kind="research",
+        created_by=users["member"].id,  # resume is for the run's creator or an admin
         status="failed",
         error="boom",
         folder="/x",
@@ -190,12 +191,13 @@ def test_import_endpoint_refuses_a_symlink_that_leaves_the_root(sign_in, setting
     assert r.status_code == 404
 
 
-def failed_run(db, field_id):
+def failed_run(db, field_id, owner=None):
     run = Run(
         field_id=uuid.UUID(field_id),
         kind="research",
         status="failed",
         error="boom",
+        created_by=owner,
         folder=f"/x/{uuid.uuid4().hex}",
         manifest={"contract": {"topic": "retrieval augmented generation", "max_papers": 3, "mode": "demo"}},
     )
@@ -204,12 +206,12 @@ def failed_run(db, field_id):
     return run
 
 
-def test_a_resume_that_loses_the_race_is_refused(sign_in, field_id, db):
+def test_a_resume_that_loses_the_race_is_refused(sign_in, field_id, db, users):
     """Two resumes read `failed` at once; only the one whose UPDATE flips the row may enqueue."""
     from sqlalchemy import update
 
     member, csrf = sign_in("member")
-    run = failed_run(db, field_id)
+    run = failed_run(db, field_id, users["member"].id)
     # a concurrent resume already moved the row on; this session still holds the old `failed` copy
     db.execute(
         update(Run)
@@ -228,7 +230,7 @@ def test_a_run_whose_job_is_still_active_cannot_be_resumed(sign_in, field_id, db
     from research_agent.web.jobs import enqueue
 
     member, csrf = sign_in("member")
-    run = failed_run(db, field_id)
+    run = failed_run(db, field_id, users["member"].id)
     enqueue(db, "research", {"run_id": str(run.id), "resume": True}, users["admin"].id)
     db.commit()
     r = member.post(f"/api/v1/runs/{run.id}/resume", headers=csrf)

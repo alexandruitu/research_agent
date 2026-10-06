@@ -344,12 +344,14 @@ class RunCounts(Model):
 
 
 class RunOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["field_version", "settings_version"])
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at"]
+    )
     id: uuid.UUID
     field_id: uuid.UUID
     field_name: str
     kind: str
-    status: str
+    status: str  # queued | running | done | failed | cancelled
     finished_at: datetime | None
     created_at: datetime
     gold_set_name: str | None
@@ -358,12 +360,100 @@ class RunOut(Model):
     models: dict[str, str]
     field_version: int | None = None  # null: imported before field versions existed and not linked
     settings_version: int | None = None  # review settings of a panel run; null: a legacy run
+    name: str | None = None
+    note: str = ""
+    pinned: bool = False
+    created_by: uuid.UUID | None = None  # null: imported
+    created_by_name: str | None = None
+    topic: str = ""
+    started_at: datetime | None = None
+
+
+class RunSourceOut(Model):
+    name: str | None
+    max_results: int | None
+
+
+class RunPanelOut(Model):
+    key: str | None
+    name: str | None
+    version: int | None
+
+
+class RunConfigOut(Model):
+    """What the run was started with, frozen."""
+
+    field_id: uuid.UUID
+    field_name: str
+    field_version: int | None
+    topic: str
+    sources: list[RunSourceOut]
+    settings_version: int | None
+    panel: list[RunPanelOut]
+    models: dict[str, str]
+    mode: str | None
+    max_papers: int | None
+    prompt_version: str | None
+    jev: bool | None
+
+
+class RunStageOut(Model):
+    name: str
+    status: str
+    started_at: datetime | None  # null: not recorded (runs before slice 7)
+    finished_at: datetime | None
+    seconds: float | None
+
+
+class RunTimelineOut(Model):
+    stages: list[RunStageOut]
+    started_at: datetime | None
+    updated_at: datetime | None
+    status: str | None
+    recorded: bool  # per-stage times exist
+
+
+class ResumeOut(Model):
+    allowed: bool
+    code: str | None  # not_resumable | prompt_version_changed
+    reason: str | None
+
+
+class RunEvalLink(Model):
+    id: uuid.UUID
+    kind: str
+    created_at: datetime
+
+
+class RunLinksOut(Model):
+    papers: str
+    evals: list[RunEvalLink]
+    library_count: int
 
 
 class RunDetailOut(RunOut):
-    ADDED: ClassVar[frozenset] = frozenset(["field_version", "settings_version"])
+    ADDED: ClassVar[frozenset] = RunOut.ADDED | frozenset(
+        ["config", "timeline", "wall_seconds", "resume", "links", "can_manage", "active_job_id"]
+    )
     manifest: dict[str, Any]
     counts: RunCounts
+    config: RunConfigOut | None = None
+    timeline: RunTimelineOut | None = None
+    wall_seconds: float | None = None
+    resume: ResumeOut | None = None
+    links: RunLinksOut | None = None
+    can_manage: bool = False  # the signed-in user created the run or is an admin
+    active_job_id: uuid.UUID | None = None  # the queued or running job carrying the run
+
+
+class RunPatch(Model):
+    name: str | None = Field(default=None, max_length=200)  # blank: no name
+    note: str | None = Field(default=None, max_length=5000)
+    pinned: bool | None = None
+
+
+class RerunRequest(Model):
+    config: Literal["same", "current"]
 
 
 class StageOut(Model):
