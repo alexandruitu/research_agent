@@ -14,7 +14,8 @@ afterEach(() => {
   setCsrfToken(null);
 });
 
-const FAILED = runOut({ id: "88888888-8888-4888-8888-888888888888", kind: "research", status: "failed", gold_set_name: null, paper_count: 0, error: "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat." });
+const ME = "11111111-1111-4111-8111-111111111111";
+const FAILED = runOut({ id: "88888888-8888-4888-8888-888888888888", kind: "research", status: "failed", gold_set_name: null, paper_count: 0, error: "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat.", created_by: ME, created_by_name: "Member", topic: "ct-ffr" });
 
 function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = "/runs") {
   const api = mockApi({
@@ -28,37 +29,77 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
 }
 
 describe("RunsPage list", () => {
-  it("lists runs with a status in words", async () => {
+  it("lists runs with a status in words, a link to each run and its papers", async () => {
     setup("viewer");
     const table = await screen.findByRole("table");
     expect(within(table).getByText("failed")).toBeInTheDocument();
     expect(within(table).getByText("done")).toBeInTheDocument();
-    expect(within(table).getByText("mlffrct-2024")).toBeInTheDocument();
-    expect(within(table).getAllByRole("link", { name: /See papers/ })[1]).toHaveAttribute("href", `/?run=${RUN_ID}`);
+    expect(within(table).getByText(/mlffrct-2024/)).toBeInTheDocument();
+    expect(within(table).getAllByRole("link", { name: /^Papers/ })[1]).toHaveAttribute("href", `/?run=${RUN_ID}`);
+    expect(within(table).getAllByRole("link", { name: "ML CT-FFR" })[0]).toHaveAttribute("href", `/runs/${FAILED.id}`);
+    expect(within(table).getByText(/Etapa nu s-a încheiat/)).toBeInTheDocument();
   });
 
-  it("viewers do not get the start form", async () => {
+  it("names a run by its own name and marks pinned runs and cancelled status in words", async () => {
+    setup("viewer", { "GET /api/v1/runs": { body: [runOut({ kind: "research", name: "Baseline", pinned: true, status: "cancelled", note: "first try" })] } });
+    const table = await screen.findByRole("table");
+    expect(within(table).getByRole("link", { name: "Baseline" })).toBeInTheDocument();
+    expect(within(table).getByText("pinned")).toBeInTheDocument();
+    expect(within(table).getByText("cancelled")).toBeInTheDocument();
+    expect(within(table).getByText("first try")).toBeInTheDocument();
+  });
+
+  it("viewers get no start form and a menu with only Open and Export", async () => {
     setup("viewer");
     await screen.findByRole("table");
     expect(screen.queryByRole("button", { name: "Start run" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Open", "Export CSV", "Export bundle (zip)"]);
   });
 
-  it("a failed run shows why and offers Resume to members only", async () => {
+  it("the creator's menu offers resume, rename, pin and delete for a failed run", async () => {
     setup("member");
-    const banner = await screen.findByRole("alert");
-    expect(banner).toHaveTextContent("failed at stage 'screen'");
-    expect(within(banner).getByRole("button", { name: "Resume" })).toBeInTheDocument();
+    await screen.findByRole("table");
+    await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
+    const names = within(screen.getByRole("menu")).getAllByRole("menuitem").map((i) => i.textContent);
+    expect(names).toEqual(expect.arrayContaining(["Resume", "Run again (same configuration)", "Run again with current settings", "Rename or add a note…", "Pin to top", "Delete…"]));
   });
 
-  it("viewers see the reason but no Resume button", async () => {
-    setup("viewer");
-    expect(await screen.findByRole("alert")).toHaveTextContent("failed at stage 'screen'");
-    expect(screen.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+  it("sends the filters to the server and keeps them in the URL", async () => {
+    const { calls } = setup("member");
+    await screen.findByRole("table");
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "cancelled");
+    await userEvent.click(screen.getByLabelText(/Only mine/));
+    await waitFor(() => expect(calls.some((c) => c.path === "/api/v1/runs" && c.search.includes("status=cancelled") && c.search.includes("mine=true"))).toBe(true));
+    expect(screen.getByRole("button", { name: "Clear all" })).toBeInTheDocument();
   });
 
   it("says so when there are no runs", async () => {
     setup("viewer", { "GET /api/v1/runs": { body: [] } });
     expect(await screen.findByText("No runs yet")).toBeInTheDocument();
+  });
+});
+
+describe("bulk actions", () => {
+  it("two selected runs can be compared; deleting asks first and reports refusals", async () => {
+    const mine = runOut({ id: "99999999-9999-4999-8999-999999999999", kind: "research", created_by: ME, field_name: "Other" });
+    const { calls } = setup("member", {
+      "GET /api/v1/runs": { body: [FAILED, mine] },
+      "POST /api/v1/runs/delete": { body: { deleted: [FAILED.id], refused: [{ id: mine.id, code: "referenced_by_eval", message: "1 evaluation report(s) were computed from this run" }] } },
+    });
+    await screen.findByRole("table");
+    await userEvent.click(screen.getByLabelText("Select every run shown"));
+    const bar = screen.getByRole("region", { name: "Selected runs" });
+    expect(within(bar).getByRole("link", { name: "Compare" })).toHaveAttribute("href", `/runs/compare?ids=${FAILED.id},${mine.id}`);
+    await userEvent.click(within(bar).getByRole("button", { name: /Delete/ }));
+    const dialog = screen.getByRole("alertdialog", { name: "Delete 2 runs?" });
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete 2 runs" }));
+    await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/runs/delete")?.body).toEqual({ ids: [FAILED.id, mine.id] }));
+    const notes = screen.getByRole("region", { name: "Notifications" });
+    await waitFor(() => expect(notes).toHaveTextContent("its folder is in the trash"));
+    expect(notes).toHaveTextContent("evaluation report");
   });
 });
 
@@ -155,19 +196,24 @@ describe("starting and following a run", () => {
 });
 
 describe("resume", () => {
-  it("resumes the failed run and follows the new job", async () => {
-    const { calls } = setup("member", {
-      "POST /api/v1/runs/:id/resume": { status: 202, body: { job: jobOut(), run_id: FAILED.id } },
-      [`GET /api/v1/jobs/${JOB_ID}`]: { body: jobOut({ status: "running" }) },
-    });
-    await userEvent.click(await screen.findByRole("button", { name: "Resume" }));
-    await screen.findByRole("status", { name: "Run progress" });
-    expect(calls.some((c) => c.method === "POST" && c.path === `/api/v1/runs/${FAILED.id}/resume`)).toBe(true);
+  it("resumes the failed run from the row menu", async () => {
+    const { calls } = setup("member", { "POST /api/v1/runs/:id/resume": { status: 202, body: { job: jobOut(), run_id: FAILED.id } } });
+    await screen.findByRole("table");
+    await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === `/api/v1/runs/${FAILED.id}/resume`)).toBe(true));
+    expect(await screen.findByText(/Resuming/)).toBeInTheDocument();
   });
 
-  it("explains a refused resume", async () => {
-    setup("member", { "POST /api/v1/runs/:id/resume": { status: 409, body: { code: "conflict", message: "Only a failed research run can be resumed", request_id: "r-2" } } });
-    await userEvent.click(await screen.findByRole("button", { name: "Resume" }));
-    expect(await screen.findByText(/Only a failed research run can be resumed/)).toBeInTheDocument();
+  it("when the prompts changed, offers to run it again with the same configuration", async () => {
+    const { calls } = setup("member", {
+      "POST /api/v1/runs/:id/resume": { status: 409, body: { code: "prompt_version_changed", message: "The prompts changed since this run started", request_id: "r-2" } },
+      "POST /api/v1/runs/:id/rerun": { status: 202, body: { job: jobOut(), run_id: RUN_ID } },
+    });
+    await screen.findByRole("table");
+    await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run again (same configuration)" }));
+    await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path.endsWith("/rerun"))?.body).toEqual({ config: "same" }));
   });
 });

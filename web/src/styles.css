@@ -841,3 +841,28 @@ form.inline label { display: inline-flex; gap: 6px; align-items: center; }
 .confirm__body { color: var(--ink-2); }
 .confirm__actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }
 button.danger { background: var(--bad-fg); color: var(--card); border-color: var(--bad-fg); }
+
+/* --- slice 7: the runs ledger --------------------------------------------------------------------------------- */
+.run-filters { align-items: end; padding: var(--s3) var(--s4); background: var(--card); border: 1px solid var(--rule); border-radius: var(--r3); margin: var(--s4) 0 var(--s3); }
+.run-filters input[type="search"] { min-width: 220px; }
+.link-button { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 4px 0; cursor: pointer; font: inherit; }
+.pill--run-cancelled { background: var(--neutral-bg); color: var(--neutral-fg); border-color: var(--rule-2); }
+table.runs--ledger tbody tr { box-shadow: inset 3px 0 0 transparent; }
+table.runs--ledger tr.runs__row--failed { box-shadow: inset 3px 0 0 var(--bad-line); }
+table.runs--ledger tr.runs__row--running, table.runs--ledger tr.runs__row--queued { box-shadow: inset 3px 0 0 var(--warn-line); }
+table.runs--ledger tr.is-selected td, table.runs--ledger tr.is-selected th { background: var(--accent-wash); }
+table.runs--ledger th[scope="row"] { font-weight: 400; max-width: 46ch; }
+.runs__check { width: 36px; }
+.runs__name { font: 600 16px/1.3 var(--serif); color: var(--ink); text-decoration: none; }
+.runs__name:hover { text-decoration: underline; }
+.runs__mark { margin-left: 6px; font-size: 12px; }
+.runs__sub, .runs__note, .runs__error { display: block; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.runs__note { font-style: italic; font-family: var(--serif); font-size: 13px; }
+.runs__note::before { content: "“"; } .runs__note::after { content: "”"; }
+.runs__error { color: var(--bad-fg); }
+.runs__actions { white-space: nowrap; text-align: right; }
+.runs__actions > a { margin-right: var(--s2); }
+td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.confirm--plain { border-top-color: var(--accent); }
+.confirm label.stack { display: grid; gap: 4px; margin-top: var(--s3); font-weight: 600; }
+.confirm label.stack input, .confirm label.stack textarea { font: inherit; font-weight: 400; }

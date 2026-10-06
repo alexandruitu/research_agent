@@ -2,34 +2,70 @@ import { Link } from "react-router-dom";
 
 import type { RunOut } from "../../api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { MenuButton, type MenuItem } from "../../components/ui/MenuButton";
+import { runLabel, runStatusMeta } from "./runWords";
 
-const RUN_ICON: Record<string, string> = { done: "✓", failed: "!", running: "↻", queued: "…" };
+export function RunStatus({ status }: { status: string }) {
+  const meta = runStatusMeta(status);
+  return <span className={`pill pill--run-${status}`}><span aria-hidden="true">{meta.icon}</span> {meta.word}</span>;
+}
 
-export function RunList({ runs }: { runs: RunOut[] }) {
+/**
+ * The runs table: a checkbox per run (bulk actions), the run's name (a link to its page) with pin and note
+ * marks, status in words, papers, who started it, when, and a menu of actions per row.
+ */
+export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered }: {
+  runs: RunOut[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleAll: () => void;
+  items: (run: RunOut) => MenuItem[];
+  filtered: boolean;
+}) {
   if (runs.length === 0) {
-    return (
+    return filtered ? (
+      <EmptyState title="No runs match these filters">Clear a filter or the search to see more runs.</EmptyState>
+    ) : (
       <EmptyState title="No runs yet">
         A run searches a field's sources, screens what it finds and reviews what it keeps. Choose a field above and start one; demo mode runs offline.
       </EmptyState>
     );
   }
+  const all = runs.every((run) => selected.has(run.id));
   return (
-    <table className="runs">
+    <table className="runs runs--ledger">
       <thead>
-        <tr><th scope="col">Field</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Gold set</th><th scope="col">Papers</th><th scope="col">Created</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+        <tr>
+          <th scope="col" className="runs__check"><input type="checkbox" aria-label="Select every run shown" checked={all} onChange={onToggleAll} /></th>
+          <th scope="col">Run</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Papers</th>
+          <th scope="col">Started by</th><th scope="col">Created</th><th scope="col"><span className="sr-only">Actions</span></th>
+        </tr>
       </thead>
       <tbody>
-        {runs.map((run) => (
-          <tr key={run.id}>
-            <td>{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</td>
-            <td>{run.kind}</td>
-            <td><span className={`pill pill--run-${run.status}`}><span aria-hidden="true">{RUN_ICON[run.status] ?? "·"}</span> {run.status}</span></td>
-            <td>{run.gold_set_name ?? "–"}</td>
-            <td>{run.paper_count}</td>
-            <td>{new Date(run.created_at).toLocaleString()}</td>
-            <td><Link to={`/?run=${run.id}`}>See papers<span className="sr-only"> for {run.field_name}, {run.kind}</span></Link></td>
-          </tr>
-        ))}
+        {runs.map((run) => {
+          const label = runLabel(run);
+          return (
+            <tr key={run.id} className={`runs__row runs__row--${run.status}${selected.has(run.id) ? " is-selected" : ""}`}>
+              <td className="runs__check"><input type="checkbox" aria-label={`Select ${label}`} checked={selected.has(run.id)} onChange={() => onToggle(run.id)} /></td>
+              <th scope="row">
+                <Link to={`/runs/${run.id}`} className="runs__name">{label}</Link>
+                {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
+                <span className="runs__sub">{run.name ? `${run.field_name}${run.field_version ? ` · v${run.field_version}` : ""} · ` : ""}{run.topic}</span>
+                {run.note && <span className="runs__note">{run.note}</span>}
+                {run.status === "failed" && run.error && <span className="runs__error">{run.error}</span>}
+              </th>
+              <td>{run.kind}{run.gold_set_name ? ` · ${run.gold_set_name}` : ""}</td>
+              <td><RunStatus status={run.status} /></td>
+              <td className="num">{run.paper_count}</td>
+              <td>{run.created_by_name ?? "imported"}</td>
+              <td><time dateTime={run.created_at}>{new Date(run.created_at).toLocaleString()}</time></td>
+              <td className="runs__actions">
+                <Link to={`/?run=${run.id}`}>Papers<span className="sr-only"> of {label}</span></Link>
+                <MenuButton label={`Actions for ${label}`} items={items(run)} />
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
