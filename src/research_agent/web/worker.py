@@ -23,7 +23,17 @@ from .fields import settings_row
 from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
-from .jobs import claim, complete, fail, heartbeat, release, requeue_stale, set_progress
+from .jobs import (
+    cancel_requested,
+    claim,
+    complete,
+    fail,
+    finish_cancel,
+    heartbeat,
+    release,
+    requeue_stale,
+    set_progress,
+)
 from .runner import (
     EXIT_LOCKED,
     RunSpec,
@@ -203,7 +213,7 @@ class Worker:
         if fail(db, job, message, worker_id=self.worker_id):
             run_id = (job.payload or {}).get("run_id")
             if run_id and (run := db.get(Run, run_id)) is not None:
-                run.status, run.error = "failed", message
+                run.status, run.error, run.finished_at = "failed", message, datetime.now(UTC)
             db.commit()
         else:
             db.rollback()
@@ -276,6 +286,7 @@ class Worker:
         if review:  # uploaded PDFs, on every start and resume (papers are found during the run)
             materialize(db, self.settings.uploads_dir, run_dir)
         run.status, run.error = "running", None
+        run.started_at = run.started_at or datetime.now(UTC)
         db.commit()
         mode = contract["mode"] or "live"
         spec = RunSpec(
@@ -302,10 +313,19 @@ class Worker:
                 self.sleep(self.settings.progress_poll_seconds)
                 if not self._still_owned(db, job, run_dir):
                     return True  # another worker owns the run now: stop our child, touch nothing
+                if cancel_requested(db, job):
+                    interrupted = "cancelled"
+                    break
             if interrupted is None and not self._still_owned(db, job, run_dir):
                 return True
         finally:
             stop_child(process)  # no-op when the child already exited
+        if interrupted == "cancelled":
+            if finish_cancel(db, job, worker_id=self.worker_id):
+                db.commit()
+            else:
+                db.rollback()
+            return True
         if interrupted == "stopped" or process.returncode == EXIT_LOCKED:
             return self._release(db, job)  # the worker is stopping, or another child holds the folder
         if interrupted == "timeout":

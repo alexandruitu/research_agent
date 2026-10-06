@@ -123,6 +123,47 @@ def release(db, job, *, worker_id):
     return True
 
 
+def active_research_job(db, run_id, lock=False):
+    """The queued or running research job that carries `run_id`, if any."""
+    stmt = select(Job).where(
+        Job.kind == "research",
+        Job.status.in_(("queued", "running")),
+        Job.payload["run_id"].astext == str(run_id),
+    )
+    if lock:
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
+    return db.scalar(stmt.order_by(Job.created_at.desc()).limit(1))
+
+
+def request_cancel(db, run_id):
+    """Cancel the run's active job. Returns "cancelled" (it was queued: job and run are cancelled now),
+    "requested" (it is running: its worker stops the child at the next poll) or None (nothing active)."""
+    job = active_research_job(db, run_id, lock=True)
+    if job is None:
+        return None
+    if job.status == "queued":
+        job.status, job.locked_by = "cancelled", None
+        _set_run(db, job, status="cancelled", finished_at=func.now())
+        db.flush()
+        return "cancelled"
+    job.cancel_requested = True
+    db.flush()
+    return "requested"
+
+
+def cancel_requested(db, job):
+    return bool(db.scalar(select(Job.cancel_requested).where(Job.id == job.id)))
+
+
+def finish_cancel(db, job, *, worker_id):
+    """The worker stopped a cancelled job's child: job and run are cancelled (the checkpoint stays)."""
+    if not _update_owned(db, job, worker_id, status="cancelled", locked_by=None):
+        return False
+    _set_run(db, job, status="cancelled", error=None, finished_at=func.now())
+    db.flush()
+    return True
+
+
 def requeue_stale(db, stale_after_seconds, max_attempts, now=None):
     """Running jobs whose heartbeat stopped go back to the queue, or fail once attempts are spent.
     A research job's run follows it: queued again, or failed with the same message."""
@@ -135,7 +176,10 @@ def requeue_stale(db, stale_after_seconds, max_attempts, now=None):
     ).all()
     for job in stale:
         job.locked_by = None
-        if job.attempts < max_attempts:
+        if job.cancel_requested:  # the user cancelled it: do not start it again
+            job.status = "cancelled"
+            _set_run(db, job, status="cancelled", finished_at=func.now())
+        elif job.attempts < max_attempts:
             job.status = "queued"
             _set_run(db, job, status="queued")
         else:
