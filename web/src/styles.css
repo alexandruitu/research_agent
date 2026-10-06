@@ -866,3 +866,44 @@ td.num { font-variant-numeric: tabular-nums; text-align: right; }
 .confirm--plain { border-top-color: var(--accent); }
 .confirm label.stack { display: grid; gap: 4px; margin-top: var(--s3); font-weight: 600; }
 .confirm label.stack input, .confirm label.stack textarea { font: inherit; font-weight: 400; }
+
+/* --- slice 7: run detail ---------------------------------------------------------------------------------------- */
+.crumbs { margin: 0 0 var(--s2); font-size: 13px; }
+.run-detail__head { display: flex; justify-content: space-between; gap: var(--s5); align-items: flex-start; flex-wrap: wrap; padding-bottom: var(--s4); border-bottom: 1px solid var(--rule); }
+.run-detail__head h1 { font: 600 30px/1.15 var(--serif); letter-spacing: -0.01em; margin: 0 0 var(--s2); }
+.run-detail__meta { margin: 0; color: var(--ink-2); }
+.run-detail__note { margin: var(--s2) 0 0; font: italic 16px/1.5 var(--serif); max-width: 70ch; }
+.run-detail__actions { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.run-detail__block { margin-top: var(--s6); }
+.run-detail__block h2 { font: 600 20px/1.2 var(--serif); margin: 0 0 var(--s3); display: flex; gap: var(--s2); align-items: center; }
+.run-detail__links { display: flex; flex-wrap: wrap; gap: var(--s4); }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s3); margin: 0; }
+.figures > div { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r2); padding: var(--s3) var(--s4); }
+.figures dt { font-size: 12px; color: var(--ink-2); }
+.figures dd { margin: 0; font: 600 24px/1.2 var(--serif); font-variant-numeric: tabular-nums; }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: stage; }
+.timeline__stage { display: grid; grid-template-columns: 14ch 10ch 1fr 22ch; gap: var(--s3); align-items: center; padding: 6px var(--s3); background: var(--card); border-left: 3px solid var(--ok-line); }
+.timeline__stage--failed { border-left-color: var(--bad-line); }
+.timeline__stage--running { border-left-color: var(--warn-line); }
+.timeline__name { font-weight: 600; counter-increment: stage; }
+.timeline__name::before { content: counter(stage) ". "; color: var(--ink-2); font-weight: 400; }
+.timeline__status { color: var(--ink-2); font-size: 12px; }
+.timeline__bar { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.timeline__bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.timeline__time { font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 720px) { .timeline__stage { grid-template-columns: 1fr 1fr; } .timeline__bar { grid-column: 1 / -1; } }
+.config-list { display: grid; grid-template-columns: 1fr; margin: 0; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r3); }
+.config-list > div { display: grid; grid-template-columns: 22ch 1fr; gap: var(--s4); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--rule); }
+.config-list > div:last-child { border-bottom: 0; }
+.config-list dt { color: var(--ink-2); }
+.config-list dd { margin: 0; overflow-wrap: anywhere; }
+ul.plain { list-style: none; margin: 0; padding: 0; }
+.mono { font-family: var(--mono); font-size: 12px; }
+pre.log { max-height: 420px; overflow: auto; background: var(--sunk); border: 1px solid var(--rule); border-radius: var(--r2); padding: var(--s3); font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+table.compact td, table.compact th { padding: 4px 8px; }
+.compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--s4); margin-bottom: var(--s5); }
+.compare-list { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r3); padding: var(--s3) var(--s4); }
+.compare-list h3 { margin: 0 0 var(--s2); font-size: 14px; }
+.compare-list ul { margin: 0; padding-left: 18px; font-family: var(--serif); }
+.count { font: 600 12px/1 var(--sans); color: var(--ink-2); background: var(--sunk); border-radius: 10px; padding: 2px 7px; }
+.compare-table tr.is-different th, .compare-table tr.is-different td { background: var(--warn-bg); }

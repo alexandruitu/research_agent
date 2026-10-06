@@ -19,6 +19,8 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RatePage } from "./pages/RatePage";
 import { PapersPage } from "./pages/PapersPage";
+import { RunComparePage } from "./pages/RunComparePage";
+import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SystemMapPage } from "./pages/SystemMapPage";
@@ -34,6 +36,8 @@ export function App() {
             <Route path="/" element={<PapersPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/runs" element={<RunsPage />} />
+            <Route path="/runs/compare" element={<RunComparePage />} />
+            <Route path="/runs/:runId" element={<RunDetailPage />} />
             <Route path="/fields" element={<FieldsPage />} />
             <Route element={<RequireRole role="member" />}>
               <Route path="/fields/new" element={<FieldEditorPage />} />
