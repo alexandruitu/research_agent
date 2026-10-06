@@ -519,6 +519,36 @@ class CallsSummaryOut(Model):
     totals: CallTotalsOut
 
 
+class CompareConfigRow(Model):
+    label: str
+    a: str | None
+    b: str | None
+    differs: bool
+
+
+class ComparePaper(Model):
+    paper_id: uuid.UUID
+    source_id: str
+    title: str
+    year: int | None
+
+
+class ScoreChange(ComparePaper):
+    a: float
+    b: float
+    delta: float  # b - a
+
+
+class RunCompareOut(Model):
+    runs: list[RunOut]
+    config: list[CompareConfigRow]
+    kept_only_a: list[ComparePaper]  # kept in A, dropped in B
+    kept_only_b: list[ComparePaper]
+    only_in_a: list[ComparePaper]  # screened in A only
+    only_in_b: list[ComparePaper]
+    score_changes: list[ScoreChange]  # largest change first
+
+
 class RerunRequest(Model):
     config: Literal["same", "current"]
 

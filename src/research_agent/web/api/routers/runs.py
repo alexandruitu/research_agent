@@ -32,6 +32,7 @@ from ..schemas import (
     DeleteOut,
     JobOut,
     RerunRequest,
+    RunCompareOut,
     RunCounts,
     RunDetailOut,
     RunLogOut,
@@ -191,6 +192,76 @@ def list_runs(
     rows = db.scalars(stmt).all()
     names = runs_svc.user_names(db, [r.created_by for r in rows])
     return [_run_out(db, r, names=names) for r in rows]
+
+
+def parse_ids(ids, minimum=1, maximum=200):
+    try:
+        parsed = list(dict.fromkeys(uuid.UUID(x.strip()) for x in ids.split(",") if x.strip()))
+    except ValueError:
+        raise ApiError(422, "validation_error", "ids must be run ids separated by commas") from None
+    if not minimum <= len(parsed) <= maximum:
+        raise ApiError(422, "validation_error", f"Give {minimum} to {maximum} distinct runs")
+    return parsed
+
+
+def download(body, media, name):
+    return Response(
+        content=body if isinstance(body, bytes) else body.encode("utf-8"),
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+EXPORT_RESPONSES = {200: {"content": {"text/csv": {}, "application/x-bibtex": {}, "application/zip": {}}}}
+
+
+@router.get("/compare", response_model=RunCompareOut)
+def compare_runs(
+    ids: str = Query(..., max_length=100),
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Two runs side by side: configuration rows and the papers whose outcome differs."""
+    a_id, b_id = parse_ids(ids, 2, 2)
+    a, b = get_run_or_404(db, a_id), get_run_or_404(db, b_id)
+    names = runs_svc.user_names(db, [a.created_by, b.created_by])
+    return {"runs": [_run_out(db, a, names=names), _run_out(db, b, names=names)]} | runs_svc.compare(
+        db, settings, a, b
+    )
+
+
+@router.get("/export", response_class=Response, responses=EXPORT_RESPONSES)
+def export_runs(
+    ids: str = Query(..., max_length=8000),
+    format: Literal["csv", "bibtex"] = "csv",
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+):
+    """Several runs in one file: CSV (a `run` column) or BibTeX of their kept papers."""
+    runs = [get_run_or_404(db, run_id) for run_id in parse_ids(ids)]
+    if format == "csv":
+        return download(runs_svc.to_csv(db, runs), "text/csv; charset=utf-8", "runs.csv")
+    return download(runs_svc.to_bibtex(db, runs), "application/x-bibtex; charset=utf-8", "runs.bib")
+
+
+@router.get("/{run_id}/export", response_class=Response, responses=EXPORT_RESPONSES)
+def export_run(
+    run_id: uuid.UUID,
+    format: Literal["csv", "bibtex", "bundle"] = "csv",
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """One run: CSV of its papers, BibTeX of its kept papers, or a zip bundle of its reports and frozen
+    requests (never the call cache, checkpoints, uploads, logs or keys)."""
+    run = get_run_or_404(db, run_id)
+    stem = f"run-{run.id.hex[:8]}"
+    if format == "csv":
+        return download(runs_svc.to_csv(db, [run]), "text/csv; charset=utf-8", f"{stem}.csv")
+    if format == "bibtex":
+        return download(runs_svc.to_bibtex(db, [run]), "application/x-bibtex; charset=utf-8", f"{stem}.bib")
+    return download(runs_svc.bundle(settings, run), "application/zip", f"{stem}.zip")
 
 
 @router.get("/{run_id}", response_model=RunDetailOut)

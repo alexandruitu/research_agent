@@ -417,3 +417,235 @@ def calls_summary(settings, run):
             "unpriced_models": unpriced,
         },
     }
+
+
+# --- compare ----------------------------------------------------------------------------------------------------
+
+NOT_SCREENED = "rule"
+
+
+def _results(db, run):
+    """{paper_id: {paper, kept, score}} of a run (score: panel score, else ranking score)."""
+    from .db.models import Paper, PaperReview, Ranking, Screening
+
+    out = {}
+    for screening, paper in db.execute(
+        select(Screening, Paper).join(Paper, Paper.id == Screening.paper_id).where(Screening.run_id == run.id)
+    ).all():
+        out[paper.id] = {
+            "paper": paper,
+            "kept": screening.tier != NOT_SCREENED and screening.decision != "exclude",
+            "decision": screening.decision,
+            "tier": screening.tier,
+            "score": None,
+            "position": None,
+        }
+    for paper_id, score, position in db.execute(
+        select(Ranking.paper_id, Ranking.score, Ranking.position).where(Ranking.run_id == run.id)
+    ).all():
+        if paper_id in out:
+            out[paper_id]["score"], out[paper_id]["position"] = score, position
+    for paper_id, score in db.execute(
+        select(PaperReview.paper_id, PaperReview.score).where(PaperReview.run_id == run.id)
+    ).all():
+        if paper_id in out and score is not None:
+            out[paper_id]["score"] = score
+    return out
+
+
+def _paper_ref(paper):
+    return {"paper_id": paper.id, "source_id": paper.source_id, "title": paper.title, "year": paper.year}
+
+
+def _config_rows(a, b):
+    def text(config, key):
+        value = config.get(key)
+        if key == "sources":
+            return ", ".join(f"{s['name']} ({s['max_results']})" for s in value or []) or None
+        if key == "panel":
+            return ", ".join(f"{p['key']} v{p['version']}" for p in value or []) or None
+        return None if value is None else str(value)
+
+    labels = [
+        ("Field", "field_name"),
+        ("Field version", "field_version"),
+        ("Topic", "topic"),
+        ("Sources", "sources"),
+        ("Review settings version", "settings_version"),
+        ("Panel", "panel"),
+        ("Mode", "mode"),
+        ("Papers to screen", "max_papers"),
+        ("Prompt version", "prompt_version"),
+    ]
+    rows = [(label, text(a, key), text(b, key)) for label, key in labels]
+    for role in sorted(set(a["models"]) | set(b["models"])):
+        rows.append((f"Model · {role}", a["models"].get(role), b["models"].get(role)))
+    return [{"label": label, "a": x, "b": y, "differs": x != y} for label, x, y in rows]
+
+
+def compare(db, settings, a, b):
+    ra, rb = _results(db, a), _results(db, b)
+    kept_only_a, kept_only_b, changes = [], [], []
+    for pid in ra.keys() & rb.keys():
+        x, y = ra[pid], rb[pid]
+        if x["kept"] and not y["kept"]:
+            kept_only_a.append(_paper_ref(x["paper"]))
+        elif y["kept"] and not x["kept"]:
+            kept_only_b.append(_paper_ref(y["paper"]))
+        if x["score"] is not None and y["score"] is not None and abs(x["score"] - y["score"]) >= 0.05:
+            changes.append(
+                _paper_ref(x["paper"])
+                | {"a": x["score"], "b": y["score"], "delta": round(y["score"] - x["score"], 2)}
+            )
+    by_title = lambda p: (p["title"] or "").lower()
+    return {
+        "config": _config_rows(frozen_config(db, settings, a), frozen_config(db, settings, b)),
+        "kept_only_a": sorted(kept_only_a, key=by_title),
+        "kept_only_b": sorted(kept_only_b, key=by_title),
+        "only_in_a": sorted((_paper_ref(ra[p]["paper"]) for p in ra.keys() - rb.keys()), key=by_title),
+        "only_in_b": sorted((_paper_ref(rb[p]["paper"]) for p in rb.keys() - ra.keys()), key=by_title),
+        "score_changes": sorted(changes, key=lambda c: -abs(c["delta"])),
+    }
+
+
+# --- export -----------------------------------------------------------------------------------------------------
+
+CSV_COLUMNS = (
+    "run",
+    "run_name",
+    "source_id",
+    "doi",
+    "title",
+    "year",
+    "decision",
+    "tier",
+    "score",
+    "position",
+)
+BUNDLE_FILES = ("report.json", "report.md", "domain.json", "review.json", "manifest.json")
+LICENSED = "publisher_licensed"
+
+
+def to_csv(db, runs):
+    import csv
+    import io
+
+    from .library import _cell
+
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\r\n")
+    writer.writerow(CSV_COLUMNS)
+    for run in runs:
+        rows = sorted(
+            _results(db, run).values(),
+            key=lambda r: (r["position"] is None, r["position"] or 0, (r["paper"].title or "").lower()),
+        )
+        for r in rows:
+            p = r["paper"]
+            writer.writerow(
+                _cell(v)
+                for v in (
+                    run.id,
+                    run.name,
+                    p.source_id,
+                    p.doi,
+                    p.title,
+                    p.year,
+                    r["decision"],
+                    r["tier"],
+                    r["score"],
+                    r["position"],
+                )
+            )
+    return out.getvalue()
+
+
+def to_bibtex(db, runs):
+    """The kept papers of each run (each paper once), as BibTeX."""
+    from .library import bibtex_escape
+
+    entries, used, seen = [], set(), set()
+    for run in runs:
+        for r in _results(db, run).values():
+            p = r["paper"]
+            if not r["kept"] or p.id in seen:
+                continue
+            seen.add(p.id)
+            base = "ra_" + (re.sub(r"[^A-Za-z0-9]", "", p.source_id) or "paper")
+            key, n = base, 1
+            while key in used:
+                n += 1
+                key = f"{base}_{n}"
+            used.add(key)
+            fields = [("title", p.title), ("year", p.year), ("doi", p.doi)]
+            if p.source_id.startswith("arxiv:"):
+                fields.append(("eprint", p.source_id.split(":", 1)[1]))
+            body = ",\n".join(f"  {k} = {{{bibtex_escape(v)}}}" for k, v in fields if v not in (None, ""))
+            entries.append(f"@article{{{key},\n{body}\n}}\n")
+    return "\n".join(entries)
+
+
+def _licensed_papers(report):
+    state = (report or {}).get("state") or {}
+    licensed = set()
+    for section in ("review", "texts"):
+        for pid, entry in (state.get(section) or {}).items():
+            if isinstance(entry, dict) and entry.get("text_licence") == LICENSED:
+                licensed.add(pid)
+    return licensed
+
+
+def _blank_quotes(node):
+    if isinstance(node, dict):
+        return {
+            k: ("" if k in ("quote", "quotes") and isinstance(v, str) else _blank_quotes(v))
+            for k, v in node.items()
+        }
+    if isinstance(node, list):
+        return [_blank_quotes(v) for v in node]
+    return node
+
+
+def _withhold(node, licensed):
+    """Blank every quote under a key naming a publisher-licensed paper."""
+    if isinstance(node, dict):
+        return {k: (_blank_quotes(v) if k in licensed else _withhold(v, licensed)) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_withhold(v, licensed) for v in node]
+    return node
+
+
+def bundle(settings, run):
+    """A zip of the run's reports and frozen requests. Never the call cache, checkpoints, uploads or logs.
+    Quotes from publisher-licensed texts are blanked and report.md is left out when there are any."""
+    import io
+    import zipfile
+
+    folder = folder_of(settings, run)
+    buffer = io.BytesIO()
+    included, notes = [], []
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        report = read_json(folder / "report.json") if folder else None
+        licensed = _licensed_papers(report)
+        for name in BUNDLE_FILES:
+            path = folder / name if folder else None
+            if path is None or not path.is_file():
+                continue
+            if name == "report.json" and licensed:
+                archive.writestr(name, json.dumps(_withhold(report, licensed), ensure_ascii=False, indent=2))
+                notes.append(f"report.json: quotes of {len(licensed)} publisher-licensed paper(s) withheld.")
+            elif name == "report.md" and licensed:
+                notes.append("report.md left out: it prints quotes from publisher-licensed texts.")
+                continue
+            else:
+                archive.writestr(name, path.read_bytes())
+            included.append(name)
+        readme = [
+            f"Research run {run.id}" + (f" ({run.name})" if run.name else ""),
+            f"Status: {run.status}. Exported {datetime.now(UTC).isoformat(timespec='seconds')}.",
+            "Files: " + (", ".join(included) or "none (the run folder is not available)"),
+            "Not included: the call cache (research.sqlite), checkpoints, uploads, logs, keys.",
+            *notes,
+        ]
+        archive.writestr("README.txt", "\n".join(readme) + "\n")
+    return buffer.getvalue()
