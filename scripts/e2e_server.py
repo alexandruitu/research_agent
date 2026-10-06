@@ -93,7 +93,7 @@ def main():
     with stop_on_signals(worker):
         thread.start()
         try:
-            uvicorn.run(create_app(settings), host="127.0.0.1", port=8000, log_level="warning")
+            uvicorn.run(create_app(settings), host="127.0.0.1", port=int(os.environ.get("E2E_API_PORT", "8000")), log_level="warning")
         finally:
             worker.request_stop()  # a running child is stopped and its job goes back to the queue
             thread.join()
