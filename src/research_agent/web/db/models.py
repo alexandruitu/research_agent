@@ -138,7 +138,7 @@ class Run(Base):
         Uuid, ForeignKey("field_versions.id"), nullable=True, index=True
     )
     kind: Mapped[str] = mapped_column(String(16))  # research | eval
-    status: Mapped[str] = mapped_column(String(16))  # queued | running | done | failed
+    status: Mapped[str] = mapped_column(String(16))  # queued | running | done | failed | cancelled
     manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
     folder: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
     source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -147,8 +147,12 @@ class Run(Base):
         Uuid, ForeignKey("settings_versions.id"), nullable=True, index=True
     )  # the review settings a panel run used (null: a legacy run)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)  # a user's label; null: none
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = created()
 
 
@@ -303,6 +307,8 @@ class Job(Base):
     idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # a research job the user cancelled while it ran: the worker stops its child at the next poll
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = created()
 
 
