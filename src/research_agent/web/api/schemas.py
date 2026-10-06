@@ -372,7 +372,17 @@ class RunCoverageOut(Model):
 
 class RunOut(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["name", "note", "pinned", "created_by", "created_by_name", "topic", "started_at", "search_warnings", "coverage"]
+        [
+            "name",
+            "note",
+            "pinned",
+            "created_by",
+            "created_by_name",
+            "topic",
+            "started_at",
+            "search_warnings",
+            "coverage",
+        ]
     )
     id: uuid.UUID
     field_id: uuid.UUID

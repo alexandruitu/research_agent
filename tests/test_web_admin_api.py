@@ -13,7 +13,10 @@ def test_everyone_lists_every_registry_source(sign_in):
     assert [r["name"] for r in rows] == list(REGISTRY)
     first = rows[0]
     assert (first["name"], first["label"], first["enabled"], first["max_results"]) == (
-        "europepmc", "Europe PMC", True, 100
+        "europepmc",
+        "Europe PMC",
+        True,
+        100,
     )
     assert [r["name"] for r in rows if r["enabled"]] == ["europepmc"]
     assert first["last_check_at"] is None and first["last_check_ok"] is None

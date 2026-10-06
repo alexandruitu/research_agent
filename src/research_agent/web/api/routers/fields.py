@@ -211,9 +211,7 @@ def preview(
     payload = {
         "mode": body.mode,
         "years": {"from": body.years.start, "to": body.years.end},
-        "sources": [
-            {"name": n, **({"contact": contact} if contact else {})} for n in names if n in queries
-        ],
+        "sources": [{"name": n, **({"contact": contact} if contact else {})} for n in names if n in queries],
         "queries": queries,
         "keywords": keywords,  # the local filter of sources without boolean search (Semantic Scholar, Crossref)
     }

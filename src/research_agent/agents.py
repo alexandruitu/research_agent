@@ -167,7 +167,9 @@ class Evaluator:
                 model,
                 timeout=120 if is_panel(role) else 60,
                 max_retries=2,
-                max_tokens=16000 if is_panel(role) else 2500,  # panel reports quote full text: 6000 truncated them
+                max_tokens=16000
+                if is_panel(role)
+                else 2500,  # panel reports quote full text: 6000 truncated them
             )
             # Native constrained decoding: schema-valid by construction (forced tool calling drifted on
             # nested fields, and is unsupported on some newer Claude models). Gemini (google_genai:*) takes the
@@ -191,9 +193,15 @@ class Evaluator:
                     # tool-calling models occasionally emit a nested field as a JSON string.
                     # Retry the identical request; still fail closed once attempts run out.
                     if attempt == SCHEMA_ATTEMPTS - 1:
-                        print(f"{role}: attempt {attempt + 1} failed ({type(exc).__name__}: {str(exc)[:300]})", flush=True)
+                        print(
+                            f"{role}: attempt {attempt + 1} failed ({type(exc).__name__}: {str(exc)[:300]})",
+                            flush=True,
+                        )
                         raise
-                    print(f"{role}: attempt {attempt + 1} failed ({type(exc).__name__}: {str(exc)[:300]}); retrying", flush=True)
+                    print(
+                        f"{role}: attempt {attempt + 1} failed ({type(exc).__name__}: {str(exc)[:300]}); retrying",
+                        flush=True,
+                    )
         result = checked(role, schema.model_validate(_dump(result)), payload)
         if role == "extract":
             validate_evidence(result, payload["paper"]["abstract"])

@@ -80,7 +80,9 @@ def search_warnings(run):
         return None
     keys = ("source", "error_type", "reason", "detail")
     return [
-        {k: str(row.get(k) or "") for k in keys} for row in rows if isinstance(row, dict) and row.get("source")
+        {k: str(row.get(k) or "") for k in keys}
+        for row in rows
+        if isinstance(row, dict) and row.get("source")
     ]
 
 

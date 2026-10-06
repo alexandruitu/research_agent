@@ -34,7 +34,9 @@ def test_upgrade_and_downgrade(pg_url, pg_engine):
         command.downgrade(alembic_config(url), "0005")
         with engine.connect() as c:
             assert {r[0] for r in c.execute(sa.text("select name from sources"))} == {
-                "europepmc", "openalex", "arxiv"
+                "europepmc",
+                "openalex",
+                "arxiv",
             }
         assert "text_licence" not in {c["name"] for c in sa.inspect(engine).get_columns("paper_reviews")}
         upgrade(url)

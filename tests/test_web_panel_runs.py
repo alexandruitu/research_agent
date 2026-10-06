@@ -204,7 +204,11 @@ def test_a_panel_run_through_the_worker_imports_its_reviews(world):
         reviews, reports, flags = counts(db, run_id)
         assert len(reviews) == 3 and len(reports) == 9 and flags == []
         first = max(reviews, key=lambda r: r.score or 0)
-        assert first.text_source == first.text_licence == "abstract" and first.editor_verdict and first.editor_call_key
+        assert (
+            first.text_source == first.text_licence == "abstract"
+            and first.editor_verdict
+            and first.editor_call_key
+        )
         assert all(r.call_key and r.reviewer_version_id for r in reports)
         assert {r.reviewer_key for r in reports} == {"methodologist", "clinician", "statistician"}
         from research_agent.web.db.models import ReviewerVersion, SettingsVersion

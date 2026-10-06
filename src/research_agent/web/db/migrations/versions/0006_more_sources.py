@@ -38,7 +38,9 @@ def upgrade():
         "sources", sa.Column("key_present", sa.Boolean(), server_default=sa.false(), nullable=False)
     )
     op.add_column("sources", sa.Column("key_accepted", sa.Boolean(), nullable=True))
-    op.add_column("sources", sa.Column("key_detail", sa.String(length=200), server_default="", nullable=False))
+    op.add_column(
+        "sources", sa.Column("key_detail", sa.String(length=200), server_default="", nullable=False)
+    )
     op.add_column("sources", sa.Column("key_checked_at", sa.DateTime(timezone=True), nullable=True))
     conn = op.get_bind()
     for name in NEW:

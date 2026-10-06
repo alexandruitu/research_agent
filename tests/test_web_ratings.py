@@ -89,7 +89,9 @@ def test_the_rating_flow_is_blind_until_submitted_and_recomputes_a_human_report(
 
     reveal = member.get(f"{API}/rating-samples/{sid}/papers/{pid}/reveal").json()
     shared = next(i for i in reveal["items"] if i["reviewer"] == "methodologist" and i["item"] == "shared")
-    assert shared["mine"] == {"answer": "yes", "quote": "", "section": ""} and shared["model"]["answer"] == "yes"
+    assert (
+        shared["mine"] == {"answer": "yes", "quote": "", "section": ""} and shared["model"]["answer"] == "yes"
+    )
     assert reveal["compared"] == 6 and reveal["agreed"] == sum(i["agree"] for i in reveal["items"])
     assert member.get(f"{API}/rating-samples/{sid}/next").json()["paper"]["paper_id"] != pid
 
