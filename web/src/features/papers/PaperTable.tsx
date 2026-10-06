@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
 
-import type { PaperRow, StageOut } from "../../api/types";
+import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
 import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, isPanelRun, PanelScoreCell, RedFlagsCell, ReviewsCellView, ScoreCell, TextSourceCell } from "./cells";
-import { PipelineStrip } from "./PipelineStrip";
 
 type Props = {
-  rows: PaperRow[]; stages: StageOut[]; sort: string; direction: "asc" | "desc"; onSort: (sort: string) => void;
-  selectedPaperId: string | null; onOpen: (paperId: string) => void; selectedStageId: string | null; onSelectStage: (id: string) => void; legacy: boolean;
+  rows: PaperRow[]; sort: string; direction: "asc" | "desc"; onSort: (sort: string) => void;
+  selectedPaperId: string | null; onOpen: (paperId: string) => void; legacy: boolean;
   /** Members pick rows to save to the library; null hides the checkboxes. */
   selection?: { ids: Set<string>; onToggle: (paperId: string, on: boolean) => void; onToggleAll: (on: boolean) => void } | null;
   cursorId?: string | null;
@@ -36,14 +35,13 @@ function SortHeader({ label, sortKey, sort, direction, onSort, className }: { la
   );
 }
 
-export function PaperTable({ rows, stages, sort, direction, onSort, selectedPaperId, onOpen, selectedStageId, onSelectStage, legacy, selection = null, cursorId = null }: Props) {
+export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onOpen, legacy, selection = null, cursorId = null }: Props) {
   const sortProps = { sort, direction, onSort };
   const panel = isPanelRun(rows);
   return (
     <div className="table-scroll">
       <table className="papers">
         <thead>
-          <PipelineStrip stages={stages} selectedId={selectedStageId} onSelect={onSelectStage} leading={selection ? 1 : 0} />
           <tr>
             {selection && (
               <th scope="col" className="select-col">

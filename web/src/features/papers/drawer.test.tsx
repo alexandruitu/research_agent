@@ -178,13 +178,10 @@ describe("stage panel", () => {
     expect(screen.getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/evals");
   });
 
-  it("opens from a strip header and closes when the header is pressed again", async () => {
-    setup("member", {}, `/?run=${RUN_ID}`);
-    const strip = await screen.findByRole("button", { name: /^Screen/ });
-    await userEvent.click(strip);
+  it("still opens from an old ?stage= link and closes with its close button", async () => {
+    setup("member", {}, `/?run=${RUN_ID}&stage=screen`);
     expect(await screen.findByRole("complementary", { name: "About Screen" })).toBeInTheDocument();
-    expect(screen.getByLabelText("location")).toHaveTextContent("stage=screen");
-    await userEvent.click(screen.getByRole("button", { name: /^Screen/ }));
+    await userEvent.click(within(screen.getByRole("complementary", { name: "About Screen" })).getByRole("button", { name: /close/i }));
     await waitFor(() => expect(screen.queryByRole("complementary", { name: "About Screen" })).not.toBeInTheDocument());
   });
 });

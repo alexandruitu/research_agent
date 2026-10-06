@@ -108,7 +108,7 @@ describe("paper column", () => {
   it("clamps the title but keeps the full title on hover, and says abstract only once, in the Text reviewed column", async () => {
     const { PaperTable } = await import("./PaperTable");
     const row = paperRow({ text_source: "abstract", score: 70, coverage: 0.8, red_flag_count: 0 });
-    render(<PaperTable rows={[row]} stages={[]} sort="title" direction="asc" onSort={() => {}} selectedPaperId={null} onOpen={() => {}} selectedStageId={null} onSelectStage={() => {}} legacy={true} />);
+    render(<PaperTable rows={[row]} sort="title" direction="asc" onSort={() => {}} selectedPaperId={null} onOpen={() => {}} legacy={true} />);
     const title = screen.getByRole("button", { name: row.paper.title });
     expect(title).toHaveClass("title-clamp");
     expect(title).toHaveAttribute("title", row.paper.title);

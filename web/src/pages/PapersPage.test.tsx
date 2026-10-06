@@ -76,18 +76,12 @@ describe("PapersPage", () => {
     expect(paperCalls.every((c) => !new URLSearchParams(c.search).has("in_sr"))).toBe(true);
   });
 
-  it("labels every stage with its status in words and only measured stages look measured", async () => {
+  it("keeps pipeline measurements off the table: one line links to the System map", async () => {
     setup();
-    await screen.findByRole("table");
-    const strip = screen.getAllByRole("button", { name: /^(Search|Screen|Extract|Review panel|Rank)/ });
-    const status = (label: RegExp) => strip.find((b) => label.test(b.textContent ?? ""))!;
-    expect(status(/Search/)).toHaveAttribute("data-status", "measured");
-    expect(status(/Screen/)).toHaveAttribute("data-status", "measured");
-    expect(status(/Review panel/)).toHaveAttribute("data-status", "caveat");
-    expect(status(/Review panel/)).toHaveTextContent("one model family");
-    expect(status(/Rank/)).toHaveAttribute("data-status", "unmeasured");
-    expect(status(/Rank/)).toHaveTextContent("not measured");
-    expect(status(/Search/)).toHaveTextContent("recall 15/16");
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByText(/recall 15\/16/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Search/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pipeline measured on CT-FFR reviews → System map" })).toHaveAttribute("href", "/system");
   });
 
   it("shows not-applicable and missing differently, and the SR label in words", async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import type { PaperRow } from "../api/types";
@@ -155,10 +155,9 @@ export function PapersPage() {
     />
   ) : (
     <PaperTable
-      rows={items} legacy={legacy} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
+      rows={items} legacy={legacy} sort={view.params.sort} direction={view.params.direction}
       onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
       selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
-      selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
       selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll } : null}
       cursorId={cursor}
     />
@@ -225,6 +224,9 @@ export function PapersPage() {
           <button type="button" className="linklike" onClick={() => setSearch(clearPaperFilters(search))}>Clear all</button>
         </div>
       )}
+      <p className="pipeline-note">
+        <Link to="/system">Pipeline measured on CT-FFR reviews → System map</Link> <span>(how well each step works in general, not a measure of this run)</span>
+      </p>
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
           {grouped ? (
