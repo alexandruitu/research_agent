@@ -54,6 +54,10 @@ class State(TypedDict, total=False):
     reviews_b: dict
     decisions: dict
     ranking: list[dict]
+    # Field runs (MultiSource) only: partial search, see connectors.MultiSource.
+    search_warnings: list[dict]
+    sources_used: list[str]
+    sources_skipped: list[str]
     # Panel runs (review.json) only:
     texts: dict  # paper id -> text used (source, reason, sections, sha256 of the content in `raw`)
     panel: Annotated[dict, merge]  # reviewer key -> paper id -> review (reviewers write in parallel)
@@ -123,11 +127,14 @@ def build_graph(
 
     def discover(s):
         papers = []
+        if hasattr(connector, "begin"):
+            connector.begin()
         if hasattr(connector, "search_raw"):
             papers.extend(connector.search_raw())  # sources with a built query: searched once each
         for query in s["plan"]["queries"]:
             papers.extend(connector.search(query, s["contract"]["max_papers"]))
-        return {"discovered": [p.model_dump() for p in papers]}
+        search = connector.check() if hasattr(connector, "check") else {}
+        return {"discovered": [p.model_dump() for p in papers], **search}
 
     def normalize(s):
         papers = [Paper.model_validate(p) for p in s["discovered"]]

@@ -39,13 +39,16 @@ VERSION = "0.1"
 
 
 class SourceUnavailable(RuntimeError):
-    """A source failed after retries or answered with something unreadable. Fail closed: the run stops
-    (checkpoint kept). The message is only the source name, so it is safe to show and to log."""
+    """A source failed after retries or answered with something unreadable. The message is only the source
+    name, so it is safe to show and to log; `reason` is a short safe description ("rate limited (HTTP 429)").
+    In a field run (MultiSource) a failing optional source is skipped with a recorded warning; the run
+    stops (checkpoint kept) only when a required source or every source fails."""
 
-    def __init__(self, source, message=None):
+    def __init__(self, source, message=None, reason=None):
         super().__init__(message or source)
         self.source = source
         self.message = message or source
+        self.reason = reason or "unavailable"
 
 
 class SourceKeyMissing(SourceUnavailable):
@@ -53,8 +56,33 @@ class SourceKeyMissing(SourceUnavailable):
     variable (never a value)."""
 
     def __init__(self, source, env_var):
-        super().__init__(source, f"{source}: set {env_var} in the worker environment")
+        super().__init__(
+            source, f"{source}: set {env_var} in the worker environment", reason="API key missing"
+        )
         self.env_var = env_var
+
+
+def failure_reason(exc):
+    """A short, safe description of why a request failed (no URL, header or body)."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        if code == 429:
+            return "rate limited (HTTP 429)"
+        if code >= 500:
+            return f"server error (HTTP {code})"
+        return f"request refused (HTTP {code})"
+    if isinstance(exc, httpx.TimeoutException):
+        return "timed out"
+    if isinstance(exc, httpx.TransportError):
+        return "network error"
+    return "unreadable response"
+
+
+def describe(exc):
+    """The wording shared by run warnings, the source check and the field preview."""
+    if isinstance(exc, SourceKeyMissing):
+        return str(exc)
+    return f"SourceUnavailable: {exc.source} — {exc.reason}"
 
 
 def env_key(name):
@@ -108,9 +136,10 @@ def fetch(client, url, params, source, decode, headers=None, secret=False, conta
     sent = {"User-Agent": user_agent(contact), **(headers or {})}
 
     def fail(exc):
+        reason = failure_reason(exc)
         if secret:
-            raise SourceUnavailable(source) from None
-        raise SourceUnavailable(source) from exc
+            raise SourceUnavailable(source, reason=reason) from None
+        raise SourceUnavailable(source, reason=reason) from exc
 
     def attempts(http):
         for attempt in range(3):
@@ -415,31 +444,94 @@ class DemoConnector:
         return SearchResult(papers, len(papers), query)
 
 
+def search_warning(exc):
+    """{source, error_type, reason, detail}: what was skipped, why, and how to fix it. All safe to show."""
+    if isinstance(exc, SourceKeyMissing):
+        detail = f"Set {exc.env_var} in the worker environment (Settings → Sources shows the status)."
+    elif exc.reason.startswith("rate limited"):
+        from .sources import CONNECTORS  # sources imports this module
+
+        key = getattr(CONNECTORS.get(exc.source), "optional_env", None)
+        detail = "The source is rate limiting this server; retry later" + (
+            f" or set {key} in the worker environment for a higher limit." if key else "."
+        )
+    else:
+        detail = "The source did not answer; check Settings → Sources and retry later."
+    return {"source": exc.source, "error_type": type(exc).__name__, "reason": exc.reason, "detail": detail}
+
+
+class AllSourcesFailed(SourceUnavailable):
+    """Every source of a field failed: the run stops (checkpoint kept). The message lists them, safely."""
+
+    def __init__(self, warnings):
+        listed = "; ".join(f"{w['source']} ({w['reason']})" for w in warnings)
+        super().__init__("all", f"No search source answered: {listed}", reason="all sources failed")
+        self.warnings = warnings
+
+
 class MultiSource:
     """A field's sources: every planned query goes to every source, each with its own max_results.
-    The graph's per-query `limit` bounds legacy single-source runs only and is ignored here."""
+    The graph's per-query `limit` bounds legacy single-source runs only and is ignored here.
 
-    def __init__(self, sources, raw=None, enricher=None):
+    Partial search: a source raising SourceUnavailable (incl. SourceKeyMissing) is skipped for the rest of the
+    discover stage and recorded in `skipped`; records it returned before failing are kept. A source in
+    `required` re-raises at once; `check()` raises when every source was skipped (with one source, its own
+    exception, so single-source runs fail exactly as before)."""
+
+    def __init__(self, sources, raw=None, enricher=None, required=()):
         self.sources = list(sources)  # [(connector, max_results)]
         self.raw = dict(raw or {})  # {source name: query built from keywords}: searched once, never planned
         self.enricher = enricher  # CrossrefEnricher: DOIs for papers without one (live runs with crossref)
+        self.required = set(required)
+        self.skipped = {}  # source name -> SourceUnavailable
 
     def enrich(self, papers):
         return self.enricher.enrich(papers) if self.enricher is not None else papers
+
+    def begin(self):
+        self.skipped = {}
+
+    def _try(self, connector, call):
+        if connector.name in self.skipped:
+            return []
+        try:
+            return call()
+        except SourceUnavailable as exc:
+            if connector.name in self.required:
+                raise
+            self.skipped[connector.name] = exc
+            return []
 
     def search(self, query, limit):
         papers = []
         for connector, max_results in self.sources:
             if connector.name not in self.raw:
-                papers.extend(connector.search(query, max_results))
+                papers.extend(self._try(connector, lambda c=connector, m=max_results: c.search(query, m)))
         return papers
 
     def search_raw(self):
         papers = []
         for connector, max_results in self.sources:
             if connector.name in self.raw:
-                papers.extend(connector.search(self.raw[connector.name], max_results, raw=True))
+                q = self.raw[connector.name]
+                papers.extend(
+                    self._try(connector, lambda c=connector, m=max_results, q=q: c.search(q, m, raw=True))
+                )
         return papers
+
+    def check(self):
+        """{search_warnings, sources_used, sources_skipped} for the state; raises when nothing answered."""
+        names = [connector.name for connector, _ in self.sources]
+        warnings = [search_warning(self.skipped[n]) for n in names if n in self.skipped]
+        if names and len(self.skipped) == len(names):
+            if len(names) == 1:
+                raise self.skipped[names[0]]
+            raise AllSourcesFailed(warnings)
+        return {
+            "search_warnings": warnings,
+            "sources_used": [n for n in names if n not in self.skipped],
+            "sources_skipped": [n for n in names if n in self.skipped],
+        }
 
     @property
     def planned(self):
@@ -456,7 +548,8 @@ def domain_connector(domain, store, mode):
     sources = [(make_connector(source, domain, store, mode), source.max_results) for source in domain.sources]
     crossref = next((s for s in domain.sources if s.name == "crossref"), None)
     enricher = CrossrefEnricher(store, contact=crossref.contact) if crossref and mode == "live" else None
-    return MultiSource(sources, domain.queries, enricher)
+    required = [s.name for s in domain.sources if s.required]
+    return MultiSource(sources, domain.queries, enricher, required)
 
 
 ID_PREFIXES = {  # Paper.id prefix -> cross-source identifier it carries

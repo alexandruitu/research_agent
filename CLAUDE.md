@@ -21,7 +21,7 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
 - Etapele deterministe (search, dedup, verificare citate, scoring) rămân cod, nu agenți.
 - LLM-ul extrage, codul punctează. Orice claim are citat exact din sursă (`validate_evidence`).
 - Revieweri A/B independenți, ideal din familii de modele diferite; dezacord → adjudicator.
-- Fail closed: erori de rețea/schema/citate opresc run-ul, checkpoint păstrat.
+- Fail closed: erori de rețea/schema/citate opresc run-ul, checkpoint păstrat. Excepție: sursele de căutare opționale, care sunt sărite cu un avertisment înregistrat și vizibil (run-ul cade doar dacă pică o sursă `required` sau toate sursele).
 - Prompturile sunt versionate (`PROMPT_VERSION`); cache-ul apelurilor (`calls` în research.sqlite)
   e Raw Layer-ul pentru viitorul Research Wiki.
 - Etapele de măsurare rulează offline din cache (Raw Layer); report nu apelează niciodată API-uri.

@@ -41,7 +41,10 @@ def test_preview_reports_count_query_and_first_papers(tmp_path, monkeypatch):
     assert europepmc["query"] == "TITLE_ABS:x"
     assert europepmc["effective_query"] == "(TITLE_ABS:x) AND (PUB_YEAR:[2020 TO 9999])"
     assert set(europepmc["papers"][0]) == {"id", "title", "year"}
-    assert openalex["error"] == "SourceUnavailable: openalex" and openalex["count"] is None
+    assert (
+        openalex["error"] == "SourceUnavailable: openalex — server error (HTTP 503)"
+        and openalex["count"] is None
+    )
     assert result["years"] == {"from": 2020, "to": None}
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .agents import PROMPT_VERSION, Evaluator, live_models
-from .connectors import DemoConnector, EuropePMC, SourceUnavailable, domain_connector
+from .connectors import AllSourcesFailed, DemoConnector, EuropePMC, SourceUnavailable, domain_connector
 from .fulltext import FULLTEXT_VERSION, FullText
 from .graph import build_graph
 from .jev import DEFAULT_MODEL, JEV_SCREEN_VERSION, JevScreener, JevThresholds
@@ -56,6 +56,14 @@ FAILED = (
     "The stage did not finish. Check source access, the key and the configured model, then resume the run. "
     "The checkpoint is kept."
 )
+
+
+SEARCH_KEYS = ("search_warnings", "sources_used", "sources_skipped")
+
+
+def search_summary(values):
+    """Partial-search record of a field run's discover stage ({} before discover or for legacy runs)."""
+    return {k: values[k] for k in SEARCH_KEYS if k in (values or {})}
 
 
 def make_connector(contract, store):
@@ -316,12 +324,16 @@ def run_research(
                 )
                 snapshot = graph.get_state(config)
                 # Reconstruct committed progress rather than trusting a previous process's display state.
-                progress.write(stages=completed_stages(snapshot.values, contract))
+                progress.write(
+                    stages=completed_stages(snapshot.values, contract), **search_summary(snapshot.values)
+                )
                 if resume and snapshot.values and not snapshot.next:
                     result = snapshot.values
                 else:
                     initial = None if resume and snapshot.values else {"contract": contract.model_dump()}
                     for event in graph.stream(initial, config, stream_mode="updates"):
+                        if search := search_summary((event or {}).get("discover")):
+                            progress.write(**search)
                         if on_event:
                             on_event(event)
                     snapshot = graph.get_state(config)
@@ -329,6 +341,9 @@ def run_research(
                         progress.write(status="paused", next=list(snapshot.next))
                         return None
                     result = snapshot.values
+                if search := search_summary(result):
+                    manifest["search"] = search
+                    atomic_json(manifest_path, manifest)
                 store.save_papers("research-v1", result["papers"])
                 write_report(result, path, manifest)
             progress.write(status="completed", count=len(result["ranking"]))
@@ -337,6 +352,7 @@ def run_research(
             # No raw provider exception: it can contain credentials or request bodies. A source failure
             # names only the source.
             progress.write(
+                **({"search_warnings": exc.warnings} if isinstance(exc, AllSourcesFailed) else {}),
                 status="failed",
                 error_type=type(exc).__name__,
                 message=exc.message if isinstance(exc, SourceUnavailable) else FAILED,

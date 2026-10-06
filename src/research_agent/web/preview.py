@@ -2,7 +2,7 @@
 
 A failing source reports its error and the others still answer. Nothing is kept (a scratch store)."""
 
-from ..connectors import SourceKeyMissing, SourceUnavailable
+from ..connectors import SourceKeyMissing, SourceUnavailable, describe
 from ..schemas import Years
 from .checks import connector
 from .runner import sanitize_error
@@ -45,7 +45,7 @@ def field_preview(payload, store, *, http_client=None):
             rows.append(row | {"error": str(exc)})
             continue
         except SourceUnavailable as exc:
-            rows.append(row | {"error": f"SourceUnavailable: {exc.source}"})
+            rows.append(row | {"error": describe(exc)})
             continue
         except Exception as exc:  # noqa: BLE001 -- one source must not sink the preview; reported, sanitized
             rows.append(row | {"error": sanitize_error(exc)})

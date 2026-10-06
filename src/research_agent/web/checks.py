@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import httpx
 
 from ..agents import INSTRUCTIONS
-from ..connectors import SourceKeyMissing, SourceUnavailable, deduplicate
+from ..connectors import SourceKeyMissing, SourceUnavailable, deduplicate, describe
 from ..criteria import decide_jev
 from ..jev import DEFAULT_MODEL as JEV_MODEL
 from ..jev import JevScreener
@@ -47,7 +47,7 @@ def source_check(name, store, *, contact=None, http_client=None, clock=time.mono
             "ok": False,
             "ms": round((clock() - start) * 1000),
             "count": 0,
-            "error": f"SourceUnavailable: {exc.source}",
+            "error": describe(exc),
         }
     except Exception as exc:  # noqa: BLE001 -- reported, sanitized, on the source row
         return {"ok": False, "ms": round((clock() - start) * 1000), "count": 0, "error": sanitize_error(exc)}

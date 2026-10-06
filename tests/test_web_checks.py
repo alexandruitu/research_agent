@@ -38,7 +38,12 @@ def test_source_check_reports_ok_and_timing(tmp_path):
 
 def test_source_check_reports_a_failing_source_by_name_only(tmp_path, no_backoff):
     result = source_check("europepmc", Store(tmp_path), http_client=europepmc_client([], status=503))
-    assert result == {"ok": False, "ms": result["ms"], "count": 0, "error": "SourceUnavailable: europepmc"}
+    assert result == {
+        "ok": False,
+        "ms": result["ms"],
+        "count": 0,
+        "error": "SourceUnavailable: europepmc — server error (HTTP 503)",
+    }
 
 
 def test_a_source_check_job_updates_the_source_row(world, no_backoff):
@@ -60,7 +65,10 @@ def test_a_source_check_job_updates_the_source_row(world, no_backoff):
     Worker(settings, factory, sleep=lambda s: None, http_client=europepmc_client([], 500)).tick()
     assert admin.get(f"{API}/jobs/{r.json()['id']}").json()["progress"]["result"]["ok"] is False
     source = admin.get(f"{API}/sources").json()[0]
-    assert source["last_check_ok"] is False and source["last_check_error"] == "SourceUnavailable: europepmc"
+    assert (
+        source["last_check_ok"] is False
+        and source["last_check_error"] == "SourceUnavailable: europepmc — server error (HTTP 500)"
+    )
 
 
 DOMAIN = {

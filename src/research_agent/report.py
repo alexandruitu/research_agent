@@ -102,6 +102,16 @@ def write_report(state, directory, manifest):
         "",
         *scoring,
         "",
+        *(
+            [
+                "**Partial search.** Skipped sources: "
+                + "; ".join(f"{w['source']} ({w['reason']})" for w in warnings)
+                + ". Results may be missing papers from these sources.",
+                "",
+            ]
+            if (warnings := state.get("search_warnings"))
+            else []
+        ),
         "Search is bounded to one page per query. Abstracts cannot establish full methodological quality.",
         "",
         "## Query plan",

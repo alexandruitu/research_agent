@@ -98,6 +98,15 @@ class SourceSpec(Model):
     name: SourceName
     max_results: int = Field(default=100, ge=1, le=200)
     contact: str | None = Field(default=None, max_length=200, pattern=EMAIL)
+    # A required source failing stops the run; an optional one is skipped with a recorded warning.
+    required: bool = False
+
+    @model_serializer(mode="wrap")
+    def _without_default_required(self, handler):
+        data = handler(self)
+        if not data.get("required"):
+            data.pop("required", None)  # older domain.json dumps (and anything keyed on them) stay unchanged
+        return data
 
 
 class Years(Model):
