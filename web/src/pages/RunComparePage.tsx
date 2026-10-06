@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useRunCompare, useRuns } from "../api/hooks";
 import type { ComparePaper, RunCompareOut } from "../api/types";
 import { Skeleton } from "../components/ui/Skeleton";
-import { runLabel } from "../features/runs/runWords";
+import { runLabel, runOption } from "../features/runs/runWords";
 
 /** Two runs side by side: what differed in how they were started, and which papers came out differently. */
 export function RunComparePage() {
@@ -24,9 +24,12 @@ export function RunComparePage() {
       <form className="toolbar" aria-label="Choose runs" onSubmit={(e) => e.preventDefault()}>
         {([0, 1] as const).map((which) => (
           <label key={which}>Run {which === 0 ? "A" : "B"}
-            <select value={(which === 0 ? a : b) ?? ""} onChange={(e) => choose(which, e.target.value)}>
+            <select className="run-picker" value={(which === 0 ? a : b) ?? ""} onChange={(e) => choose(which, e.target.value)}>
               <option value="">Choose…</option>
-              {runs.data?.map((run) => <option key={run.id} value={run.id}>{runLabel(run)} · {new Date(run.created_at).toLocaleDateString()} · {run.status}</option>)}
+              {runs.data?.map((run) => {
+                const option = runOption(run, [new Date(run.created_at).toLocaleDateString(), run.status]);
+                return <option key={run.id} value={run.id} title={option.title}>{option.text}</option>;
+              })}
             </select>
           </label>
         ))}

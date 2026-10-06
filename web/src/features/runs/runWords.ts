@@ -46,3 +46,10 @@ export function coverageLine(coverage: RunOut["coverage"]): string | null {
     : `Text: ${coverage.full_text} full text / ${coverage.abstract_only} abstract only`);
   return parts.join(" · ");
 }
+
+/** A run picker option: the short label clipped to `max` characters, the full text (with the topic) for hover. */
+export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_version" | "topic">, details: string[] = [], max = 72) {
+  const full = [runLabel(run), ...details].join(" · ");
+  const text = full.length > max ? `${full.slice(0, max - 1).trimEnd()}…` : full;
+  return { text, title: run.topic ? `${full} — ${run.topic}` : full };
+}

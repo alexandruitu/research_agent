@@ -28,6 +28,7 @@ import { PapersSidePanel } from "../features/papers/PapersSidePanel";
 import { SaveDialog } from "../features/library/SaveDialog";
 import { PartialSearchBanner } from "../features/runs/SearchWarnings";
 import { useSaveFlow } from "../features/library/saveFlow";
+import { runOption } from "../features/runs/runWords";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
 
@@ -178,10 +179,11 @@ export function PapersPage() {
       <div className="toolbar">
         <label>
           Run
-          <select value={runId} onChange={(e) => change({ run: e.target.value })}>
-            {runs.data?.map((r) => (
-              <option key={r.id} value={r.id}>{r.field_name}{r.field_version ? ` · v${r.field_version}` : ""} · {r.kind}{r.gold_set_name ? ` · ${r.gold_set_name}` : ""} · {r.paper_count} papers</option>
-            ))}
+          <select className="run-picker" value={runId} title={selected ? runOption(selected).title : undefined} onChange={(e) => change({ run: e.target.value })}>
+            {runs.data?.map((r) => {
+              const option = runOption(r, [r.kind, ...(r.gold_set_name ? [r.gold_set_name] : []), `${r.paper_count} papers`]);
+              return <option key={r.id} value={r.id} title={option.title}>{option.text}</option>;
+            })}
           </select>
         </label>
         <label>

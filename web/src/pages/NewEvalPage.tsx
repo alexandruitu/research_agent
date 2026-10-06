@@ -9,6 +9,7 @@ import { stepText } from "../features/evals/EvalJobs";
 import { GoldSetForm } from "../features/evals/GoldSetForm";
 import { reportTitle } from "../features/evals/headline";
 import { KIND_ICON, KIND_LABEL, KIND_WHAT, dateText } from "../features/evals/words";
+import { runOption } from "../features/runs/runWords";
 
 const KINDS: EvalKind[] = ["panel", "ablation", "screening", "human"];
 const COST: Record<EvalKind, string> = {
@@ -139,9 +140,12 @@ export function NewEvalPage() {
                 )}
                 {kind === "panel" && inputs.source === "run" && (
                   <label>Run
-                    <select value={inputs.run} onChange={(e) => update({ run: e.target.value })}>
+                    <select className="run-picker" value={inputs.run} onChange={(e) => update({ run: e.target.value })}>
                       <option value="">Choose…</option>
-                      {doneRuns.map((r) => <option key={r.id} value={r.id}>{r.field_name} · {r.paper_count} papers · {dateText(r.created_at)}</option>)}
+                      {doneRuns.map((r) => {
+                        const option = runOption(r, [`${r.paper_count} papers`, dateText(r.created_at)]);
+                        return <option key={r.id} value={r.id} title={option.title}>{option.text}</option>;
+                      })}
                     </select>
                   </label>
                 )}

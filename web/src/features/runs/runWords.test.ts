@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageRun, coverageLine, formatSeconds, formatUsd, runLabel } from "./runWords";
+import { canManageRun, coverageLine, runOption, formatSeconds, formatUsd, runLabel } from "./runWords";
 
 const me = { id: "u1", email: "m@x", name: "M", role: "member", active: true };
 
@@ -39,5 +39,15 @@ describe("coverage line", () => {
       .toBe("Searched: not recorded · Max papers: not recorded · Text: not reviewed by the panel");
     expect(coverageLine({ searched: ["europepmc"], skipped: [], max_papers: 5, full_text: null, abstract_only: null })).toContain("Skipped: none");
     expect(coverageLine(null)).toBeNull();
+  });
+});
+
+describe("run picker options", () => {
+  it("use the short name, clip long labels and keep the full text with the topic for hover", () => {
+    expect(runOption({ name: "Baseline", field_name: "F", field_version: 1, topic: "deep learning CT-FFR" }, ["12 papers"])).toEqual({ text: "Baseline · 12 papers", title: "Baseline · 12 papers — deep learning CT-FFR" });
+    const long = runOption({ name: null, field_name: "x".repeat(100), field_version: null, topic: "" });
+    expect(long.text).toHaveLength(72);
+    expect(long.text.endsWith("…")).toBe(true);
+    expect(long.title).toBe("x".repeat(100));
   });
 });
