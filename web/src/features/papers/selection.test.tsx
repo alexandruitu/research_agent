@@ -17,6 +17,9 @@ afterEach(() => {
 const LOST_ID = "55555555-5555-4555-8555-555555555555";
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_size: 25 });
 
+/** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
+const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
+
 function setup(role: "viewer" | "member" = "member", extra: Record<string, MockHandler> = {}, route = "/") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
@@ -27,7 +30,7 @@ function setup(role: "viewer" | "member" = "member", extra: Record<string, MockH
     "GET /api/v1/library/collections": { body: [collectionOut()] },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/" element={<PapersPage />} /></Routes>, { route });
+  renderWithProviders(<Routes><Route path="/" element={<PapersPage />} /></Routes>, { route: flat(route) });
   return api;
 }
 

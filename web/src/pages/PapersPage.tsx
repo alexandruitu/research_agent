@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import type { PaperRow } from "../api/types";
 import { useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -17,6 +18,8 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
 import { isPanelRun, screenKeys } from "../features/papers/cells";
 import { FilterBar, type CriterionOption } from "../features/papers/FilterBar";
+import { GROUP_BY_OPTIONS } from "../features/papers/groups";
+import { PaperGroups } from "../features/papers/PaperGroups";
 import { PaperTable } from "../features/papers/PaperTable";
 import { parseView, patchView } from "../features/papers/papersState";
 import { PapersSidePanel } from "../features/papers/PapersSidePanel";
@@ -49,6 +52,12 @@ export function PapersPage() {
   const relay = (key: string) => (event: KeyboardEvent) => keysRef.current[key]?.(event);
   useShortcuts(Object.fromEntries(["j", "k", "o", "x", "s", "1", "2", "3", "4", "?"].map((key) => [key, relay(key)])));
   const view = parseView(search);
+  const grouped = view.groupBy !== "none";
+  // Grouped view: each open group reports its rows so j/k/x/s and the selection span every group, in order.
+  const [groupRows, setGroupRows] = useState<Record<string, PaperRow[]>>({});
+  const [groupOrder, setGroupOrder] = useState<{ keys: string[]; collapsed: Set<string> }>({ keys: [], collapsed: new Set() });
+  const onRows = useCallback((key: string, rows: PaperRow[]) => setGroupRows((prev) => (prev[key] === rows || (!prev[key] && rows.length === 0) ? prev : { ...prev, [key]: rows })), []);
+  const onGroups = useCallback((keys: string[], collapsed: Set<string>) => setGroupOrder((prev) => (prev.keys.join() === keys.join() && prev.collapsed === collapsed ? prev : { keys, collapsed })), []);
   const runs = useRuns();
   const runId = view.runId ?? runs.data?.find((run) => run.paper_count > 0)?.id ?? null;
   const run = useRun(runId);
@@ -57,13 +66,16 @@ export function PapersPage() {
   const selected = runs.data?.find((r) => r.id === runId) ?? run.data;
   const hasGoldSet = !!selected?.gold_set_name;
   const params = hasGoldSet ? view.params : { ...view.params, in_sr: undefined };
-  const papers = usePapers(selected ? runId : null, params);
+  const papers = usePapers(selected && !grouped ? runId : null, params);
+  const rows: PaperRow[] = grouped
+    ? groupOrder.keys.filter((key) => !groupOrder.collapsed.has(key)).flatMap((key) => groupRows[key] ?? [])
+    : (papers.data?.items ?? []);
   const stages = useStages();
   const version = useFieldVersion(selected?.field_id ?? null, selected?.field_version ?? null);
   // A run's criteria come from its field version; without one, from the keys the rows carry.
   const criteria: CriterionOption[] = version.data
     ? [...version.data.include, ...version.data.exclude, ...version.data.legacy]
-    : [...new Set((papers.data?.items ?? []).flatMap((row) => screenKeys(row.screen)))].map((key) => ({ key, text: "" }));
+    : [...new Set(rows.flatMap((row) => screenKeys(row.screen)))].map((key) => ({ key, text: "" }));
   const legacy = !criteria.some((c) => isFieldCriterion(c.key));
   const change = (changes: Parameters<typeof patchView>[1], reset = true) => setSearch(patchView(search, changes, reset));
   const close = () => {
@@ -85,9 +97,9 @@ export function PapersPage() {
     else next.delete(paperId);
     setSelected(next);
   };
-  const toggleAll = (on: boolean) => {
+  const toggleAll = (on: boolean, among: PaperRow[] = rows) => {
     const next = new Set(selectedIds);
-    for (const row of papers.data?.items ?? []) if (on) next.add(row.paper.id); else next.delete(row.paper.id);
+    for (const row of among) if (on) next.add(row.paper.id); else next.delete(row.paper.id);
     setSelected(next);
   };
   const doSave = async (choice: Parameters<typeof saveFlow.save>[2]) => {
@@ -96,7 +108,6 @@ export function PapersPage() {
     if (ok) setSelected(new Set());
   };
 
-  const rows = papers.data?.items ?? [];
   const cursorIndex = Math.max(0, rows.findIndex((r) => r.paper.id === (cursor ?? view.paperId)));
   const cursorRow = rows[cursorIndex];
   const move = (delta: number) => {
@@ -145,6 +156,12 @@ export function PapersPage() {
             ))}
           </select>
         </label>
+        <label>
+          Group by
+          <select value={view.groupBy} onChange={(e) => change({ group: e.target.value === "quality" ? null : (e.target.value as typeof view.groupBy) })}>
+            {GROUP_BY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
         {counts && (
           <p className="summary">
             {counts.screened} screened · {counts.kept} kept · {counts.dropped} dropped · {counts.escalated} escalated to the LLM{counts.in_sr !== null ? ` · ${counts.in_sr} in the SR` : ""}
@@ -160,7 +177,7 @@ export function PapersPage() {
       )}
       {saving && <SaveDialog count={Math.max(1, selectedIds.size)} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
       {help && <ShortcutsHelp title="Papers shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
-      <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(papers.data?.items ?? [])} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
+      <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">
           {chips.map((chip) => (
@@ -173,6 +190,29 @@ export function PapersPage() {
       )}
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
+          {grouped ? (
+            !selected ? (
+              run.isError ? <p role="alert" className="form-error">{errorText(run.error)}</p> : <Skeleton label="papers" rows={8} />
+            ) : (
+              <ErrorBoundary label="the paper groups">
+                <PaperGroups
+                  runId={runId} by={view.groupBy === "none" ? "quality" : view.groupBy} params={params} userId={user?.id ?? "anonymous"}
+                  onRows={onRows} onGroups={onGroups}
+                  renderTable={(groupItems) => (
+                    <PaperTable
+                      rows={groupItems} legacy={legacy} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
+                onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
+                selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
+                selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
+                cursorId={cursor}
+                      selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll: (on) => toggleAll(on, groupItems) } : null}
+                    />
+                  )}
+                />
+              </ErrorBoundary>
+            )
+          ) : (
+            <>
           {papers.isError || (!selected && run.isError) ? (
             <p role="alert" className="form-error">{errorText(papers.isError ? papers.error : run.error)}</p>
           ) : !papers.data ? (
@@ -203,6 +243,8 @@ export function PapersPage() {
             <span aria-live="polite">Page {view.params.page} of {pages}</span>
             <button type="button" disabled={view.params.page >= pages} onClick={() => change({ page: view.params.page + 1 }, false)}>Next page</button>
           </nav>
+            </>
+          )}
         </div>
         {panelOpen && (
           <ErrorBoundary label="the side panel">

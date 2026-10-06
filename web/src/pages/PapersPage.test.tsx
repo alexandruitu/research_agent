@@ -21,6 +21,9 @@ function Location() {
 
 const page = (items: unknown[], total = items.length, extra: Record<string, unknown> = {}) => ({ items, total, page: 1, page_size: 25, ...extra });
 
+/** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
+const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
+
 function setup(handlers: Parameters<typeof mockApi>[0] = {}, route = "/") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session("member") },
@@ -35,7 +38,7 @@ function setup(handlers: Parameters<typeof mockApi>[0] = {}, route = "/") {
       <Routes><Route path="/" element={<PapersPage />} /></Routes>
       <Location />
     </>,
-    { route },
+    { route: flat(route) },
   );
   return api;
 }
@@ -148,7 +151,7 @@ describe("PapersPage", () => {
     expect(screen.getByLabelText("location")).not.toHaveTextContent("escalated");
     await userEvent.click(within(screen.getByRole("group", { name: "Active filters" })).getByRole("button", { name: "Clear all" }));
     expect(screen.queryByRole("group", { name: "Active filters" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("location")).toHaveTextContent("");
+    expect(screen.getByLabelText("location").textContent).toBe("?group=none"); // Clear all keeps the grouping
   });
 
   it("keyboard: j moves to a paper, o opens it, x selects it, ? lists the shortcuts", async () => {

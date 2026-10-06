@@ -29,6 +29,9 @@ async function openDrawer() {
   return drawer;
 }
 
+/** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
+const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
+
 function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = `/?run=${RUN_ID}&paper=${LOST_ID}`) {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
@@ -39,7 +42,7 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
     "GET /api/v1/runs/:id/papers/:id": { body: drawerOut() },
     ...extra,
   });
-  renderWithProviders(<><Routes><Route path="/" element={<PapersPage />} /></Routes><Location /></>, { route });
+  renderWithProviders(<><Routes><Route path="/" element={<PapersPage />} /></Routes><Location /></>, { route: flat(route) });
   return api;
 }
 
