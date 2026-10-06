@@ -2,6 +2,7 @@ import { useReviewerVersion } from "../../api/hooks";
 import type { PanelOut, PanelReportOut } from "../../api/types";
 import { coverageWords } from "./cells";
 import { answerJudgement, answerParts, disagreementSentence, listWords, reviewerNames, textSentence, verdictWord } from "./panel";
+import { Term } from "../../components/ui/Term";
 
 /** A score from under half of the checklist is provisional: said in words before the (tentative) number. */
 const scoreText = (score: number | null, coverage: number | null) => {
@@ -73,7 +74,7 @@ export function PeerReview({ panel }: { panel: PanelOut }) {
       <p className="sub">{textSentence(panel)}</p>
       <div className="editor-verdict">
         <p className="editor-line">
-          <span className="sub">Editor's decision</span>{" "}
+          <span className="sub"><Term k="editor_verdict">Editor's decision</Term></span>{" "}
           <span className={`verdict-badge verdict-badge--${editor.verdict ?? "none"}`}>{verdictWord(editor.verdict)}</span>{" "}
           <span className="panel-total">{scoreText(panel.score, panel.coverage)}</span>
         </p>

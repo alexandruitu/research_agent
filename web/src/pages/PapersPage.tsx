@@ -29,6 +29,7 @@ import { SaveDialog } from "../features/library/SaveDialog";
 import { PartialSearchBanner } from "../features/runs/SearchWarnings";
 import { useSaveFlow } from "../features/library/saveFlow";
 import { runOption } from "../features/runs/runWords";
+import { Term } from "../components/ui/Term";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
 
@@ -201,7 +202,7 @@ export function PapersPage() {
         </div>
         {counts && (
           <p className="summary">
-            {counts.screened} screened · {counts.kept} kept · {counts.dropped} dropped · {counts.escalated} escalated to the LLM{counts.in_sr !== null ? ` · ${counts.in_sr} in the SR` : ""}
+            {counts.screened} screened · {counts.kept} kept · {counts.dropped} dropped · {counts.escalated} <Term k="escalated" /> to the <Term k="llm" />{counts.in_sr !== null && <> · {counts.in_sr} in the <Term k="sr">SR</Term></>}
           </p>
         )}
       </div>

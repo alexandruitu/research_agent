@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 /**
  * An accessible tooltip on a button trigger: it opens on hover, on keyboard focus and on click or tap (which
  * pins it open), closes on Escape, blur or a click elsewhere. The tip is referenced by aria-describedby, so
- * screen readers read it with the trigger. It is positioned with `position: fixed` (set through the CSSOM,
+ * screen readers read it with the trigger (and aria-live announces it when it opens). It is positioned with `position: fixed` (set through the CSSOM,
  * which the CSP allows) so a scrolling table never clips it.
  */
 export function Tooltip({ trigger, triggerLabel, tip, className = "" }: {
@@ -72,7 +72,9 @@ export function Tooltip({ trigger, triggerLabel, tip, className = "" }: {
       >
         {trigger}
       </button>
-      <span ref={box} id={id} role="tooltip" className="tip" hidden={!open}>{tip}</span>
+      {/* the content exists only while open (so copied text and text content stay clean); aria-live
+          announces it when it appears, aria-describedby ties it to the trigger */}
+      <span ref={box} id={id} role="tooltip" className="tip" hidden={!open} aria-live="polite">{open ? tip : null}</span>
     </span>
   );
 }

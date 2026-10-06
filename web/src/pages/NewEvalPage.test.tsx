@@ -97,7 +97,7 @@ describe("New evaluation", () => {
   it("builds a gold set from a systematic review", async () => {
     const { calls } = setup({ "POST /api/v1/gold-sets": { status: 202, body: jobOut({ kind: "gold_build", run_id: null }) } });
     await choose(/Screening/);
-    await userEvent.click(screen.getByText("Build a gold set from a systematic review"));
+    await userEvent.click(screen.getByText((_, el) => el?.tagName === "SUMMARY" && /^Build a gold set\?? from a systematic review/.test(el.textContent ?? "")));
     const form = screen.getByRole("group", { name: "New gold set" });
     await userEvent.type(within(form).getByLabelText("Name"), "my-sr");
     await userEvent.type(within(form).getByLabelText(/Citation/), "Doe 2025");

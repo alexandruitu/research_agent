@@ -8,6 +8,7 @@ import { useReportDirty } from "./dirtyGuard";
 import { bands, fromEvals, validateScreening, widthClass } from "./screening";
 import { SettingsFrame } from "./SettingsFrame";
 import { errorText, useSettingsSave } from "./useSettingsSave";
+import { Term } from "../../components/ui/Term";
 
 const fmt = (value: number) => (Number.isFinite(value) ? value.toFixed(2) : "?");
 
@@ -85,13 +86,13 @@ function ScreeningForm({ data, admin, saver }: { data: ReviewSettingsOut; admin:
       <div className="screening-layout">
         <div className="bands">
           <fieldset>
-            <legend>Inclusion criteria (the paper must meet each one)</legend>
+            <legend><Term k="criterion">Inclusion criteria</Term> (the paper must meet each one)</legend>
             <Threshold label="Keep from" hint="At or above this, Jev counts the criterion as met." value={values.keep_min} onChange={(keep_min) => set({ keep_min })} />
             <Threshold label="Drop at or below" hint="At or below this, Jev drops the paper for failing the criterion. Keep it low: a lost paper is worse than an LLM call." value={values.include_fail_max} onChange={(include_fail_max) => set({ include_fail_max })} />
             <Band low={values.include_fail_max} high={values.keep_min} lowWord="dropped" highWord="kept" />
           </fieldset>
           <fieldset>
-            <legend>Exclusion criteria (any one drops the paper)</legend>
+            <legend><Term k="criterion">Exclusion criteria</Term> (any one drops the paper)</legend>
             <Threshold label="Drop from" hint="At or above this, Jev drops the paper because the exclusion applies." value={values.exclude_hit_min} onChange={(exclude_hit_min) => set({ exclude_hit_min })} />
             <Threshold label="Clear at or below" hint="At or below this, Jev counts the exclusion as not applying." value={values.exclude_clear_max} onChange={(exclude_clear_max) => set({ exclude_clear_max })} />
             <Band low={values.exclude_clear_max} high={values.exclude_hit_min} lowWord="cleared" highWord="dropped" />

@@ -9,6 +9,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { EvalJobs } from "../features/evals/EvalJobs";
 import { ReportCard } from "../features/evals/ReportCard";
 import { KIND_LABEL, KIND_WHAT, familyOf } from "../features/evals/words";
+import { Term } from "../components/ui/Term";
 
 const FILTERS: (EvalKind | null)[] = [null, "screening", "panel", "ablation", "human"];
 
@@ -37,6 +38,7 @@ export function EvalsHomePage() {
         {newButton}
       </div>
       {jobs.data && <EvalJobs jobs={jobs.data} />}
+      <p className="sub terms-line">Words used here: <Term k="gold_set" /> · <Term k="recall" /> · <Term k="kappa" /> · <Term k="threshold" /> · <Term k="holdout" /> · <Term k="sr">SR</Term></p>
       <div className="segmented-buttons eval-filter" role="group" aria-label="Show">
         {FILTERS.map((k) => <button key={k ?? "all"} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>{k ? KIND_LABEL[k] : "All"}</button>)}
       </div>

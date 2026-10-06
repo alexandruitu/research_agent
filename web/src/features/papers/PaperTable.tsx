@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
 import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, isPanelRun, PanelScoreCell, RedFlagsCell, ReviewsCellView, ScoreCell, TextSourceCell } from "./cells";
+import { Term, TermHint } from "../../components/ui/Term";
+import type { GlossaryKey } from "../../components/ui/terms";
 
 type Props = {
   rows: PaperRow[]; sort: string; direction: "asc" | "desc"; onSort: (sort: string) => void;
@@ -24,13 +26,14 @@ export function LibraryBadge({ library }: { library: PaperRow["library"] }) {
   );
 }
 
-function SortHeader({ label, sortKey, sort, direction, onSort, className }: { label: string; sortKey: string; sort: string; direction: string; onSort: (key: string) => void; className?: string }) {
+function SortHeader({ label, sortKey, sort, direction, onSort, className, term }: { label: string; sortKey: string; sort: string; direction: string; onSort: (key: string) => void; className?: string; term?: GlossaryKey }) {
   const active = sort === sortKey;
   return (
     <th scope="col" className={className} aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
       <button type="button" className="sort" onClick={() => onSort(sortKey)}>
         {label}{active ? (direction === "asc" ? " ▲" : " ▼") : ""}
       </button>
+      {term && <TermHint k={term} />}
     </th>
   );
 }
@@ -51,14 +54,14 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
             )}
             <SortHeader label="Paper" sortKey="title" className="col-paper" {...sortProps} />
             <th scope="col">Found by</th>
-            {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" className="col-criteria" {...sortProps} /> : <th scope="col" className="col-criteria">Criteria</th>}
-            <th scope="col">Decision</th>
+            {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" className="col-criteria" term="criterion" {...sortProps} /> : <th scope="col" className="col-criteria"><Term k="criterion">Criteria</Term></th>}
+            <th scope="col"><Term k="screening">Decision</Term></th>
             <th scope="col">Claims</th>
             {panel ? (
               <>
-                <SortHeader label="Peer review score" sortKey="score" {...sortProps} />
-                <th scope="col">Red flags</th>
-                <th scope="col">Text reviewed</th>
+                <SortHeader label="Peer review score" sortKey="score" term="panel_score" {...sortProps} />
+                <th scope="col"><Term k="red_flag">Red flags</Term></th>
+                <th scope="col"><Term k="coverage">Text reviewed</Term></th>
               </>
             ) : (
               <>
@@ -66,7 +69,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                 <SortHeader label="Score" sortKey="score" {...sortProps} />
               </>
             )}
-            <th scope="col">In SR</th>
+            <th scope="col"><Term k="sr">In SR</Term></th>
           </tr>
         </thead>
         <tbody>

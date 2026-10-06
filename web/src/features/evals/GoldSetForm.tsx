@@ -5,6 +5,7 @@ import { ApiError } from "../../api/client";
 import { keys, useBuildGoldSet, useJob } from "../../api/hooks";
 import type { EvalJobProgress } from "../../api/types";
 import { goldProblems, parseIncluded, type GoldDraft } from "./goldForm";
+import { Term } from "../../components/ui/Term";
 
 const EMPTY: GoldDraft = { name: "", citation: "", topic: "", query: "", included: "" };
 
@@ -45,7 +46,7 @@ export function GoldSetForm({ onBuilt }: { onBuilt: (goldSetId: string) => void 
   const count = parseIncluded(draft.included).length;
   return (
     <details className="disclosure gold-builder">
-      <summary>Build a gold set from a systematic review</summary>
+      <summary>Build a <Term k="gold_set" /> from a <Term k="sr">systematic review</Term></summary>
       <fieldset aria-label="New gold set" className="gold-form">
         <p className="hint">Paste the studies the review included. The worker searches Europe PMC with your query for candidates, resolves the included studies, and stores the set. The review's own DOI is kept as its citation only: its included list is not read automatically.</p>
         <div className="two-up">

@@ -7,6 +7,7 @@ import { Interval, ShareBar } from "./Interval";
 import { parsePanel, type PanelView } from "./panel";
 import { RatingSamples } from "./RatingSamples";
 import { fixed, kappaWords, pct, ratioText } from "./words";
+import { Term } from "../../components/ui/Term";
 
 const paperLink = (id: string): string | null => {
   const [src, rest] = id.split(":");
@@ -35,7 +36,7 @@ function Agreement({ view }: { view: PanelView }) {
       </p>
       {view.pairwise.length > 0 && (
         <table className="data-table" aria-label="Agreement per reviewer pair">
-          <thead><tr><th scope="col">Pair</th><th scope="col">Cohen kappa</th><th scope="col">Raw agreement</th><th scope="col">Prevalence</th></tr></thead>
+          <thead><tr><th scope="col">Pair</th><th scope="col"><Term k="kappa">Cohen kappa</Term></th><th scope="col">Raw agreement</th><th scope="col">Prevalence</th></tr></thead>
           <tbody>{view.pairwise.map((p) => <tr key={`${p.a}|${p.b}`}><th scope="row">{p.a} and {p.b}</th><td>{fixed(p.kappa)} <span className="sub-inline">{kappaWords(p.kappa)}</span></td><td>{pct(p.agreement)}</td><td>{pct(p.prevalence)}</td></tr>)}</tbody>
         </table>
       )}
@@ -49,7 +50,7 @@ function Items({ view }: { view: PanelView }) {
       <h2>Which checklist items are unclear?</h2>
       <p className="lede-sm">Worst first. An item is a candidate to reword when reviewers who answer it disagree, or when most answers are “unclear” or “not reported”. Items only one reviewer answers have no agreement; their unanswered share still shows.</p>
       <table className="data-table" aria-label="Agreement per checklist item">
-        <thead><tr><th scope="col">Item</th><th scope="col">Answered by</th><th scope="col">Agreement</th><th scope="col">Kappa</th><th scope="col">Unanswered</th></tr></thead>
+        <thead><tr><th scope="col">Item</th><th scope="col">Answered by</th><th scope="col">Agreement</th><th scope="col"><Term k="kappa">Kappa</Term></th><th scope="col">Unanswered</th></tr></thead>
         <tbody>
           {view.items.map((item) => (
             <tr key={`${item.text}|${item.reviewers.join()}`} className={item.reword ? "is-reword" : undefined}>
@@ -143,7 +144,7 @@ function Families({ view }: { view: PanelView }) {
         </div>
       ) : (
         <table className="data-table" aria-label="Agreement by model family">
-          <thead><tr><th scope="col">Family</th><th scope="col">Reviewers</th><th scope="col">Fleiss kappa within</th></tr></thead>
+          <thead><tr><th scope="col">Family</th><th scope="col">Reviewers</th><th scope="col"><Term k="fleiss_kappa">Fleiss kappa</Term> within</th></tr></thead>
           <tbody>{f.byFamily.map((b) => <tr key={b.provider}><th scope="row">{b.provider}</th><td>{b.reviewers.join(", ")}</td><td>{b.kappa !== null ? `${fixed(b.kappa)} ${kappaWords(b.kappa)}` : "n/a (needs 2 reviewers)"}</td></tr>)}</tbody>
         </table>
       )}

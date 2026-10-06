@@ -1015,3 +1015,6 @@ table.papers td.col-criteria { min-width: 15rem; }
 .runs__coverage .tip-trigger { color: var(--ink-2); border-bottom: 1px dotted var(--rule-2); }
 .run-detail__coverage { margin: var(--s1) 0 0; font-size: 13px; color: var(--ink-2); }
 select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
+.check-with-term { display: inline-flex; align-items: center; gap: 2px; }
+.terms-line { display: flex; flex-wrap: wrap; gap: 0 var(--s2); }
+.term-q::before { content: "?"; }

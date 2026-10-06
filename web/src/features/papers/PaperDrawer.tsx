@@ -10,6 +10,7 @@ import { PaperFiles } from "./PaperFiles";
 import { PeerReview } from "./PeerReview";
 import { RawCalls } from "./RawCalls";
 import { drawerWhy } from "./why";
+import { Term } from "../../components/ui/Term";
 
 const ROLE_LABEL: Record<string, string> = { a: "Reviewer A", b: "Reviewer B", adjudicator: "Adjudicator" };
 const JEV_MEANING: Record<string, string> = {
@@ -49,7 +50,7 @@ function CriteriaScreen({ screening }: { screening: DrawerOut["screening"] }) {
     <>
       <table className="criteria-table">
         <caption>Screening per criterion</caption>
-        <thead><tr><th scope="col">Criterion</th><th scope="col">Jev p</th><th scope="col">LLM</th><th scope="col">Evidence</th></tr></thead>
+        <thead><tr><th scope="col">Criterion</th><th scope="col"><Term k="jev">Jev p</Term></th><th scope="col"><Term k="llm">LLM</Term></th><th scope="col">Evidence</th></tr></thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.key} className={row.decided ? "decider" : undefined}>

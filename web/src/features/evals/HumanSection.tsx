@@ -1,5 +1,6 @@
 import type { HumanView } from "./panel";
 import { fixed, kappaWords, ratioText } from "./words";
+import { Term } from "../../components/ui/Term";
 
 export function HumanSection({ human }: { human: HumanView }) {
   return (
@@ -13,7 +14,7 @@ export function HumanSection({ human }: { human: HumanView }) {
       </div>
       <p className="report-meta">{human.raters} raters · {human.units} answers on {human.papers} papers{human.stale > 0 ? ` · ${human.stale} ratings ignored because the item wording changed since` : ""}</p>
       <table className="data-table" aria-label="Panel vs humans per reviewer">
-        <thead><tr><th scope="col">Reviewer</th><th scope="col">Matches humans</th><th scope="col">Kappa</th></tr></thead>
+        <thead><tr><th scope="col">Reviewer</th><th scope="col">Matches humans</th><th scope="col"><Term k="kappa">Kappa</Term></th></tr></thead>
         <tbody>{human.perReviewer.map((r) => <tr key={r.key}><th scope="row">{r.name}</th><td>{ratioText(r.accuracy)}</td><td>{fixed(r.kappa)} <span className="sub-inline">{kappaWords(r.kappa)}</span></td></tr>)}</tbody>
       </table>
       <table className="data-table" aria-label="Panel vs humans per item">

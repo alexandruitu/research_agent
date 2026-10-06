@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { RunOut } from "../../api/types";
 import { sourceLabel } from "../fields/labels";
+import { Term } from "../../components/ui/Term";
 
 export type SearchWarning = NonNullable<RunOut["search_warnings"]>[number];
 
@@ -39,7 +40,7 @@ export function SearchWarningPanel({ warnings, failed = false }: { warnings: Run
   const one = warnings.length === 1;
   return (
     <section className="search-warnings" role="status" aria-labelledby="search-warnings-title">
-      <h2 id="search-warnings-title"><span aria-hidden="true">⚠</span> {failed ? "No search source answered" : "Partial search"}</h2>
+      <h2 id="search-warnings-title"><span aria-hidden="true">⚠</span> {failed ? "No search source answered" : <Term k="partial_search">Partial search</Term>}</h2>
       {failed ? (
         <p>Every source failed, so the run stopped at the search. Fix one of them and resume the run.</p>
       ) : (

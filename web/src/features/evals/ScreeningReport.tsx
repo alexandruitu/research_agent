@@ -2,6 +2,7 @@ import type { EvalDetailOut } from "../../api/types";
 import { formatRate, parseEval } from "./metrics";
 import { RecallRows } from "./RecallRows";
 import { ThresholdGrid } from "./ThresholdGrid";
+import { Term } from "../../components/ui/Term";
 
 const pairText = (pair: { include: number; exclude: number }) => `include ≥ ${pair.include}, exclude ≥ ${pair.exclude}`;
 
@@ -13,15 +14,15 @@ export function ScreeningReport({ detail }: { detail: EvalDetailOut }) {
     <>
       <h2>{view.gold.name} <span className="sub">{view.gold.citation}</span></h2>
       <section aria-label="Summary" className="cards">
-        <div className="card"><h3>Search recall</h3><p>{formatRate(view.retrievalRecall)}</p><p className="sub">SR-included papers the query itself found</p></div>
+        <div className="card"><h3><Term k="recall">Search recall</Term></h3><p>{formatRate(view.retrievalRecall)}</p><p className="sub">SR-included papers the query itself found</p></div>
         <div className="card"><h3>Recommended pair</h3><p>{view.recommended ? pairText(view.recommended) : "No admissible pair"}</p><p className="sub">{view.recommended ? `loses no SR-included paper on ${checkedOn}` : "every pair loses a paper that llm_only keeps"}</p></div>
-        <div className="card"><h3>Reviewer agreement (kappa)</h3><p>{view.agreement ? (view.agreement.kappa === null ? `n/a (${view.agreement.reason ?? "undefined"})` : view.agreement.kappa.toFixed(3)) : "n/a"}</p>
+        <div className="card"><h3>Reviewer agreement (<Term k="kappa" />)</h3><p>{view.agreement ? (view.agreement.kappa === null ? `n/a (${view.agreement.reason ?? "undefined"})` : view.agreement.kappa.toFixed(3)) : "n/a"}</p>
           <p className="sub">{view.agreement ? `${view.agreement.n} papers` : "no agreement run"}{view.agreement?.sameFamily ? " · " : ""}{view.agreement?.sameFamily && <span className="chip chip--warn">same model family</span>}</p></div>
       </section>
-      <h3>Recall</h3>
+      <h3><Term k="recall">Recall</Term></h3>
       <RecallRows strategies={view.strategies} />
-      {view.holdout && <p>Holdout ({view.holdout.gold}, {view.holdout.n} papers) at the recommended pair: recall {formatRate(view.holdout.recall)}.</p>}
-      <h3>Threshold grid</h3>
+      {view.holdout && <p><Term k="holdout">Holdout</Term> ({view.holdout.gold}, {view.holdout.n} papers) at the recommended pair: recall {formatRate(view.holdout.recall)}.</p>}
+      <h3><Term k="threshold">Threshold</Term> grid</h3>
       <ThresholdGrid view={view} />
       {view.rejected && (
         <p className="banner banner--warn">

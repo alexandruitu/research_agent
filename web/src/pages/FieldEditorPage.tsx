@@ -22,6 +22,7 @@ import { Suggestions, GROUP_LABEL } from "../features/fieldflow/Suggestions";
 import { SummaryCard } from "../features/fieldflow/SummaryCard";
 import { TagInput } from "../features/fieldflow/TagInput";
 import { useReportDirty } from "../features/settings/dirtyGuard";
+import { TermHint } from "../components/ui/Term";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
 
@@ -174,7 +175,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
       <div className="page-head">
         <h1>{field ? `${field.name} (v${field.current_version ?? 1})` : "New field"}</h1>
         <div className="actions">
-          {canEdit && <label className="check"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Demo mode (offline stand-in: no model, no network)</label>}
+          {canEdit && <span className="check-with-term"><label className="check"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Demo mode (offline stand-in: no model, no network)</label><TermHint k="demo_mode" /></span>}
           {admin && field && <button type="button" onClick={toggleArchive} disabled={archive.isPending}>{archived ? "Restore" : "Archive"}</button>}
         </div>
       </div>

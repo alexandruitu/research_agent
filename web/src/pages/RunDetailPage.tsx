@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { isActive, useRun, useRunCalls, useRunLog } from "../api/hooks";
@@ -10,6 +10,7 @@ import { useRunActions } from "../features/runs/RunActions";
 import { RunStatus } from "../features/runs/RunList";
 import { SearchWarningPanel } from "../features/runs/SearchWarnings";
 import { coverageLine, formatSeconds, formatUsd, runLabel } from "../features/runs/runWords";
+import { Term } from "../components/ui/Term";
 
 /** One run: what it was started with, how long each stage took, what it found and cost, and its log. */
 export function RunDetailPage() {
@@ -71,7 +72,7 @@ export function RunDetailPage() {
           <div><dt>Screened</dt><dd>{data.counts.screened}</dd></div>
           <div><dt>Kept</dt><dd>{data.counts.kept}</dd></div>
           <div><dt>Dropped</dt><dd>{data.counts.dropped}</dd></div>
-          <div><dt>Sent to the LLM</dt><dd>{data.counts.escalated}</dd></div>
+          <div><dt><Term k="escalated">Sent to the LLM</Term></dt><dd>{data.counts.escalated}</dd></div>
           <div><dt>Wall time</dt><dd>{formatSeconds(data.wall_seconds)}</dd></div>
         </dl>
         <p className="run-detail__links">
@@ -90,6 +91,15 @@ export function RunDetailPage() {
   );
 }
 
+/** A bar of the given width, set through the CSSOM (the CSP forbids style attributes). */
+function Bar({ percent }: { percent: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.style.width = `${percent}%`;
+  }, [percent]);
+  return <span ref={ref} />;
+}
+
 function Timeline({ data }: { data: RunDetailOut }) {
   const stages = data.timeline?.stages ?? [];
   const longest = Math.max(1, ...stages.map((s) => s.seconds ?? 0));
@@ -104,7 +114,7 @@ function Timeline({ data }: { data: RunDetailOut }) {
               <li key={stage.name} className={`timeline__stage timeline__stage--${stage.status}`}>
                 <span className="timeline__name">{stage.name}</span>
                 <span className="timeline__status">{stage.status}</span>
-                <span className="timeline__bar" aria-hidden="true"><span style={{ width: `${Math.max(2, ((stage.seconds ?? 0) / longest) * 100)}%` }} /></span>
+                <span className="timeline__bar" aria-hidden="true"><Bar percent={Math.max(2, ((stage.seconds ?? 0) / longest) * 100)} /></span>
                 <span className="timeline__time">
                   {stage.seconds !== null ? formatSeconds(stage.seconds) : "time not recorded"}
                   {stage.started_at && <span className="hint"> · {new Date(stage.started_at).toLocaleTimeString()}{stage.finished_at ? `–${new Date(stage.finished_at).toLocaleTimeString()}` : ""}</span>}
@@ -122,21 +132,21 @@ function Config({ data }: { data: RunDetailOut }) {
   const c = data.config;
   if (!c) return null;
   const missing = <span className="hint">not recorded</span>;
-  const rows: [string, React.ReactNode][] = [
-    ["Field", <>{c.field_name}{c.field_version ? ` · version ${c.field_version}` : ""}</>],
+  const rows: [React.ReactNode, React.ReactNode][] = [
+    [<Term key="f" k="field_version">Field</Term>, <>{c.field_name}{c.field_version ? ` · version ${c.field_version}` : ""}</>],
     ["Topic", c.topic || missing],
     ["Sources", c.sources.length ? c.sources.map((s) => `${s.name} (up to ${s.max_results})`).join(", ") : <span className="hint">Europe PMC (legacy topic run)</span>],
     ["Review settings", c.settings_version ? `version ${c.settings_version}` : <span className="hint">none (legacy A/B review)</span>],
     ["Panel", c.panel.length ? c.panel.map((p) => `${p.name ?? p.key} v${p.version ?? "?"}`).join(", ") : <span className="hint">none</span>],
-    ["Mode", c.mode ?? missing],
+    [<Term key="m" k="demo_mode">Mode</Term>, c.mode ?? missing],
     ["Papers to screen", c.max_papers ?? missing],
-    ["Prompt version", c.prompt_version ?? missing],
+    [<Term key="p" k="prompt_version">Prompt version</Term>, c.prompt_version ?? missing],
   ];
   return (
     <section aria-labelledby="config-h" className="run-detail__block">
       <h2 id="config-h">Frozen configuration</h2>
       <dl className="config-list">
-        {rows.map(([term, value]) => <div key={term}><dt>{term}</dt><dd>{value}</dd></div>)}
+        {rows.map(([term, value], i) => <div key={i}><dt>{term}</dt><dd>{value}</dd></div>)}
         <div><dt>Models</dt><dd>{Object.keys(c.models).length ? (
           <ul className="plain">{Object.entries(c.models).map(([role, model]) => <li key={role}><span className="hint">{role}</span> {model}</li>)}</ul>
         ) : missing}</dd></div>

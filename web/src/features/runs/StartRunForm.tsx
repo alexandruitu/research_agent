@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import { ApiError } from "../../api/client";
 import { useFields, useStartRun } from "../../api/hooks";
+import { TermHint } from "../../components/ui/Term";
 
 export const MAX_PAPERS = 12;
 
@@ -42,7 +43,7 @@ export function StartRunForm({ onStarted, initialFieldId = "" }: { onStarted: (j
       <label>Papers to screen
         <input inputMode="numeric" value={papers} onChange={(e) => setPapers(e.target.value)} />
       </label>
-      <label className="check"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Demo mode (no model calls)</label>
+      <span className="check-with-term"><label className="check"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Demo mode (no model calls)</label><TermHint k="demo_mode" /></span>
       <button type="submit" disabled={start.isPending}>Start run</button>
       {problem && <p role="alert" className="form-error">{problem}</p>}
     </form>

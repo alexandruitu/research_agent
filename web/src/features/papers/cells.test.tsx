@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { lostRow, paperRow } from "../../test/fixtures";
@@ -125,6 +125,7 @@ describe("provisional scores", () => {
     const { PanelScoreCell } = await import("./cells");
     render(<PanelScoreCell score={90} coverage={0.3} provisional={true} answered={3} total={10} />);
     const marker = screen.getByRole("button", { name: "provisional" });
+    fireEvent.focus(marker);
     expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Only 3 of 10 checklist items could be answered (abstract only) — upload the full text to firm this up");
     expect(marker).toHaveAttribute("aria-describedby", screen.getByRole("tooltip", { hidden: true }).id);
     // the number stays (Detailed view) but is de-emphasised, never the big figure

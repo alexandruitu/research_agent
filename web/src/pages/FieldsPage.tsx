@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Skeleton } from "../components/ui/Skeleton";
 import { shortDate, sourceLabel } from "../features/fields/labels";
+import { Term } from "../components/ui/Term";
 
 const criteriaText = (field: FieldOut) => {
   const current = field.current;
@@ -56,7 +57,7 @@ export function FieldsPage() {
       ) : (
         <table className="runs">
           <thead>
-            <tr><th scope="col">Field</th><th scope="col">Version</th><th scope="col">Criteria</th><th scope="col">Sources</th><th scope="col">Last run</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+            <tr><th scope="col">Field</th><th scope="col"><Term k="field_version">Version</Term></th><th scope="col"><Term k="criterion">Criteria</Term></th><th scope="col">Sources</th><th scope="col">Last run</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
             {rows.map((field) => (

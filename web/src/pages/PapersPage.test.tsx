@@ -113,9 +113,9 @@ describe("PapersPage", () => {
     const { calls } = setup();
     await screen.findByRole("table");
     const header = screen.getByRole("columnheader", { name: /Criteria/ });
-    await userEvent.click(within(header).getByRole("button"));
+    await userEvent.click(within(header).getByRole("button", { name: /^Criteria/ }));
     expect(header).toHaveAttribute("aria-sort", "ascending");
-    await userEvent.click(within(header).getByRole("button"));
+    await userEvent.click(within(header).getByRole("button", { name: /^Criteria/ }));
     expect(header).toHaveAttribute("aria-sort", "descending");
     const last = calls.filter((c) => c.path.endsWith("/papers")).at(-1)!;
     expect(new URLSearchParams(last.search).get("sort")).toBe("criterion:topic_match");

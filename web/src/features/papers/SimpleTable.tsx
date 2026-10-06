@@ -3,6 +3,7 @@ import { CriteriaLine } from "./cells";
 import { QUALITY_ICON, QUALITY_LABEL } from "./groups";
 import { LibraryBadge } from "./PaperTable";
 import { whySentence } from "./why";
+import { Term } from "../../components/ui/Term";
 
 type Props = {
   rows: PaperRow[];
@@ -31,7 +32,7 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
             )}
             <th scope="col" className="col-paper">Paper</th>
             <th scope="col">Group</th>
-            <th scope="col">Criteria</th>
+            <th scope="col"><Term k="criterion">Criteria</Term></th>
             <th scope="col" className="col-why">Why</th>
             <th scope="col">Library</th>
           </tr>
