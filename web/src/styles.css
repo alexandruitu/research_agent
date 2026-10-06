@@ -989,7 +989,8 @@ table.papers td.col-criteria { min-width: 15rem; }
 .crit-tip .tip-trigger:hover .crit-line, .crit-tip .tip-trigger[aria-expanded="true"] .crit-line { border-bottom-style: solid; }
 /* Simple view */
 .papers--simple .col-paper { min-width: 22rem; max-width: 34rem; }
-.papers--simple .col-why { min-width: 18rem; max-width: 36rem; font-family: var(--serif); font-size: 14px; line-height: 1.4; color: var(--ink); }
+.papers--simple .col-why { min-width: 18rem; max-width: 36rem; }
+.papers--simple td.col-why { font-family: var(--serif); font-size: 14px; line-height: 1.4; color: var(--ink); }
 .group-tag { display: inline-flex; gap: 4px; align-items: baseline; white-space: nowrap; font-weight: 500; }
 .group-tag--read_first .group-tag { color: var(--ok-fg); }
 .group-tag--has_problems .group-tag { color: var(--bad-fg); }
@@ -1018,3 +1019,4 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .check-with-term { display: inline-flex; align-items: center; gap: 2px; }
 .terms-line { display: flex; flex-wrap: wrap; gap: 0 var(--s2); }
 .term-q::before { content: "?"; }
+.papers--simple .lib-badge { white-space: nowrap; }

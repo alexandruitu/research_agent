@@ -148,7 +148,7 @@ describe("compact criteria line", () => {
     expect(screen.getByRole("button", { name: /dropped by incl 1/ })).toBeInTheDocument();
     await userEvent.tab();
     const tip = screen.getByRole("tooltip");
-    expect(within(tip).getByText(/Uses deep learning/)).toHaveTextContent("incl 1 Uses deep learning.: fails · Jev p 0.01 · ◆ decided");
+    expect(within(tip).getByText(/Uses deep learning/)).toHaveTextContent("incl 1 Uses deep learning. — fails · Jev p 0.01 · ◆ decided");
     expect(within(tip).getAllByRole("listitem")).toHaveLength(3);
   });
 });

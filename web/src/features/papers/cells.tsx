@@ -119,7 +119,7 @@ export function CriteriaLine({ screen, texts = {} }: { screen: Screen; texts?: R
       <ul aria-label="Criteria values">
         {lines.map((l) => (
           <li key={l.key}>
-            <strong>{criterionLabel(l.key)}</strong>{texts[l.key] ? ` ${texts[l.key]}` : ""}: {STATE_WORD[l.state]}
+            <strong>{criterionLabel(l.key)}</strong>{texts[l.key] ? ` ${texts[l.key]}` : ""} — <strong>{STATE_WORD[l.state]}</strong>
             {l.jevP !== null && ` · Jev p ${l.jevP.toFixed(2)}`}{l.llm && ` · LLM ${l.llm}`}{l.decided && " · ◆ decided"}
           </li>
         ))}
