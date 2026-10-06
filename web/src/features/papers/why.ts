@@ -51,9 +51,11 @@ export type WhyContext = {
 };
 
 function droppedPart(screen: Screen, ctx: WhyContext): string {
-  const key = screen.decided_by;
+  const lines = criterionLines(screen);
+  // legacy runs have one criterion (topic match) and no decided_by: that criterion decided
+  const key = screen.decided_by ?? (lines.length === 1 ? lines[0]!.key : null);
   if (!key) return "Dropped by screening; no single criterion decided";
-  const line = criterionLines(screen).find((l) => l.key === key);
+  const line = lines.find((l) => l.key === key);
   const text = ctx.texts?.[key];
   const name = text ? `‘${text.replace(/\.$/, "")}’` : criterionLabel(key);
   const what = line?.kind === "exclude" ? `matches the exclusion ${name}` : `doesn't meet ${name}`;

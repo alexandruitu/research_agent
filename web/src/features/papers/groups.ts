@@ -16,6 +16,9 @@ export const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
 /** Icons are decoration next to the group's name, never its only signal. */
 export const QUALITY_ICON: Record<string, string> = { read_first: "★", worth_a_look: "◐", has_problems: "⚑", not_relevant: "⊘", not_reviewed: "○" };
 
+/** The quality group's name as the API labels it (rows carry the key only). */
+export const QUALITY_LABEL: Record<string, string> = { read_first: "Read first", worth_a_look: "Worth a look", has_problems: "Has problems", not_relevant: "Not relevant", not_reviewed: "Not reviewed" };
+
 const SPECIAL = new Set(["none", "kept", "not_screened", "unattributed", "not_saved"]);
 
 /** The header name of a group: the server's label for quality and special keys, readable labels otherwise. */

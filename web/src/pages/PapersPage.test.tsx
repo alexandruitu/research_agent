@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
 import { lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID, versionOut } from "../test/fixtures";
@@ -9,7 +9,10 @@ import { mockApi } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { PapersPage } from "./PapersPage";
 
+/** Most tests here cover the Detailed view (the full table); the Simple view has its own tests below. */
+beforeEach(() => localStorage.setItem("papers.view.11111111-1111-4111-8111-111111111111", "detailed"));
 afterEach(() => {
+  localStorage.clear();
   vi.unstubAllGlobals();
   setCsrfToken(null);
 });
@@ -236,5 +239,35 @@ describe("PapersPage · peer-review columns", () => {
     setup();
     expect(await screen.findByRole("columnheader", { name: "Reviewers A / B" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Has red flags" })).not.toBeInTheDocument();
+  });
+});
+
+describe("PapersPage · Simple and Detailed view", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("starts in the Simple view: paper, group, criteria, why and library", async () => {
+    setup({}, flat(`/?run=${RUN_ID}`));
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Group", "Criteria", "Why", "Library"]);
+    expect(within(table).getByText("Dropped: doesn't meet topic match (LLM).")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Simple" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("v switches to the Detailed view and the choice is remembered for this user", async () => {
+    setup({}, flat(`/?run=${RUN_ID}`));
+    await screen.findByRole("columnheader", { name: "Why" });
+    await userEvent.keyboard("v");
+    expect(await screen.findByRole("columnheader", { name: /Decision/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Detailed" })).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("papers.view.11111111-1111-4111-8111-111111111111")).toBe("detailed");
+    await userEvent.click(screen.getByRole("button", { name: "Simple" }));
+    expect(await screen.findByRole("columnheader", { name: "Why" })).toBeInTheDocument();
+  });
+
+  it("lists v in the shortcuts sheet", async () => {
+    setup({}, flat(`/?run=${RUN_ID}`));
+    await screen.findByRole("table");
+    await userEvent.keyboard("?");
+    expect(within(screen.getByRole("dialog")).getByText("Switch between the Simple and Detailed view")).toBeInTheDocument();
   });
 });

@@ -987,3 +987,17 @@ table.papers td.col-criteria { min-width: 15rem; }
 .crit-line--bad { color: var(--bad-fg); }
 .crit-line--warn { color: var(--warn-fg); }
 .crit-tip .tip-trigger:hover .crit-line, .crit-tip .tip-trigger[aria-expanded="true"] .crit-line { border-bottom-style: solid; }
+/* Simple view */
+.papers--simple .col-paper { min-width: 22rem; max-width: 34rem; }
+.papers--simple .col-why { min-width: 18rem; max-width: 36rem; font-family: var(--serif); font-size: 14px; line-height: 1.4; color: var(--ink); }
+.group-tag { display: inline-flex; gap: 4px; align-items: baseline; white-space: nowrap; font-weight: 500; }
+.group-tag--read_first .group-tag { color: var(--ok-fg); }
+.group-tag--has_problems .group-tag { color: var(--bad-fg); }
+.group-tag--worth_a_look .group-tag { color: var(--warn-fg); }
+.group-tag--not_relevant .group-tag, .group-tag--not_reviewed .group-tag { color: var(--ink-2); }
+.row-save { padding: 2px 10px; font-size: 13px; }
+.view-toggle { display: inline-flex; border: 1px solid var(--rule-2); border-radius: var(--r2); overflow: hidden; align-self: end; }
+.view-toggle button { border: 0; border-radius: 0; padding: 5px 12px; background: var(--card); }
+.view-toggle button + button { border-left: 1px solid var(--rule-2); }
+.view-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.view-toggle-wrap { display: grid; gap: 2px; font-size: 12px; color: var(--ink-2); }

@@ -21,6 +21,8 @@ import { FilterBar, type CriterionOption } from "../features/papers/FilterBar";
 import { GROUP_BY_OPTIONS } from "../features/papers/groups";
 import { PaperGroups } from "../features/papers/PaperGroups";
 import { PaperTable } from "../features/papers/PaperTable";
+import { SimpleTable } from "../features/papers/SimpleTable";
+import { readViewMode, writeViewMode, type ViewMode } from "../features/papers/viewMode";
 import { parseView, patchView } from "../features/papers/papersState";
 import { PapersSidePanel } from "../features/papers/PapersSidePanel";
 import { SaveDialog } from "../features/library/SaveDialog";
@@ -35,6 +37,7 @@ export const PAPERS_SHORTCUTS = [
   { keys: ["x"], what: "Select or unselect it" },
   { keys: ["s"], what: "Save the selection (or this paper) to the library" },
   { keys: ["1", "2", "3", "4"], what: "Library status of a saved paper: to read, read, relevant, rejected" },
+  { keys: ["v"], what: "Switch between the Simple and Detailed view" },
   { keys: ["Esc"], what: "Close the side panel" },
   { keys: ["?"], what: "This list" },
 ];
@@ -51,7 +54,14 @@ export function PapersPage() {
   const [help, setHelp] = useState(false);
   const keysRef = useRef<ShortcutMap>({});
   const relay = (key: string) => (event: KeyboardEvent) => keysRef.current[key]?.(event);
-  useShortcuts(Object.fromEntries(["j", "k", "o", "x", "s", "1", "2", "3", "4", "?"].map((key) => [key, relay(key)])));
+  useShortcuts(Object.fromEntries(["j", "k", "o", "x", "s", "v", "1", "2", "3", "4", "?"].map((key) => [key, relay(key)])));
+  const userId = user?.id ?? "anonymous";
+  const [mode, setModeState] = useState<{ userId: string; mode: ViewMode }>(() => ({ userId, mode: readViewMode(userId) }));
+  const viewMode = mode.userId === userId ? mode.mode : readViewMode(userId);
+  const setMode = (next: ViewMode) => {
+    setModeState({ userId, mode: next });
+    writeViewMode(userId, next);
+  };
   const view = parseView(search);
   const grouped = view.groupBy !== "none";
   // Grouped view: each open group reports its rows so j/k/x/s and the selection span every group, in order.
@@ -78,6 +88,7 @@ export function PapersPage() {
     ? [...version.data.include, ...version.data.exclude, ...version.data.legacy]
     : [...new Set(rows.flatMap((row) => screenKeys(row.screen)))].map((key) => ({ key, text: "" }));
   const legacy = !criteria.some((c) => isFieldCriterion(c.key));
+  const texts = Object.fromEntries(criteria.filter((c) => c.text).map((c) => [c.key, c.text]));
   const change = (changes: Parameters<typeof patchView>[1], reset = true) => setSearch(patchView(search, changes, reset));
   const close = () => {
     const open = view.paperId;
@@ -133,8 +144,25 @@ export function PapersPage() {
       if (selectedIds.size > 0 || cursorRow) setSaving(true);
     },
     "1": statusKey(0), "2": statusKey(1), "3": statusKey(2), "4": statusKey(3),
+    v: () => setMode(viewMode === "simple" ? "detailed" : "simple"),
     "?": () => setHelp(true),
   };
+  const saveOne = member ? (paperId: string) => { setSelected(new Set([paperId])); setSaving(true); } : null;
+  const table = (items: PaperRow[], onToggleAll: (on: boolean) => void) => viewMode === "simple" ? (
+    <SimpleTable
+      rows={items} texts={texts} selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)} cursorId={cursor} onSave={saveOne}
+      selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll } : null}
+    />
+  ) : (
+    <PaperTable
+      rows={items} legacy={legacy} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
+      onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
+      selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
+      selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
+      selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll } : null}
+      cursorId={cursor}
+    />
+  );
   const chips = activeFilterChips(view, criteria);
 
   const counts = run.data?.counts;
@@ -163,6 +191,13 @@ export function PapersPage() {
             {GROUP_BY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
+        <div className="view-toggle-wrap">
+          <span id="view-toggle-label">View</span>
+          <div className="view-toggle" role="group" aria-labelledby="view-toggle-label">
+            <button type="button" aria-pressed={viewMode === "simple"} onClick={() => setMode("simple")}>Simple</button>
+            <button type="button" aria-pressed={viewMode === "detailed"} onClick={() => setMode("detailed")}>Detailed</button>
+          </div>
+        </div>
         {counts && (
           <p className="summary">
             {counts.screened} screened · {counts.kept} kept · {counts.dropped} dropped · {counts.escalated} escalated to the LLM{counts.in_sr !== null ? ` · ${counts.in_sr} in the SR` : ""}
@@ -198,18 +233,9 @@ export function PapersPage() {
             ) : (
               <ErrorBoundary label="the paper groups">
                 <PaperGroups
-                  runId={runId} by={view.groupBy === "none" ? "quality" : view.groupBy} params={params} userId={user?.id ?? "anonymous"}
+                  runId={runId} by={view.groupBy === "none" ? "quality" : view.groupBy} params={params} userId={userId}
                   onRows={onRows} onGroups={onGroups}
-                  renderTable={(groupItems) => (
-                    <PaperTable
-                      rows={groupItems} legacy={legacy} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
-                onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
-                selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
-                selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
-                cursorId={cursor}
-                      selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll: (on) => toggleAll(on, groupItems) } : null}
-                    />
-                  )}
+                  renderTable={(groupItems) => table(groupItems, (on) => toggleAll(on, groupItems))}
                 />
               </ErrorBoundary>
             )
@@ -229,15 +255,7 @@ export function PapersPage() {
             )
           ) : (
             <ErrorBoundary label="the paper table">
-              <PaperTable
-                legacy={legacy}
-                rows={papers.data.items} stages={stages.data ?? []} sort={view.params.sort} direction={view.params.direction}
-                onSort={(sort) => change({ sort, dir: view.params.sort === sort && view.params.direction === "asc" ? "desc" : "asc" })}
-                selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)}
-                selectedStageId={view.stageId} onSelectStage={(stage) => change({ stage: view.stageId === stage ? null : stage }, false)}
-                selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll: toggleAll } : null}
-                cursorId={cursor}
-              />
+              {table(papers.data.items, (on) => toggleAll(on))}
             </ErrorBoundary>
           )}
           <nav className="pager" aria-label="Pages">

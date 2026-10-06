@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../../api/client";
 import { fakeXhr } from "../../test/fakeXhr";
@@ -11,7 +11,10 @@ import { renderWithProviders } from "../../test/render";
 import { PapersPage } from "../../pages/PapersPage";
 import { StagePanel } from "./StagePanel";
 
+/** Most tests here cover the Detailed view (the full table); the Simple view has its own tests below. */
+beforeEach(() => localStorage.setItem("papers.view.11111111-1111-4111-8111-111111111111", "detailed"));
 afterEach(() => {
+  localStorage.clear();
   vi.unstubAllGlobals();
   setCsrfToken(null);
 });
