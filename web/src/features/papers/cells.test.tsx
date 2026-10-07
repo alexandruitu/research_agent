@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { lostRow, paperRow } from "../../test/fixtures";
 import type { PaperRow } from "../../api/types";
-import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell } from "./cells";
+import { CriteriaCell, DecisionCell, RedFlagsCell, ExtractCellView, FoundByCell, InSrCell, ReviewsCellView, ScoreCell } from "./cells";
 
 describe("tri-state cells", () => {
   it("shows a labelled dash when the stage does not apply", () => {
@@ -150,5 +150,17 @@ describe("compact criteria line", () => {
     const tip = screen.getByRole("tooltip");
     expect(within(tip).getByText(/Uses deep learning/)).toHaveTextContent("incl 1 Uses deep learning. — fails · Jev p 0.01 · ◆ decided");
     expect(within(tip).getAllByRole("listitem")).toHaveLength(3);
+  });
+});
+
+describe("red flags cell", () => {
+  it("names the problem, never the positive checklist item", () => {
+    render(<RedFlagsCell count={2} flags={["No external validation", "Data not split by patient"]} />);
+    expect(screen.getByText(/No external validation/)).toBeInTheDocument();
+    expect(screen.getByText("+1 more")).toBeInTheDocument();
+  });
+  it("falls back to the count without texts", () => {
+    render(<RedFlagsCell count={1} />);
+    expect(screen.getByText("⚑ 1 red flag")).toBeInTheDocument();
   });
 });

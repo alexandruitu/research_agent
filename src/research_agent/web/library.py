@@ -107,7 +107,17 @@ def build_snapshot(db, run, paper):
             "text_source": panel["text_source"],
             "text_licence": panel["text_licence"],
             "editor": {"verdict": panel["editor"]["verdict"], "reason": panel["editor"]["reason"]},
-            "red_flags": [{"text": f["text"], "source": f["source"]} for f in panel["red_flags"]],
+            "red_flags": [
+                {
+                    "text": f["text"],
+                    "item_text": f["item_text"],
+                    "source": f["source"],
+                    # the first supporting quote, so the snapshot shows the evidence with the problem
+                    "quote": f["raised_by"][0]["quote"] if f["raised_by"] else "",
+                    "section": f["raised_by"][0]["section"] if f["raised_by"] else "",
+                }
+                for f in panel["red_flags"]
+            ],
             "reviewers": [
                 {k: r[k] for k in ("key", "name", "version", "verdict", "score", "summary")}
                 for r in panel["reviews"]

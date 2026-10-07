@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from research_agent.web.db.models import Paper, PaperReview
+from research_agent.web.db.models import Paper, PaperReview, RedFlag
 
 
 def page(client, run_id, **params):
@@ -73,6 +73,22 @@ def test_panel_rows_use_the_editor_verdict_and_red_flags(sign_in, imported, db):
     got = rows(viewer, imported["research"])
     for source_id, (_, _, expected) in zip(kept, cases, strict=False):
         assert got[source_id]["group"] == expected, (source_id, expected)
+
+
+def test_rows_carry_red_flag_problem_texts(sign_in, imported, db):
+    viewer, _ = sign_in("viewer")
+    source_id = next(
+        s for s, r in rows(viewer, imported["research"]).items() if r["screen"]["decision"] != "exclude"
+    )
+    review(db, imported["research"], source_id, "include", 1)
+    paper = db.scalar(select(Paper).where(Paper.source_id == source_id))
+    pr = db.scalar(select(PaperReview).where(PaperReview.paper_id == paper.id))
+    item = "The model was tested on external data."
+    db.add(RedFlag(paper_review_id=pr.id, text="No external validation", item_text=item, raised_by=[]))
+    db.commit()
+    row = rows(viewer, imported["research"])[source_id]
+    assert row["red_flags"] == ["No external validation"]
+    assert item not in row["red_flags"]  # never the positive item text alone
 
 
 def test_filtering_on_one_quality_group(sign_in, imported):

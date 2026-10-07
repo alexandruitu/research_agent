@@ -61,7 +61,8 @@ def test_paper_score_is_the_mean_and_red_flags_are_grouped():
     assert result["coverage"] == round(6 / 12, 4)
     assert result["red_flags"] == [
         {
-            "text": "Split by patient.",
+            "text": "Not met: Split by patient.",
+            "item_text": "Split by patient.",
             "source": "CLAIM 2020 #21",
             "raised_by": [
                 {"reviewer": "m", "item": "a", "answer": "no", "quote": "qa", "section": ""},
@@ -69,7 +70,8 @@ def test_paper_score_is_the_mean_and_red_flags_are_grouped():
             ],
         },
         {
-            "text": "Test set used for tuning.",
+            "text": "Concern: Test set used for tuning.",
+            "item_text": "Test set used for tuning.",
             "source": None,
             "raised_by": [{"reviewer": "m", "item": "b", "answer": "yes", "quote": "qb", "section": ""}],
         },
@@ -98,3 +100,31 @@ def test_ranking_uses_score_then_editor_verdict_and_skips_excluded_and_unscored(
         for i in range(15)
     }
     assert len(rank_panel(many)) == 10
+
+
+def test_red_flag_text_is_the_problem_not_the_positive_item():
+    items = [
+        {
+            "key": "a",
+            "text": "The model was tested on external data.",
+            "weight": 1,
+            "red_flag_if": "no",
+            "flag_text": "No external validation",
+        }
+    ]
+    reviews = {"m": {"answers": [{"key": "a", "answer": "no", "quote": "q", "section": "Methods"}]}}
+    flag = score_paper([{"key": "m", "items": items}], reviews)["red_flags"][0]
+    assert flag["text"] == "No external validation"
+    assert flag["item_text"] == "The model was tested on external data."
+    items[0].pop("flag_text")
+    flag = score_paper([{"key": "m", "items": items}], reviews)["red_flags"][0]
+    assert flag["text"] != items[0]["text"] and flag["text"].startswith("Not met: ")
+
+
+def test_flag_problem_text_rule():
+    from research_agent.scoring import flag_problem_text
+
+    assert flag_problem_text("X.", "no") == "Not met: X."
+    assert flag_problem_text("X.", "yes") == "Concern: X."
+    assert flag_problem_text("X.", "no", "Bad") == "Bad"
+    assert flag_problem_text("X.", "no", "  ") == "Not met: X."

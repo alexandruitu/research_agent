@@ -199,13 +199,19 @@ describe("drawer · peer review", () => {
     expect(step).toHaveTextContent("Methodologist and Statistician disagree on m1");
     expect(step).toHaveTextContent("⚑ 1 red flag");
     expect(step).toHaveTextContent("raised by Statistician");
+    const flags = step.querySelector(".red-flags")!;
+    expect(flags).toHaveTextContent("Data not split by patient");
+    expect(flags).toHaveTextContent("Evidence: “images were split 80/20”");
+    expect(flags).toHaveTextContent("Checklist item: Data were split at patient level, not image level.");
+    // regression: an item answered "no" never shows the positive item text as the flag itself
+    expect(flags.querySelector("li > strong")!.textContent).toBe("Data not split by patient");
 
     const reports = step.querySelectorAll("details");
     expect(reports).toHaveLength(2);
     await userEvent.click(within(step).getByText("Statistician", { selector: "summary strong" }));
     const table = within(step).getByRole("table", { name: "Statistician's checklist" });
     const m1 = within(table).getByRole("row", { name: /m1/ });
-    expect(m1).toHaveTextContent("✗ no ⚑ red flag");
+    expect(m1).toHaveTextContent("✗ no ⚑ red flag: Data not split by patient");
     expect(m1).toHaveTextContent("“images were split 80/20”Methods");
     expect(within(table).getByRole("row", { name: /s2/ })).toHaveTextContent("– not reportedno quote");
   });

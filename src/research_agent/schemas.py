@@ -228,6 +228,8 @@ class ChecklistItem(Model):
     source: str | None = Field(default=None, max_length=60)  # e.g. "CLAIM 2020 #21", "TRIPOD+AI 10"
     pass_if: Literal["yes", "no"] = "yes"  # "no" for items phrased negatively
     red_flag_if: Literal["yes", "no"] | None = None
+    # how a raised red flag reads, phrased as the problem (e.g. "No external validation"); optional
+    flag_text: str | None = Field(default=None, max_length=200)
 
 
 class ReviewerSpec(Model):

@@ -2,7 +2,7 @@ import type { ChecklistItemIn, ChecklistItemOut, ReviewerContent, ReviewerVersio
 
 /** Saved items back to the request shape (keys kept, so answers stay comparable across versions). */
 export const itemsIn = (items: ChecklistItemOut[]): ChecklistItemIn[] =>
-  items.map((i) => ({ key: i.key, text: i.text, weight: i.weight, source: i.source, pass_if: i.pass_if === "no" ? "no" : "yes", red_flag_if: i.red_flag_if === "yes" || i.red_flag_if === "no" ? i.red_flag_if : null }));
+  items.map((i) => ({ key: i.key, text: i.text, weight: i.weight, source: i.source, pass_if: i.pass_if === "no" ? "no" : "yes", red_flag_if: i.red_flag_if === "yes" || i.red_flag_if === "no" ? i.red_flag_if : null, flag_text: i.flag_text ?? null }));
 
 /** The next version of a reviewer with only the model changed. */
 export const withModel = (version: ReviewerVersionOut, model: string | null, note: string) => ({
@@ -16,6 +16,8 @@ export type RedFlagRule = "never" | "yes" | "no";
 
 export type ItemForm = {
   uid: string; key: string | null; text: string; weight: Weight; family: SourceFamily; ref: string; passIf: "yes" | "no"; redFlagIf: RedFlagRule;
+  /** How a raised red flag reads, phrased as the problem ("No external validation"); empty: generated. */
+  flagText: string;
 };
 export type ReviewerForm = { name: string; perspective: string; model: string | null; items: ItemForm[] };
 
@@ -40,7 +42,7 @@ export function joinSource(family: SourceFamily, ref: string): string | null {
   return text ? `${family} ${text}` : family;
 }
 
-export const emptyItem = (): ItemForm => ({ uid: uid(), key: null, text: "", weight: 1, family: "CLAIM", ref: "", passIf: "yes", redFlagIf: "never" });
+export const emptyItem = (): ItemForm => ({ uid: uid(), key: null, text: "", weight: 1, family: "CLAIM", ref: "", passIf: "yes", redFlagIf: "never", flagText: "" });
 
 export function formFromContent(content: ReviewerContent | ReviewerVersionOut): ReviewerForm {
   return {
@@ -48,6 +50,7 @@ export function formFromContent(content: ReviewerContent | ReviewerVersionOut): 
     items: content.items.map((i) => ({
       uid: uid(), key: i.key, text: i.text, weight: (Math.min(3, Math.max(1, i.weight)) as Weight), ...splitSource(i.source),
       passIf: i.pass_if === "no" ? "no" : "yes", redFlagIf: i.red_flag_if === "yes" || i.red_flag_if === "no" ? i.red_flag_if : "never",
+      flagText: i.flag_text ?? "",
     })),
   };
 }
@@ -60,6 +63,7 @@ export function toBody(form: ReviewerForm, note: string) {
     name: form.name.trim(), perspective: form.perspective.trim(), model: form.model, note: note.trim(),
     items: form.items.filter((i) => i.text.trim()).map((i): ChecklistItemIn => ({
       key: i.key, text: i.text.trim(), weight: i.weight, source: joinSource(i.family, i.ref), pass_if: i.passIf, red_flag_if: i.redFlagIf === "never" ? null : i.redFlagIf,
+      flag_text: i.flagText.trim() || null,
     })),
   };
 }
@@ -77,6 +81,7 @@ export function validateReviewer(form: ReviewerForm): string[] {
     const t = item.text.trim();
     if (t.length < 3) errors.push(`Item ${index + 1} is too short.`);
     if (t.length > 500) errors.push(`Item ${index + 1} is longer than 500 characters.`);
+    if (item.flagText.trim().length > 200) errors.push(`The red-flag wording of item ${index + 1} is longer than 200 characters.`);
     if ((joinSource(item.family, item.ref) ?? "").length > 60) errors.push(`The source of item ${index + 1} is longer than 60 characters.`);
   });
   return errors;

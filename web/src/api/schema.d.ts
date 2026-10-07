@@ -1394,6 +1394,8 @@ export interface components {
             pass_if: "yes" | "no";
             /** Red Flag If */
             red_flag_if?: ("yes" | "no") | null;
+            /** Flag Text */
+            flag_text?: string | null;
         };
         /** ChecklistItemOut */
         ChecklistItemOut: {
@@ -1409,6 +1411,8 @@ export interface components {
             pass_if: string;
             /** Red Flag If */
             red_flag_if: string | null;
+            /** Flag Text */
+            flag_text?: string | null;
         };
         /** ClaimOut */
         ClaimOut: {
@@ -2486,6 +2490,8 @@ export interface components {
             section: string;
             /** Red Flag */
             red_flag: boolean;
+            /** Flag */
+            flag?: string | null;
         };
         /** PanelOut */
         PanelOut: {
@@ -2640,6 +2646,8 @@ export interface components {
             coverage?: number | null;
             /** Red Flag Count */
             red_flag_count?: number | null;
+            /** Red Flags */
+            red_flags?: string[] | null;
             /** Text Source */
             text_source?: string | null;
             /** Text Licence */
@@ -2899,6 +2907,8 @@ export interface components {
         RedFlagOut: {
             /** Text */
             text: string;
+            /** Item Text */
+            item_text?: string | null;
             /** Source */
             source: string | null;
             /** Raised By */

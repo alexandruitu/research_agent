@@ -369,7 +369,7 @@ class ReviewerProfile(Base):
 
 
 class ReviewerVersion(Base):
-    """`items` = [{key, text, weight, source, pass_if, red_flag_if}] (research_agent.schemas.ChecklistItem)."""
+    """`items` = [{key, text, weight, source, pass_if, red_flag_if, flag_text}] (research_agent.schemas.ChecklistItem)."""
 
     __tablename__ = "reviewer_versions"
     __table_args__ = (UniqueConstraint("profile_id", "version"),)
@@ -493,7 +493,8 @@ class RedFlag(Base):
         Uuid, ForeignKey("paper_reviews.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(Integer, default=0)
-    text: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)  # the problem, e.g. "No external validation"
+    item_text: Mapped[str | None] = mapped_column(Text, nullable=True)  # the checklist item that raised it
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
     raised_by: Mapped[list] = mapped_column(JSONB, default=list)
 

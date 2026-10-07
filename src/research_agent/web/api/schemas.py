@@ -963,6 +963,7 @@ class PaperRow(Model):
             "score",
             "coverage",
             "red_flag_count",
+            "red_flags",
             "text_source",
             "text_licence",
             "library",
@@ -984,6 +985,7 @@ class PaperRow(Model):
     score: float | None = None  # 0-100, computed in code from the checklist answers
     coverage: float | None = None  # 0-1: share of checklist items answered yes or no
     red_flag_count: int | None = None
+    red_flags: list[str] | None = None  # the red flags as problems (null: no panel review)
     text_source: str | None = None  # a full-text resolver name, or abstract
     text_licence: str | None = (
         None  # cc-by.. | cc0 | open_access | publisher_licensed | user_upload | abstract
@@ -1077,6 +1079,8 @@ class PaperFileOut(Model):
 
 
 class PanelAnswerOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["flag"])
+
     key: str
     text: str | None  # the checklist item as the reviewer version states it (null: version unknown)
     source: str | None  # e.g. "CLAIM 2020 #21"
@@ -1085,6 +1089,7 @@ class PanelAnswerOut(Model):
     quote: str  # exact span of the text reviewed ("" when none)
     section: str  # section of the full text the quote comes from ("" when unknown)
     red_flag: bool  # this answer raises the item's red flag
+    flag: str | None = None  # the raised flag as a problem ("No external validation"); null when none
 
 
 class PanelReportOut(Model):
@@ -1123,7 +1128,10 @@ class RaisedByOut(Model):
 
 
 class RedFlagOut(Model):
-    text: str
+    ADDED: ClassVar[frozenset] = frozenset(["item_text"])
+
+    text: str  # the problem, e.g. "No external validation" (never the positively phrased item alone)
+    item_text: str | None = None  # the checklist item that raised it
     source: str | None
     raised_by: list[RaisedByOut]
 
@@ -1214,20 +1222,24 @@ class ChecklistItemIn(Model):
     source: str | None = Field(default=None, max_length=60, pattern=PLAIN)  # e.g. "CLAIM 2020 #21"
     pass_if: Literal["yes", "no"] = "yes"  # "no" for items phrased negatively
     red_flag_if: Literal["yes", "no"] | None = None
+    flag_text: str | None = Field(default=None, max_length=200, pattern=PLAIN)  # how a raised flag reads
 
-    @field_validator("text", "source", mode="before")
+    @field_validator("text", "source", "flag_text", mode="before")
     @classmethod
     def _strip(cls, value):
         return _stripped(value)
 
 
 class ChecklistItemOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["flag_text"])
+
     key: str
     text: str
     weight: int
     source: str | None
     pass_if: str
     red_flag_if: str | None
+    flag_text: str | None = None
 
 
 class ReviewerContent(Model):

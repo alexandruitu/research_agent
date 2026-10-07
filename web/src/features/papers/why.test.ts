@@ -41,7 +41,12 @@ describe("why sentence", () => {
     expect(whySentence(kept)).toBe("Kept: meets all 4 criteria; panel found 1 red flag; score provisional (3 of 10 checklist items answered); abstract only.");
   });
   it("names the red flags when the drawer knows them", () => {
-    expect(whySentence(kept, { redFlags: ["No external validation."] })).toContain("panel found 1 red flag (no external validation)");
+    expect(whySentence(kept, { redFlags: ["No external validation."] })).toContain("panel found 1 red flag (No external validation)");
+  });
+  it("uses the row's red flag problems, never the positive item text", () => {
+    const sentence = whySentence({ ...kept, red_flags: ["No external validation"] });
+    expect(sentence).toContain("panel found 1 red flag (No external validation)");
+    expect(sentence).not.toContain("validated on an external");
   });
   it("explains a dropped paper with the criterion text, who decided and the quote", () => {
     expect(whySentence(dropped, { texts: { i2: "Uses deep learning." } })).toBe(
@@ -68,6 +73,6 @@ describe("drawer why", () => {
     const { drawerOut, panelOut } = await import("../../test/fixtures");
     const { drawerWhy } = await import("./why");
     const drawer = drawerOut({ screening: { ...drawerOut().screening, tier: "jev", decision: "include", jev_decision: "include", llm_decision: null, criteria: [{ key: "topic_match", question: "", probability: 0.97, jev_version: "j" }] }, reviews: [], panel: panelOut() });
-    expect(drawerWhy(drawer)).toBe("Kept: meets the criterion; panel found 1 red flag (data were split at patient level, not image level); full text read.");
+    expect(drawerWhy(drawer)).toBe("Kept: meets the criterion; panel found 1 red flag (Data not split by patient); full text read.");
   });
 });

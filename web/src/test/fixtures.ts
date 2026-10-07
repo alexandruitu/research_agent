@@ -216,7 +216,7 @@ export const reviewerOut = (key = "methodologist", name = "Methodologist", over:
   current: {
     version: 2, name, perspective: `You judge the study as a ${name.toLowerCase()}. Focus on design.`, model: "anthropic:claude-sonnet-5",
     items: [
-      item(`${key[0]}1`, "Data were split at patient level, not image level.", { weight: 2, red_flag_if: "no", source: "CLAIM 21" }),
+      item(`${key[0]}1`, "Data were split at patient level, not image level.", { weight: 2, red_flag_if: "no", source: "CLAIM 21", flag_text: "Data not split by patient" }),
       item(`${key[0]}2`, "The model was validated on an external dataset.", { weight: 3, source: "TRIPOD+AI 12" }),
     ],
     note: "added external validation", imported: false, created_by_name: "Ada Admin", created_at: "2026-09-29T09:00:00Z", run_count: 1,
@@ -263,12 +263,12 @@ export const panelOut = (over: Partial<PanelOut> = {}): PanelOut => ({
       key: "statistician", name: "Statistician", version: 1, verdict: "uncertain", score: 50, coverage: 0.5, strengths: [], weaknesses: ["No confidence intervals"],
       summary: "Metrics lack uncertainty.", call_key: "2".repeat(64),
       answers: [
-        { key: "m1", text: "Data were split at patient level, not image level.", source: "CLAIM 21", weight: 2, answer: "no", quote: "images were split 80/20", section: "Methods", red_flag: true },
+        { key: "m1", text: "Data were split at patient level, not image level.", source: "CLAIM 21", weight: 2, answer: "no", quote: "images were split 80/20", section: "Methods", red_flag: true, flag: "Data not split by patient" },
         { key: "s2", text: "Metrics are reported with confidence intervals.", source: "CLAIM 29", weight: 1, answer: "not_reported", quote: "", section: "", red_flag: false },
       ],
     },
   ],
-  red_flags: [{ text: "Data were split at patient level, not image level.", source: "CLAIM 21", raised_by: [{ reviewer: "statistician", item: "m1", answer: "no", quote: "images were split 80/20", section: "Methods" }] }],
+  red_flags: [{ text: "Data not split by patient", item_text: "Data were split at patient level, not image level.", source: "CLAIM 21", raised_by: [{ reviewer: "statistician", item: "m1", answer: "no", quote: "images were split 80/20", section: "Methods" }] }],
   score: 65, coverage: 0.75, red_flag_count: 1,
   ...over,
 });
@@ -304,7 +304,7 @@ export const libraryDetail = (over: Partial<LibraryItemDetail> = {}): LibraryIte
     rank: null,
     panel: {
       score: 74, coverage: 0.8, red_flag_count: 1, text_source: "abstract", editor: { verdict: "include", reason: "Solid validation." },
-      red_flags: [{ text: "No external validation", source: "TRIPOD+AI 12" }],
+      red_flags: [{ text: "No external validation", item_text: "The model was validated on an external dataset.", source: "TRIPOD+AI 12", quote: "tested at the same hospital", section: "Methods" }],
       reviewers: [{ key: "methodologist", name: "Methodologist", version: 2, verdict: "include", score: 70, summary: "Adequate." }],
     },
     files: [],

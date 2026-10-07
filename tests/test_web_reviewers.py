@@ -12,7 +12,12 @@ def body(**changes):
         "model": None,
         "items": [
             {"text": "The imaging protocol is described.", "weight": 2, "source": "CLAIM 2020 #7"},
-            {"key": "r9", "text": "Readers were blinded.", "red_flag_if": "no"},
+            {
+                "key": "r9",
+                "text": "Readers were blinded.",
+                "red_flag_if": "no",
+                "flag_text": " Readers not blinded ",
+            },
             {"text": "Scanner vendors are named."},
         ],
         "note": "first",
@@ -48,7 +53,9 @@ def test_admin_creates_a_reviewer_with_generated_keys(sign_in):
         "source": "CLAIM 2020 #7",
         "pass_if": "yes",
         "red_flag_if": None,
+        "flag_text": None,
     }
+    assert data["current"]["items"][1]["flag_text"] == "Readers not blinded"
     assert data["current"]["created_by_name"] == "Admin"
     again = admin.post(f"{API}/reviewers", json=body(), headers=csrf).json()
     assert again["key"] == "radiologist_2"
@@ -69,6 +76,7 @@ def test_invalid_reviewers_are_refused(sign_in):
         body(name="line\nbreak"),
         body(key="9lives"),
         body(extra=1),
+        body(items=[{"text": "An item.", "flag_text": "x" * 201}]),
     ):
         assert admin.post(f"{API}/reviewers", json=bad, headers=csrf).status_code == 422, bad
 

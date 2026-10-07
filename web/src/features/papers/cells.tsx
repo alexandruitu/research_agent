@@ -200,10 +200,18 @@ export function PanelScoreCell({ score, coverage, provisional, answered, total }
   );
 }
 
-export function RedFlagsCell({ count }: { count: number | null | undefined }) {
+/** The red flags as a chip: the first problem in words ("⚑ No external validation"), then "+N more". */
+export function RedFlagsCell({ count, flags }: { count: number | null | undefined; flags?: string[] | null }) {
   if (count == null) return <NotApplicable />;
   if (count === 0) return <span className="sub">none</span>;
-  return <span className="chip chip--bad">⚑ {count} red flag{count === 1 ? "" : "s"}</span>;
+  const first = flags?.[0];
+  if (!first) return <span className="chip chip--bad">⚑ {count} red flag{count === 1 ? "" : "s"}</span>;
+  return (
+    <span className="chip chip--bad" title={flags!.join("; ")}>
+      <span aria-hidden="true">⚑</span> <span className="sr-only">Red flag: </span>{first}
+      {count > 1 && <span className="flag-chip-more">+{count - 1} more</span>}
+    </span>
+  );
 }
 
 export function TextSourceCell({ source }: { source: string | null | undefined }) {

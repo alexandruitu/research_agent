@@ -44,7 +44,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export type WhyContext = {
   /** Criterion key → its text, from the run's field version (falls back to "incl 2"). */
   texts?: Record<string, string>;
-  /** The panel's red flag texts (the drawer has them; table rows only carry the count). */
+  /** The panel's red flags as problems (defaults to the row's own `red_flags`). */
   redFlags?: string[];
   /** Longest quote kept in the sentence; the drawer passes Infinity. */
   maxQuote?: number;
@@ -72,7 +72,8 @@ function panelParts(row: PaperRow, ctx: WhyContext): string[] {
   if (flags != null) {
     if (flags === 0) parts.push("panel found no red flags");
     else {
-      const names = (ctx.redFlags ?? []).map((t) => t.replace(/\.$/, "").toLowerCase());
+      // problem phrasings ("No external validation"), never the positively phrased checklist item
+      const names = (ctx.redFlags ?? row.red_flags ?? []).map((t) => t.replace(/\.$/, ""));
       parts.push(`panel found ${plural(flags, "red flag")}${names.length ? ` (${names.join("; ")})` : ""}`);
     }
   } else if (row.reviews && !("missing" in row.reviews)) {

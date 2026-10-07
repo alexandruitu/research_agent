@@ -58,6 +58,14 @@ function ItemEditor({ item, index, count, onChange, onMove, onRemove }: {
             <option value="yes">yes</option>
           </select>
         </label>
+        {item.redFlagIf !== "never" && (
+          <label className="flag-wording">Red-flag wording
+            <input value={item.flagText} maxLength={200} onChange={(e) => onChange({ flagText: e.target.value })}
+              placeholder={item.redFlagIf === "no" ? "e.g. No external validation" : "e.g. Test set used for tuning"}
+              aria-label={`Red-flag wording for ${name.toLowerCase()}`} aria-describedby={`${id}-flag-hint`} />
+            <span className="hint" id={`${id}-flag-hint`}>Name the problem, not the item. Left empty, the flag reads “{item.redFlagIf === "no" ? "Not met" : "Concern"}: {item.text.trim() || "the item"}”.</span>
+          </label>
+        )}
         <label>Source
           <select value={item.family} onChange={(e) => onChange({ family: e.target.value as SourceFamily })} aria-label={`Source checklist for ${name.toLowerCase()}`}>
             {SOURCE_FAMILIES.map((f) => <option key={f} value={f}>{FAMILY_LABEL[f]}</option>)}

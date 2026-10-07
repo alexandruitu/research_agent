@@ -85,6 +85,8 @@ describe("LibraryPage", () => {
     expect(await within(pane).findByText(/We trained a CNN/)).toBeInTheDocument();
     await userEvent.click(within(pane).getByRole("button", { name: "Evidence" }));
     expect(within(pane).getByText("No external validation")).toBeInTheDocument();
+    expect(pane).toHaveTextContent("Evidence: “tested at the same hospital”Methods");
+    expect(pane).toHaveTextContent("Checklist item: The model was validated on an external dataset.");
     expect(within(pane).getByText("include")).toBeInTheDocument();
     await userEvent.click(within(pane).getByRole("button", { name: /History/ }));
     expect(within(pane).getByText("Admin changed the status from to read to read.")).toBeInTheDocument();

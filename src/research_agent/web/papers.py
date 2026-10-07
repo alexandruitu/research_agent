@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import aliased
 
 from ..agents import validate_evidence
+from ..scoring import flag_problem_text
 from .db.models import (
     Criterion,
     CriterionScore,
@@ -461,8 +462,18 @@ def paper_table(db, run, q):
         )
         for s, p, va, vb, vj, da, db_, score, position, label, *panel in rows
     ]
+    flags = defaultdict(list)  # paper id -> the problem texts of its red flags, in report order
+    if items:
+        for paper_id, text in db.execute(
+            select(PaperReview.paper_id, RedFlag.text)
+            .join(RedFlag, RedFlag.paper_review_id == PaperReview.id)
+            .where(PaperReview.run_id == run.id, PaperReview.paper_id.in_([r[1].id for r in rows]))
+            .order_by(RedFlag.position)
+        ):
+            flags[paper_id].append(text)
     for item in items:
         item["library"] = refs.get(item["paper"]["id"])
+        item["red_flags"] = flags[item["paper"]["id"]] if item["red_flag_count"] is not None else None
     return items, total
 
 
@@ -572,6 +583,7 @@ def paper_drawer(db, run, paper):
 def _answer(item, answer):
     """A reviewer's answer with the item it answers (text, source, weight from the reviewer version)."""
     item = item or {}
+    raised = item.get("red_flag_if") is not None and answer["answer"] == item.get("red_flag_if")
     return {
         "key": answer["key"],
         "text": item.get("text"),
@@ -580,7 +592,11 @@ def _answer(item, answer):
         "answer": answer["answer"],
         "quote": answer.get("quote", ""),
         "section": answer.get("section", ""),
-        "red_flag": item.get("red_flag_if") is not None and answer["answer"] == item.get("red_flag_if"),
+        "red_flag": raised,
+        # how the raised flag reads: the problem, not the item (null when this answer raises none)
+        "flag": flag_problem_text(item["text"], item["red_flag_if"], item.get("flag_text"))
+        if raised
+        else None,
     }
 
 
@@ -633,6 +649,7 @@ def panel_drawer(db, run, paper):
         "red_flags": [
             {
                 "text": f.text,
+                "item_text": f.item_text,
                 "source": f.source,
                 "raised_by": [
                     {k: r.get(k, "") for k in ("reviewer", "item", "answer", "quote", "section")}

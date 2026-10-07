@@ -21,8 +21,8 @@ describe("reviewer form", () => {
     expect(toBody(form, " why ")).toEqual({
       name: "Methodologist", perspective: reviewerOut().current.perspective, model: "anthropic:claude-sonnet-5", note: "why",
       items: [
-        { key: "m1", text: "Data were split at patient level, not image level.", weight: 2, source: "CLAIM 21", pass_if: "yes", red_flag_if: "no" },
-        { key: "m2", text: "The model was validated on an external dataset.", weight: 3, source: "TRIPOD+AI 12", pass_if: "yes", red_flag_if: null },
+        { key: "m1", text: "Data were split at patient level, not image level.", weight: 2, source: "CLAIM 21", pass_if: "yes", red_flag_if: "no", flag_text: "Data not split by patient" },
+        { key: "m2", text: "The model was validated on an external dataset.", weight: 3, source: "TRIPOD+AI 12", pass_if: "yes", red_flag_if: null, flag_text: null },
       ],
     });
   });
@@ -31,6 +31,8 @@ describe("reviewer form", () => {
     const form = { name: "", perspective: "short", model: null, items: [{ ...emptyItem(), text: "ab" }] };
     expect(validateReviewer(form)).toEqual(["Give the reviewer a name.", "Describe the perspective in at least 10 characters.", "Item 1 is too short."]);
     expect(validateReviewer({ ...form, name: "X", perspective: "A long enough perspective", items: [] })).toEqual(["Add at least one checklist item."]);
+    expect(validateReviewer({ ...form, name: "X", perspective: "A long enough perspective", items: [{ ...emptyItem(), text: "abc", flagText: "x".repeat(201) }] }))
+      .toEqual(["The red-flag wording of item 1 is longer than 200 characters."]);
   });
 
   it("previews only the perspective and each item's key and text", () => {

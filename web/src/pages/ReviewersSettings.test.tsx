@@ -130,6 +130,8 @@ describe("Reviewer editor", () => {
     const weights = screen.getByRole("group", { name: "Weight of item 3" });
     await userEvent.click(within(weights).getByRole("radio", { name: /3 · high/ }));
     await userEvent.selectOptions(screen.getByLabelText("Red flag rule for item 3"), "no");
+    expect(screen.getByText(/Left empty, the flag reads “Not met: The reference standard is described.”/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Red-flag wording for item 3"), "Reference standard not described");
     await userEvent.selectOptions(screen.getByLabelText("Source checklist for item 3"), "TRIPOD+AI");
     await userEvent.type(screen.getByLabelText("Source reference for item 3"), "9");
     await userEvent.click(screen.getByRole("button", { name: "Move Item 3 up" }));
@@ -139,7 +141,7 @@ describe("Reviewer editor", () => {
       const body = calls.find((c) => c.path === "/api/v1/reviewers/methodologist/versions")?.body as { items: unknown[]; base_version: number; note: string };
       expect(body.base_version).toBe(2);
       expect(body.note).toBe("reference standard");
-      expect(body.items[1]).toEqual({ key: null, text: "The reference standard is described.", weight: 3, source: "TRIPOD+AI 9", pass_if: "yes", red_flag_if: "no" });
+      expect(body.items[1]).toEqual({ key: null, text: "The reference standard is described.", weight: 3, source: "TRIPOD+AI 9", pass_if: "yes", red_flag_if: "no", flag_text: "Reference standard not described" });
     });
   });
 

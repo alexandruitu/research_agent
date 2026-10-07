@@ -1,7 +1,40 @@
 """Default review panel (seeded into the web app, editable there). Item tags name the CLAIM 2020 or
-TRIPOD+AI item each question comes from; weights 1-3; red_flag_if marks answers that must be surfaced."""
+TRIPOD+AI item each question comes from; weights 1-3; red_flag_if marks answers that must be surfaced,
+flag_text says how such a flag reads (the problem, not the item)."""
 
 import copy
+
+FLAG_TEXT = {
+    "m1": "Study design or data sources not stated",
+    "m2": "Eligibility criteria not stated",
+    "m3": "Data not split by patient (possible leakage)",
+    "m4": "Data partitioning not described",
+    "m5": "No external validation",
+    "m6": "Reference standard not defined",
+    "m7": "Annotators not described",
+    "m8": "Preprocessing may have seen test data",
+    "m9": "Test set used for model selection or tuning",
+    "m10": "Missing data not described",
+    "c1": "Clinical question not stated",
+    "c2": "Population does not match the intended use",
+    "c3": "Patient characteristics not reported",
+    "c4": "Reference standard not the one used in practice",
+    "c5": "Imaging acquisition not described",
+    "c6": "No comparison with clinicians or standard of care",
+    "c7": "Model failures not analysed",
+    "c8": "Clinical workflow not discussed",
+    "c9": "Limitations not discussed",
+    "s1": "No confidence intervals for performance",
+    "s2": "Sample size not justified",
+    "s3": "Patient and image counts not reported",
+    "s4": "Calibration not assessed",
+    "s5": "Missing data not quantified",
+    "s6": "No subgroup performance",
+    "s7": "Statistical tests not named",
+    "s8": "Class imbalance not addressed",
+    "s9": "Threshold may have been tuned on the test set",
+    "s10": "No robustness or sensitivity analysis",
+}
 
 
 def _item(key, text, source, weight=1, red_flag_if=None, pass_if="yes"):
@@ -12,6 +45,7 @@ def _item(key, text, source, weight=1, red_flag_if=None, pass_if="yes"):
         "source": source,
         "pass_if": pass_if,
         "red_flag_if": red_flag_if,
+        "flag_text": FLAG_TEXT[key],  # how the item reads when it raises a red flag
     }
 
 

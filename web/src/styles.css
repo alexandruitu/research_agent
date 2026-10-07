@@ -347,6 +347,11 @@ fieldset.segmented label:has(input:focus-visible) { outline: 3px solid var(--foc
 .disagreements { border-left: 3px solid var(--warn-line); padding-left: 8px; }
 .red-flags { border: 1px solid var(--bad-line); background: var(--bad-bg); color: var(--bad-fg); border-radius: 8px; padding: 6px 10px; }
 .red-flags .sub, .red-flags blockquote footer { color: inherit; }
+.red-flags .flag-item { display: block; font-size: 12px; opacity: 0.85; }
+.red-flags li + li { margin-top: 6px; }
+.flag-wording { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; }
+.flag-wording input { width: 100%; }
+.flag-chip-more { margin-left: 4px; }
 .reviewer-report { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; background: var(--bg); }
 .reviewer-report[open] { padding-bottom: 8px; }
 .reviewer-report summary { cursor: pointer; padding: 4px 0; }

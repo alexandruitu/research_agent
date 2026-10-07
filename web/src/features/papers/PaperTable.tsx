@@ -96,7 +96,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                 {panel ? (
                   <>
                     <td><PanelScoreCell score={row.score} coverage={row.coverage} provisional={row.provisional} answered={row.checklist_answered} total={row.checklist_total} /></td>
-                    <td><RedFlagsCell count={row.red_flag_count} /></td>
+                    <td><RedFlagsCell count={row.red_flag_count} flags={row.red_flags} /></td>
                     <td><TextSourceCell source={row.text_source} /></td>
                   </>
                 ) : (

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from ...scoring import flag_problem_text
 from ..callstore import CallIndex, CallStoreError
 from ..db.models import (
     CriterionScore,
@@ -230,6 +231,25 @@ def _panel_versions(db, run, review, created_by):
     return {key: version for key, version in rows}
 
 
+def flag_wording(flag, review):
+    """(problem text, item text) of a report's red flag. Reports from before flag_text carry the item text as
+    `text`: the problem phrasing then comes from the contract item's flag_text, else the generated rule."""
+    if "item_text" in flag:
+        return flag["text"], flag["item_text"]
+    raised = (flag.get("raised_by") or [{}])[0]
+    item = next(
+        (
+            i
+            for r in review["panel"]
+            if r["key"] == raised.get("reviewer")
+            for i in r["items"]
+            if i["key"] == raised.get("item")
+        ),
+        {},
+    )
+    return flag_problem_text(flag["text"], raised.get("answer"), item.get("flag_text")), flag["text"]
+
+
 def _import_panel(db, run, state, papers, calls, warnings, created_by):
     review = state["contract"]["review"]
     versions = _panel_versions(db, run, review, created_by)
@@ -287,11 +307,13 @@ def _import_panel(db, run, state, papers, calls, warnings, created_by):
                 )
             )
         for position, flag in enumerate(flags):
+            text, item_text = flag_wording(flag, review)
             db.add(
                 RedFlag(
                     paper_review_id=row.id,
                     position=position,
-                    text=flag["text"],
+                    text=text,
+                    item_text=item_text,
                     source=flag.get("source"),
                     raised_by=list(flag.get("raised_by") or []),
                 )

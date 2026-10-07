@@ -3,6 +3,7 @@ import type { PanelOut, PanelReportOut } from "../../api/types";
 import { coverageWords } from "./cells";
 import { answerJudgement, answerParts, disagreementSentence, listWords, reviewerNames, textSentence, verdictWord } from "./panel";
 import { Term } from "../../components/ui/Term";
+import { FlagLine } from "./RedFlag";
 
 /** A score from under half of the checklist is provisional: said in words before the (tentative) number. */
 const scoreText = (score: number | null, coverage: number | null) => {
@@ -34,7 +35,7 @@ function Checklist({ report }: { report: PanelReportOut }) {
               <td className={`answer answer--${a.answer}`}>
                 <span aria-hidden="true">{icon}</span> {word}
                 {judgement && <span className={`judgement judgement--${judgement}`}> · <span aria-hidden="true">{JUDGEMENT[judgement].icon}</span> {JUDGEMENT[judgement].word}</span>}
-                {a.red_flag && <strong className="red-flag-word"> ⚑ red flag</strong>}
+                {a.red_flag && <strong className="red-flag-word"> ⚑ red flag{a.flag ? `: ${a.flag}` : ""}</strong>}
               </td>
               <td>{a.quote ? <blockquote className="quote">“{a.quote}”{a.section && <footer>{a.section}</footer>}</blockquote> : <span className="na">no quote</span>}</td>
             </tr>
@@ -92,11 +93,12 @@ export function PeerReview({ panel }: { panel: PanelOut }) {
           <ul>
             {panel.red_flags.map((flag, i) => (
               <li key={`${flag.text}-${i}`}>
-                {flag.text}{flag.source && <span className="sub"> ({flag.source})</span>}
-                <span className="sub"> raised by {listWords(flag.raised_by.map((r) => names[r.reviewer] ?? r.reviewer))}</span>
-                {flag.raised_by.filter((r) => r.quote).map((r, j) => (
-                  <blockquote key={j} className="quote">“{r.quote}”<footer>{names[r.reviewer] ?? r.reviewer}{r.section ? ` · ${r.section}` : ""}</footer></blockquote>
-                ))}
+                <FlagLine flag={flag} evidence={<>
+                  <span className="sub"> raised by {listWords(flag.raised_by.map((r) => names[r.reviewer] ?? r.reviewer))}</span>
+                  {flag.raised_by.filter((r) => r.quote).map((r, j) => (
+                    <blockquote key={j} className="quote"><span className="sub">Evidence: </span>“{r.quote}”<footer>{names[r.reviewer] ?? r.reviewer}{r.section ? ` · ${r.section}` : ""}</footer></blockquote>
+                  ))}
+                </>} />
               </li>
             ))}
           </ul>

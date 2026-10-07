@@ -68,6 +68,7 @@ def item_dicts(reviewer_key, items):
                 "source": item.source,
                 "pass_if": item.pass_if,
                 "red_flag_if": item.red_flag_if,
+                "flag_text": item.flag_text or None,
             }
         )
     return out

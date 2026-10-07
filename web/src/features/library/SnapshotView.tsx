@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { verdictWord } from "../papers/panel";
+import { FlagLine } from "../papers/RedFlag";
 import { criterionLabel } from "../fields/labels";
 import { textSourceLabel } from "../papers/cells";
 
@@ -14,7 +15,7 @@ type Snapshot = {
   panel?: {
     score?: number | null; coverage?: number | null; red_flag_count?: number; text_source?: string;
     editor?: { verdict?: string | null; reason?: string | null };
-    red_flags?: { text: string; source?: string | null }[];
+    red_flags?: { text: string; item_text?: string | null; source?: string | null; quote?: string; section?: string }[];
     reviewers?: { key: string; name: string; version?: number; verdict?: string | null; score?: number | null; summary?: string | null }[];
   } | null;
 };
@@ -56,7 +57,7 @@ export function SnapshotView({ snapshot }: { snapshot: Record<string, unknown> }
           {(panel.red_flags ?? []).length > 0 ? (
             <div className="red-flags">
               <p><strong><span aria-hidden="true">⚑</span> {panel.red_flags!.length} red flag{panel.red_flags!.length === 1 ? "" : "s"}</strong></p>
-              <ul>{panel.red_flags!.map((f, i) => <li key={i}>{f.text}{f.source && <span className="sub"> ({f.source})</span>}</li>)}</ul>
+              <ul>{panel.red_flags!.map((f, i) => <li key={i}><FlagLine flag={f} /></li>)}</ul>
             </div>
           ) : <p className="sub">No red flags.</p>}
           <ul className="snap-reviewers">

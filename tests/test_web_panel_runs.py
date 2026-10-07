@@ -294,6 +294,9 @@ def test_paper_table_and_drawer_show_the_panel(db, tmp_path, sign_in, settings):
         item["weight"],
     )
     assert panel["red_flags"][0]["raised_by"][0]["reviewer"] == "methodologist"
+    flag = panel["red_flags"][0]  # a pre-flag_text report: the problem phrasing is filled in on import
+    assert flag["item_text"] == "Data were partitioned at patient level."
+    assert flag["text"] != flag["item_text"] and flag["text"] == DEFAULT_PANEL[0]["items"][0]["flag_text"]
     [listed] = drawer["files"]
     assert listed["filename"] == "p.pdf" and listed["can_delete"] is False  # the viewer did not upload it
     call = member.get(f"{API}/runs/{run_id}/calls/{panel['reviews'][0]['call_key']}").json()

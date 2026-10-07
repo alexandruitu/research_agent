@@ -22,6 +22,18 @@ def score_reviewer(items, answers):
     }
 
 
+FLAG_PREFIX = {"no": "Not met: ", "yes": "Concern: "}
+
+
+def flag_problem_text(item_text, red_flag_if, flag_text=None):
+    """How a raised red flag reads: the item's problem phrasing (flag_text) when set, else the item text with a
+    prefix saying what went wrong ("Not met:" for an item answered no, "Concern:" for one answered yes), so a
+    flag never reads as the positively phrased item alone."""
+    if flag_text and flag_text.strip():
+        return flag_text.strip()
+    return FLAG_PREFIX.get(red_flag_if, "Concern: ") + item_text
+
+
 def red_flags(panel, reviews):
     flags = {}
     for reviewer in panel:
@@ -31,7 +43,12 @@ def red_flags(panel, reviews):
             if item.get("red_flag_if") and answer["answer"] == item["red_flag_if"]:
                 flag = flags.setdefault(
                     item.get("source") or item["text"],
-                    {"text": item["text"], "source": item.get("source"), "raised_by": []},
+                    {
+                        "text": flag_problem_text(item["text"], item["red_flag_if"], item.get("flag_text")),
+                        "item_text": item["text"],
+                        "source": item.get("source"),
+                        "raised_by": [],
+                    },
                 )
                 flag["raised_by"].append(
                     {
