@@ -43,13 +43,24 @@ Library status `relevant` is labelled "Useful" in the UI (API value unchanged). 
 
 ## 4. Simple view
 
-Columns: Paper · Quality (icon + word) · Why (one plain sentence without Jev/LLM/escalation/thresholds)
-· Next action · Team decision. Next action, first match wins: dropped → "None"; red flags → "Check red
-flag"; provisional or abstract-only → "Upload full text"; not reviewed → "Review by hand"; else "Read".
-Mechanics (Jev, LLM, escalation, provisional detail) stay in Detailed. Simple group headers show name,
-count and a short one-liner; the rule moves into a "?" Term.
+Columns: Paper · Quality (icon + word) · Why (one plain sentence, `simpleWords.plainWhy`: no Jev, LLM,
+escalation or thresholds; names the first red-flag problem) · Next action · Team decision (badge or Save).
+Next action, first match wins: dropped → none; unsure or not screened → "Check the match"; red flags →
+"Check red flag"; provisional or abstract only → "Upload full text"; not saved → "Save" (saves);
+else "Read". Every action but Save opens the paper's drawer. The Criteria column and the mechanics stay in
+Detailed (which also gains "Quality" and "Team decision" columns; "Decision" became "Search match" with
+Kept/Dropped/Unsure). Group headers in Simple show name, count and a one-liner (`QUALITY_ONELINER`); the
+rule sits behind a "?" tooltip ("How “Read first” is decided"); Detailed keeps the full rule line.
 
 ## 5. Run identification
 
-One label everywhere (Papers/Compare/Evals pickers, Runs list): `name or topic (≤40 chars) · field vN ·
-6 Oct, 11:25 · status word`; failed/cancelled say so in words; most recent first.
+`runIdentity`: `name or topic (≤40 chars) · field vN · 6 Oct, 11:25 · status` (en-GB short date, local
+time; runs with neither name nor topic start with the field). Failed/cancelled carry their mark and word
+("! failed", "⊘ cancelled"). Used by the Papers, Compare-runs and New-eval pickers (sorted newest first,
+extra details such as paper count appended); the Runs list links the short name and shows
+"field vN · date · status" under it. The Papers default run is still the first one (API order) with papers.
+
+## Notes
+
+- Backend changed (migration 0010, new response fields): the running API must be restarted and migrated.
+- Report (`report.py`) prints the problem text for red flags.

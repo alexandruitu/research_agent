@@ -135,7 +135,7 @@ test.describe("member", () => {
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
     await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /^Papers of / }).click();
-    await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque · v1");
+    await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque v1");
     await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
     await expect(page.locator("table.papers tbody tr").first()).toContainText(/all met|dropped by (incl|excl) \d|no single criterion decided/);
 
