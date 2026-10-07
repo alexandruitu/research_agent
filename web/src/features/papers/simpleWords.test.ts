@@ -21,6 +21,9 @@ describe("Simple view words", () => {
     expect(plainWhy(row)).toContain("only the abstract was read");
     expect(nextAction(row)?.word).toBe("Upload full text");
   });
+  it("says a paper with problems should not be relied on, before the abstract caveat", () => {
+    expect(plainWhy(paperRow({ red_flag_count: 0, red_flags: [], group: "has_problems", text_source: "abstract" }))).toContain("advises against relying on it");
+  });
   it("has no next action for a dropped paper and names the criterion", () => {
     const row = lostRow();
     expect(nextAction(row)).toBeNull();

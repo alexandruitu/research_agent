@@ -23,6 +23,10 @@ def test_problem_text_and_snapshot_rewrite():
     m = module()
     assert m.problem_text("Tested externally.", "no") == "Not met: Tested externally."
     assert m.problem_text("Tuned on test.", "yes") == "Concern: Tuned on test."
+    from research_agent.panel import DEFAULT_PANEL
+
+    m5 = next(i for i in DEFAULT_PANEL[0]["items"] if i["key"] == "m5")
+    assert m.problem_text(m5["text"], "no") == "No external validation"
     snap = {"panel": {"red_flags": [{"text": "A."}, {"text": "B."}, {"text": "C", "item_text": "c"}]}}
     out = m.rewrite_snapshot(snap, {"A.": "Not met: A."})
     assert [(f["text"], f["item_text"]) for f in out["panel"]["red_flags"]] == [

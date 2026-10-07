@@ -21,9 +21,9 @@ export function plainWhy(row: PaperRow, texts: Record<string, string> = {}): str
   if ((row.red_flag_count ?? 0) > 0) {
     return `${head}, but the review found a problem${flags[0] ? `: ${flags[0].replace(/\.$/, "")}` : ""}.`;
   }
+  if (row.group === "has_problems") return `${head}, but the review advises against relying on it.`;
   if (row.provisional || row.text_source === "abstract") return `${head}; only the abstract was read, so the review is not final.`;
   if (row.group === "read_first") return `${head} and the review found no problems.`;
-  if (row.group === "has_problems") return `${head}, but the review advises against relying on it.`;
   if (row.group === "not_reviewed" || row.red_flag_count == null) return `${head}; not reviewed in depth yet.`;
   return `${head}; the review found no serious problems.`;
 }

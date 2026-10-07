@@ -128,3 +128,12 @@ def test_flag_problem_text_rule():
     assert flag_problem_text("X.", "yes") == "Concern: X."
     assert flag_problem_text("X.", "no", "Bad") == "Bad"
     assert flag_problem_text("X.", "no", "  ") == "Not met: X."
+
+
+def test_default_items_keep_their_wording_without_flag_text():
+    from research_agent.panel import DEFAULT_PANEL
+    from research_agent.scoring import default_flag_text
+
+    m5 = next(i for i in DEFAULT_PANEL[0]["items"] if i["key"] == "m5")
+    assert default_flag_text(m5["text"]) == "No external validation"
+    assert default_flag_text("Something else.") is None

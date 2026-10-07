@@ -1,7 +1,7 @@
 """Red flags read as the problem: red_flags.text becomes the problem phrasing, item_text keeps the checklist item.
 
 Existing rows predate flag_text, so their text is the (positively phrased) item: it moves to item_text and text
-gets the generated phrasing ("Not met: <item>" when the flag was raised by a "no", "Concern: <item>" by a "yes").
+gets the default panel's wording for that item when it is one, else the generated phrasing ("Not met: <item>" when the flag was raised by a "no", "Concern: <item>" by a "yes").
 Library snapshots get the same rewrite, matched to their run's red flags; unmatched snapshot flags are prefixed
 "Flagged: " (their raising answer was not kept).
 
@@ -23,7 +23,10 @@ PREFIX = {"no": "Not met: ", "yes": "Concern: "}
 
 
 def problem_text(item_text, answer):
-    return PREFIX.get(answer, "Concern: ") + item_text
+    """The shipped wording of a default panel item, else the generated phrasing."""
+    from research_agent.scoring import default_flag_text
+
+    return default_flag_text(item_text) or PREFIX.get(answer, "Concern: ") + item_text
 
 
 def rewrite_snapshot(snapshot, known):

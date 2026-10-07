@@ -64,8 +64,11 @@ const statusText = (status: string) => (status === "failed" || status === "cance
 
 /** One way to name a run everywhere: "Baseline · ML CT-FFR v3 · 6 Oct, 11:25 · done". */
 export function runIdentity(run: Pick<RunOut, "name" | "topic" | "field_name" | "field_version" | "created_at" | "status">) {
-  const field = `${run.field_name}${run.field_version ? ` v${run.field_version}` : ""}`;
-  return [ownName(run), field, runDate(run.created_at), statusText(run.status)].filter(Boolean).join(" · ");
+  const field = `${clip(run.field_name, 32)}${run.field_version ? ` v${run.field_version}` : ""}`;
+  // fields imported from older runs are named after their topic: then the topic would only repeat the field
+  const norm = (t: string) => t.toLowerCase().replace(/\s+/g, " ").trim();
+  const repeats = !run.name && !!run.topic && (norm(run.topic).startsWith(norm(run.field_name)) || norm(run.field_name).startsWith(norm(run.topic)));
+  return [repeats ? null : ownName(run), field, runDate(run.created_at), statusText(run.status)].filter(Boolean).join(" · ");
 }
 
 /** Run pickers list the most recent run first. */
@@ -73,7 +76,7 @@ export const newestFirst = <T extends { created_at: string }>(runs: T[]) =>
   [...runs].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
 /** A run picker option: the run's identity plus details, clipped to `max`; the full text with the topic for hover. */
-export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_version" | "topic" | "created_at" | "status">, details: string[] = [], max = 110) {
+export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_version" | "topic" | "created_at" | "status">, details: string[] = [], max = 120) {
   const full = [runIdentity(run), ...details].join(" · ");
   const text = clip(full, max);
   return { text, title: run.topic ? `${full} — ${run.topic}` : full };

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from ...scoring import flag_problem_text
+from ...scoring import default_flag_text, flag_problem_text
 from ..callstore import CallIndex, CallStoreError
 from ..db.models import (
     CriterionScore,
@@ -247,7 +247,8 @@ def flag_wording(flag, review):
         ),
         {},
     )
-    return flag_problem_text(flag["text"], raised.get("answer"), item.get("flag_text")), flag["text"]
+    wording = item.get("flag_text") or default_flag_text(flag["text"])
+    return flag_problem_text(flag["text"], raised.get("answer"), wording), flag["text"]
 
 
 def _import_panel(db, run, state, papers, calls, warnings, created_by):

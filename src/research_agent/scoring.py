@@ -34,6 +34,18 @@ def flag_problem_text(item_text, red_flag_if, flag_text=None):
     return FLAG_PREFIX.get(red_flag_if, "Concern: ") + item_text
 
 
+def default_flag_text(item_text):
+    """The shipped problem phrasing of a default panel item with this exact text (None for other items), so
+    reports and rows from before flag_text still read well."""
+    from .panel import DEFAULT_PANEL  # panel has no imports from here; local to keep scoring import-light
+
+    for reviewer in DEFAULT_PANEL:
+        for item in reviewer["items"]:
+            if item["text"] == item_text:
+                return item["flag_text"]
+    return None
+
+
 def red_flags(panel, reviews):
     flags = {}
     for reviewer in panel:

@@ -57,6 +57,10 @@ describe("run picker options", () => {
     expect(runIdentity(run)).toBe(`${"x".repeat(39)}… · ML CT-FFR v3 · 6 Oct, 11:25 · ! failed`);
     expect(runIdentity({ ...base, status: "cancelled" })).toMatch(/· ⊘ cancelled$/);
   });
+  it("do not repeat a topic the field is named after, and clip long field names", () => {
+    expect(runIdentity({ ...base, field_name: "deep learning CT-FFR" })).toBe("deep learning CT-FFR v3 · 6 Oct, 11:25 · done");
+    expect(runIdentity({ ...base, name: null, topic: "", field_name: "f".repeat(50) })).toBe(`${"f".repeat(31)}… v3 · 6 Oct, 11:25 · done`);
+  });
   it("sort most recent first", () => {
     const runs = [{ id: "a", created_at: "2026-10-01T00:00:00Z" }, { id: "b", created_at: "2026-10-06T00:00:00Z" }];
     expect(newestFirst(runs).map((r) => r.id)).toEqual(["b", "a"]);
