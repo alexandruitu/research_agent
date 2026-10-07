@@ -37,7 +37,7 @@ describe("screening cells", () => {
     render(<><CriteriaCell screen={lostRow().screen} /><DecisionCell screen={lostRow().screen} /></>);
     expect(screen.getByText("0.06")).toBeInTheDocument();
     expect(screen.getByText("escalated")).toBeInTheDocument();
-    expect(screen.getByText("drop")).toBeInTheDocument();
+    expect(screen.getByText("Dropped")).toBeInTheDocument();
     expect(screen.getByText("LLM")).toBeInTheDocument();
   });
 

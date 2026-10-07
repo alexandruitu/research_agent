@@ -52,7 +52,7 @@ describe("saving papers to the library", () => {
     const dialog = screen.getByRole("dialog", { name: "Save 2 papers to the library" });
     await userEvent.type(within(dialog).getByLabelText("New collection (optional)"), "Friday");
     await userEvent.type(within(dialog).getByLabelText("Tags"), "ffr{Enter}");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /Relevant/ }));
+    await userEvent.click(within(dialog).getByRole("radio", { name: /Useful/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Save to library" }));
     expect(await screen.findAllByText("Saving to library…")).toHaveLength(2);
     expect(calls.find((c) => c.method === "POST")?.body).toEqual({
@@ -99,7 +99,7 @@ describe("saving papers to the library", () => {
 
   it("rows already saved show their status and link to the library", async () => {
     setup("member", { "GET /api/v1/runs/:id/papers": { body: page([paperRow({ library: { item_id: ITEM_ID, status: "relevant", collections: [] } })]) } });
-    const badge = await screen.findByRole("link", { name: /In library · Relevant/ });
+    const badge = await screen.findByRole("link", { name: /In library · Useful/ });
     expect(badge).toHaveAttribute("href", `/library?item=${ITEM_ID}`);
   });
 

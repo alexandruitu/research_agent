@@ -255,7 +255,7 @@ describe("PapersPage · Simple and Detailed view", () => {
   it("starts in the Simple view: paper, group, criteria, why and library", async () => {
     setup({}, flat(`/?run=${RUN_ID}`));
     const table = await screen.findByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Group", "Criteria", "Why", "Library"]);
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Quality", "Criteria", "Why", "Team decision"]);
     expect(within(table).getByText("Dropped: doesn't meet topic match (LLM).")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Simple" })).toHaveAttribute("aria-pressed", "true");
   });
@@ -264,7 +264,7 @@ describe("PapersPage · Simple and Detailed view", () => {
     setup({}, flat(`/?run=${RUN_ID}`));
     await screen.findByRole("columnheader", { name: "Why" });
     await userEvent.keyboard("v");
-    expect(await screen.findByRole("columnheader", { name: /Decision/ })).toBeInTheDocument();
+    expect(await screen.findByRole("columnheader", { name: /Search match/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Detailed" })).toHaveAttribute("aria-pressed", "true");
     expect(localStorage.getItem("papers.view.11111111-1111-4111-8111-111111111111")).toBe("detailed");
     await userEvent.click(screen.getByRole("button", { name: "Simple" }));

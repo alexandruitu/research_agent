@@ -20,7 +20,7 @@ const SORT_LABEL: Record<string, string> = { added_at: "Date saved", title: "Tit
 export const LIBRARY_SHORTCUTS = [
   { keys: ["j", "k"], what: "Next / previous paper" },
   { keys: ["o"], what: "Open the paper under the cursor (or Enter on it)" },
-  { keys: ["1", "2", "3", "4"], what: "Status: to read, read, relevant, rejected" },
+  { keys: ["1", "2", "3", "4"], what: "Status: to read, read, useful, rejected" },
   { keys: ["/"], what: "Search" },
   { keys: ["Esc"], what: "Close the reading pane" },
   { keys: ["?"], what: "This list" },

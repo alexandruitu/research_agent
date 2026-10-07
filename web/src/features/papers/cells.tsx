@@ -2,6 +2,7 @@ import type { PaperRow } from "../../api/types";
 import { Term } from "../../components/ui/Term";
 import { Tooltip } from "../../components/ui/Tooltip";
 import { criterionLabel, isFieldCriterion, sourceLabel } from "../fields/labels";
+import { QUALITY_ICON, QUALITY_LABEL } from "./groups";
 import { criteriaSummary, criterionLines } from "./why";
 
 const VERDICT: Record<string, string> = { include: "inc", exclude: "exc", uncertain: "unc" };
@@ -128,13 +129,14 @@ export function CriteriaLine({ screen, texts = {} }: { screen: Screen; texts?: R
   );
 }
 
-const DECISION: Record<string, string> = { include: "keep", exclude: "drop", uncertain: "unsure" };
+/** Screening outcome = the "Search match" axis. */
+export const SEARCH_MATCH: Record<string, string> = { include: "Kept", exclude: "Dropped", uncertain: "Unsure" };
 const TIER: Record<string, string> = { jev: "Jev", llm: "LLM", rule: "no abstract" };
 
 export function DecisionCell({ screen }: { screen: Screen }) {
   return (
     <span>
-      <span className={`decision decision--${screen.decision}`}>{DECISION[screen.decision] ?? screen.decision}</span>{" "}
+      <span className={`decision decision--${screen.decision}`}>{SEARCH_MATCH[screen.decision] ?? screen.decision}</span>{" "}
       <span className="chip">{TIER[screen.tier] ?? screen.tier}</span>
     </span>
   );
@@ -221,3 +223,9 @@ export function TextSourceCell({ source }: { source: string | null | undefined }
 
 /** A run reviewed by the panel carries a score, coverage or text source on at least one row. */
 export const isPanelRun = (rows: PaperRow[]) => rows.some((row) => row.text_source != null || row.score != null || row.coverage != null);
+
+/** The Quality axis: the paper's group as an icon and a word (never colour alone). */
+export function QualityCell({ group }: { group: string | null }) {
+  if (!group) return <span className="na">–</span>;
+  return <span className={`group-tag group-tag--${group}`}><span aria-hidden="true">{QUALITY_ICON[group] ?? ""}</span> {QUALITY_LABEL[group] ?? group}</span>;
+}

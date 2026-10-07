@@ -15,6 +15,7 @@ import { useStatusChange } from "../features/library/optimistic";
 import { activeFilterChips, clearPaperFilters } from "../features/papers/activeFilters";
 import { HomeEmpty } from "./HomeEmpty";
 import { StartPoint } from "../features/papers/StartPoint";
+import { AxesLegend } from "../features/papers/AxesLegend";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
 import { isPanelRun, screenKeys } from "../features/papers/cells";
@@ -39,7 +40,7 @@ export const PAPERS_SHORTCUTS = [
   { keys: ["o"], what: "Open the paper under the cursor (or Enter on its title)" },
   { keys: ["x"], what: "Select or unselect it" },
   { keys: ["s"], what: "Save the selection (or this paper) to the library" },
-  { keys: ["1", "2", "3", "4"], what: "Library status of a saved paper: to read, read, relevant, rejected" },
+  { keys: ["1", "2", "3", "4"], what: "Team decision on a saved paper: to read, read, useful, rejected" },
   { keys: ["v"], what: "Switch between the Simple and Detailed view" },
   { keys: ["Esc"], what: "Close the side panel" },
   { keys: ["?"], what: "This list" },
@@ -209,6 +210,7 @@ export function PapersPage() {
           </p>
         )}
       </div>
+      <AxesLegend />
       {selected && <PartialSearchBanner key={runId} runId={runId} warnings={selected.search_warnings} />}
       {member && selectedIds.size > 0 && (
         <div className="selection-bar" role="region" aria-label="Selection">

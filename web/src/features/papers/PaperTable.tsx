@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
-import { CriteriaCell, DecisionCell, ExtractCellView, FoundByCell, InSrCell, isPanelRun, PanelScoreCell, RedFlagsCell, ReviewsCellView, ScoreCell, TextSourceCell } from "./cells";
+import { CriteriaCell, DecisionCell, QualityCell, ExtractCellView, FoundByCell, InSrCell, isPanelRun, PanelScoreCell, RedFlagsCell, ReviewsCellView, ScoreCell, TextSourceCell } from "./cells";
 import { Term, TermHint } from "../../components/ui/Term";
 import type { GlossaryKey } from "../../components/ui/terms";
 
@@ -14,7 +14,7 @@ type Props = {
   cursorId?: string | null;
 };
 
-/** "In library · ★ Relevant", linking to the item (a pending save shows "Saving…"). */
+/** "In library · ★ Useful", linking to the item (a pending save shows "Saving…"). */
 export function LibraryBadge({ library }: { library: PaperRow["library"] }) {
   if (!library) return null;
   const { icon, word } = statusMeta(library.status);
@@ -55,7 +55,8 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
             <SortHeader label="Paper" sortKey="title" className="col-paper" {...sortProps} />
             <th scope="col">Found by</th>
             {legacy ? <SortHeader label="Criteria" sortKey="criterion:topic_match" className="col-criteria" term="criterion" {...sortProps} /> : <th scope="col" className="col-criteria"><Term k="criterion">Criteria</Term></th>}
-            <th scope="col"><Term k="screening">Decision</Term></th>
+            <th scope="col"><Term k="search_match">Search match</Term></th>
+            <th scope="col"><Term k="quality">Quality</Term></th>
             <th scope="col">Claims</th>
             {panel ? (
               <>
@@ -70,6 +71,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
               </>
             )}
             <th scope="col"><Term k="sr">In SR</Term></th>
+            <th scope="col"><Term k="team_decision">Team decision</Term></th>
           </tr>
         </thead>
         <tbody>
@@ -87,11 +89,11 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                     {row.paper.title}
                   </button>
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
-                  <LibraryBadge library={row.library ?? null} />
                 </td>
                 <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>
                 <td className="col-criteria"><CriteriaCell screen={row.screen} /></td>
                 <td><DecisionCell screen={row.screen} /></td>
+                <td><QualityCell group={row.group ?? null} /></td>
                 <td><ExtractCellView cell={row.extract} /></td>
                 {panel ? (
                   <>
@@ -106,6 +108,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                   </>
                 )}
                 <td><InSrCell value={row.in_sr} /></td>
+                <td>{row.library ? <LibraryBadge library={row.library} /> : <span className="sub">not saved</span>}</td>
               </tr>
             );
           })}

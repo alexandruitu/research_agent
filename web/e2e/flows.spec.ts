@@ -157,7 +157,7 @@ test.describe("member", () => {
 
     await rows.nth(0).locator("[data-open-paper]").click();
     const drawer = page.getByRole("complementary", { name: "Paper details" });
-    await drawer.getByRole("radio", { name: /Relevant/ }).check();
+    await drawer.getByRole("radio", { name: /Useful/ }).check();
     await expect(page.getByText("Marked relevant")).toBeVisible();
 
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library" }).click();
@@ -165,11 +165,11 @@ test.describe("member", () => {
     const list = page.getByRole("list", { name: "Saved papers" });
     await expect(list.getByRole("listitem")).toHaveCount(2);
     for (const title of titles) await expect(list).toContainText(title.trim());
-    await page.getByRole("group", { name: "Status" }).getByRole("button", { name: /Relevant/ }).click();
+    await page.getByRole("group", { name: "Status" }).getByRole("button", { name: /Useful/ }).click();
     await expect(list.getByRole("listitem")).toHaveCount(1);
     await list.getByRole("button").first().click();
     const pane = page.getByRole("complementary", { name: "Reading pane" });
-    await expect(pane.getByRole("radio", { name: /Relevant/ })).toBeChecked();
+    await expect(pane.getByRole("radio", { name: /Useful/ })).toBeChecked();
     await pane.getByRole("button", { name: /History/ }).click();
     await expect(pane).toContainText("changed the status from to read to relevant");
 

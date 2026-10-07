@@ -51,7 +51,7 @@ describe("toasts", () => {
 describe("small pieces", () => {
   it("StatusMark shows an icon and a word", () => {
     render(<StatusMark status="relevant" />);
-    expect(screen.getByText("Relevant")).toBeInTheDocument();
+    expect(screen.getByText("Useful")).toBeInTheDocument();
     expect(screen.getByText("★")).toHaveAttribute("aria-hidden", "true");
   });
 

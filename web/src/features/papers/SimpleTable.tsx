@@ -31,10 +31,10 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
               </th>
             )}
             <th scope="col" className="col-paper">Paper</th>
-            <th scope="col">Group</th>
+            <th scope="col"><Term k="quality">Quality</Term></th>
             <th scope="col"><Term k="criterion">Criteria</Term></th>
             <th scope="col" className="col-why">Why</th>
-            <th scope="col">Library</th>
+            <th scope="col"><Term k="team_decision">Team decision</Term></th>
           </tr>
         </thead>
         <tbody>

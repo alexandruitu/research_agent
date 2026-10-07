@@ -24,6 +24,9 @@ export const GLOSSARY = {
   cached_call: { label: "cached call", text: "A model call whose exact question was asked before; the stored answer is reused instead of paying for it again." },
   holdout: { label: "holdout", text: "Part of the gold set kept aside and never used to tune thresholds, to check that the tuning also works on unseen papers." },
   threshold: { label: "threshold", text: "The probability Jev must reach before it decides on its own (to keep or to drop a paper); below it, the LLM decides." },
+  search_match: { label: "Search match", text: "Screening: does the paper fit your field's criteria, from its title and abstract? Kept, Dropped or Unsure. It says nothing about how good the study is." },
+  quality: { label: "Quality", text: "What the review panel found when it appraised the paper: Read first, Worth a look, Has problems, Not reviewed, or Not relevant (dropped by the search match)." },
+  team_decision: { label: "Team decision", text: "What your team decided about a saved paper: To read, Read, Useful or Rejected. Set by people, never by the models." },
   field_version: { label: "field version", text: "A saved version of a field's topic, criteria and sources. Each run records the version it used, so results stay reproducible." },
 } as const;
 

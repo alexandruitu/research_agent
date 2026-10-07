@@ -5,11 +5,11 @@ import { criterionLabel, sourceLabel } from "../fields/labels";
 export type GroupBy = GroupDimension | "none";
 
 export const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
-  { value: "quality", label: "Quality groups" },
+  { value: "quality", label: "Quality" },
   { value: "source", label: "Source" },
   { value: "year", label: "Year" },
   { value: "decided_by", label: "Dropped by criterion" },
-  { value: "library", label: "Library status" },
+  { value: "library", label: "Team decision" },
   { value: "none", label: "None (flat list)" },
 ];
 

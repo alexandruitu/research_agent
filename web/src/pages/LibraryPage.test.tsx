@@ -50,7 +50,7 @@ describe("LibraryPage", () => {
   it("sends filters to the API, shows them as chips and clears them all", async () => {
     const { calls } = setup();
     await screen.findByRole("list", { name: "Saved papers" });
-    await userEvent.click(within(screen.getByRole("group", { name: "Status" })).getByRole("button", { name: /Relevant/ }));
+    await userEvent.click(within(screen.getByRole("group", { name: "Status" })).getByRole("button", { name: /Useful/ }));
     await userEvent.selectOptions(screen.getByLabelText("Collection"), COLLECTION_ID);
     await userEvent.click(screen.getByRole("button", { name: /Has red flags/ }));
     await userEvent.type(screen.getByRole("searchbox"), "radiomics{Enter}");
@@ -62,9 +62,9 @@ describe("LibraryPage", () => {
       expect(search.get("q")).toBe("radiomics");
     });
     const chips = screen.getByRole("group", { name: "Active filters" });
-    expect(chips).toHaveTextContent("Status: Relevant");
+    expect(chips).toHaveTextContent("Status: Useful");
     expect(chips).toHaveTextContent("Collection: Plaque reading list");
-    await userEvent.click(within(chips).getByRole("button", { name: /Status: Relevant/ }));
+    await userEvent.click(within(chips).getByRole("button", { name: /Status: Useful/ }));
     await waitFor(() => expect(lastSearch(calls).get("status")).toBeNull());
     await userEvent.click(within(screen.getByRole("group", { name: "Active filters" })).getByRole("button", { name: "Clear all" }));
     expect(screen.queryByRole("group", { name: "Active filters" })).not.toBeInTheDocument();
@@ -103,9 +103,9 @@ describe("LibraryPage", () => {
     });
     await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
-    await userEvent.click(await within(pane).findByRole("radio", { name: /Relevant/ }));
-    expect(within(pane).getByRole("radio", { name: /Relevant/ })).toBeChecked();
-    expect(await screen.findByText("Marked relevant")).toBeInTheDocument();
+    await userEvent.click(await within(pane).findByRole("radio", { name: /Useful/ }));
+    expect(within(pane).getByRole("radio", { name: /Useful/ })).toBeChecked();
+    expect(await screen.findByText("Marked useful")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([{ status: "relevant" }, { status: "to_read" }]));
   });

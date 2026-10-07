@@ -3,7 +3,7 @@ export type LibraryStatus = (typeof LIBRARY_STATUSES)[number];
 export const STATUS_META: Record<LibraryStatus, { icon: string; word: string }> = {
   to_read: { icon: "○", word: "To read" },
   read: { icon: "◐", word: "Read" },
-  relevant: { icon: "★", word: "Relevant" },
+  relevant: { icon: "★", word: "Useful" }, // API value stays `relevant`
   rejected: { icon: "⊘", word: "Rejected" },
 };
 export const statusMeta = (status: string) => STATUS_META[status as LibraryStatus] ?? { icon: "·", word: status.replace(/_/g, " ") };
