@@ -4,7 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID, versionOut } from "../test/fixtures";
+import { FIELD_ID, lostRow, paperRow, runDetail, runOut, session, STAGES, RUN_ID, versionOut } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { PapersPage } from "./PapersPage";
@@ -171,10 +171,23 @@ describe("PapersPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("req-7");
   });
 
+  it("says what the app is for and offers to start a search in the last used field", async () => {
+    setup();
+    expect(await screen.findByText("Find, screen and appraise papers for your field — every decision explained.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start a literature search" })).toHaveAttribute("href", `/runs?field=${FIELD_ID}`);
+  });
+
+  it("viewers see the purpose line but no start action", async () => {
+    setup({ "GET /api/v1/auth/me": { body: session("viewer") } });
+    expect(await screen.findByText(/Find, screen and appraise papers/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Start a literature search" })).not.toBeInTheDocument();
+  });
+
   it("asks for a run when there is none", async () => {
     setup({ "GET /api/v1/runs": { body: [] } });
     expect(await screen.findByRole("heading", { name: "Create your first field in 3 steps" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create your first field" })).toHaveAttribute("href", "/fields/new");
+    expect(screen.getByText("Find, screen and appraise papers for your field — every decision explained.")).toBeInTheDocument();
   });
 
   it("filters by the deciding criterion and by source, naming criteria from the run's field version", async () => {

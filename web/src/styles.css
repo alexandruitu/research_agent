@@ -1025,3 +1025,8 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .terms-line { display: flex; flex-wrap: wrap; gap: 0 var(--s2); }
 .term-q::before { content: "?"; }
 .papers--simple .lib-badge { white-space: nowrap; }
+
+/* Start point: what the app is for and the one primary action */
+.start-point { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); margin: -4px 0 var(--s4); padding-bottom: var(--s4); border-bottom: 1px solid var(--rule); }
+.purpose { margin: 0; color: var(--ink-2); font-size: 16px; max-width: 62ch; }
+.home-empty .purpose { margin-bottom: 8px; }

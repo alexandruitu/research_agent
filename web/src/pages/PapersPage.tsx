@@ -14,6 +14,7 @@ import { LIBRARY_STATUSES } from "../components/ui/StatusMark";
 import { useStatusChange } from "../features/library/optimistic";
 import { activeFilterChips, clearPaperFilters } from "../features/papers/activeFilters";
 import { HomeEmpty } from "./HomeEmpty";
+import { StartPoint } from "../features/papers/StartPoint";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
 import { isPanelRun, screenKeys } from "../features/papers/cells";
@@ -177,6 +178,8 @@ export function PapersPage() {
         <h1>Papers</h1>
         <button type="button" className="kbd-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts"><kbd aria-hidden="true">?</kbd></button>
       </div>
+      {/* runs come newest first: the first one names the last used field */}
+      <StartPoint member={member} lastFieldId={runs.data?.[0]?.field_id} />
       <div className="toolbar">
         <label>
           Run
