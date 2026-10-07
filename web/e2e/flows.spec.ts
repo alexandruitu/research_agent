@@ -158,7 +158,7 @@ test.describe("member", () => {
     await rows.nth(0).locator("[data-open-paper]").click();
     const drawer = page.getByRole("complementary", { name: "Paper details" });
     await drawer.getByRole("radio", { name: /Useful/ }).check();
-    await expect(page.getByText("Marked relevant")).toBeVisible();
+    await expect(page.getByText("Marked useful")).toBeVisible();
 
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library" }).click();
     await page.getByLabel("Collection").selectOption({ label: `${collection} (2)` });
@@ -171,7 +171,7 @@ test.describe("member", () => {
     const pane = page.getByRole("complementary", { name: "Reading pane" });
     await expect(pane.getByRole("radio", { name: /Useful/ })).toBeChecked();
     await pane.getByRole("button", { name: /History/ }).click();
-    await expect(pane).toContainText("changed the status from to read to relevant");
+    await expect(pane).toContainText("changed the status from to read to useful");
 
     const href = await page.getByRole("link", { name: "Export CSV" }).getAttribute("href");
     expect(href).toContain("status=relevant");
