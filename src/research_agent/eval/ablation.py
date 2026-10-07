@@ -49,7 +49,9 @@ def call_costs(store_path):
 
 
 def flag_keys(flags):
-    return sorted(f.get("source") or f["text"] for f in flags)
+    return sorted(
+        f.get("source") or f.get("item_text") or f["text"] for f in flags
+    )  # the item, stable across wordings
 
 
 def run_ablation(panel_dir, out_dir, *, rerun_editor=False, evaluator=None, mode="demo"):
