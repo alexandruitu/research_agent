@@ -244,7 +244,7 @@ export function PapersPage() {
               <ErrorBoundary label="the paper groups">
                 <PaperGroups
                   runId={runId} by={view.groupBy === "none" ? "quality" : view.groupBy} params={params} userId={userId}
-                  onRows={onRows} onGroups={onGroups}
+                  onRows={onRows} onGroups={onGroups} simple={viewMode === "simple"}
                   renderTable={(groupItems) => table(groupItems, (on) => toggleAll(on, groupItems))}
                 />
               </ErrorBoundary>

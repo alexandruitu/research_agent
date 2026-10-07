@@ -1033,3 +1033,5 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .axes-legend { margin: 0 0 var(--s3); font-size: 13px; color: var(--ink-2); }
 .axes-legend .axis { white-space: nowrap; }
 @media (max-width: 720px) { .axes-legend .axis { white-space: normal; } }
+.papers--simple .col-next { white-space: nowrap; }
+.next-action { font-size: 13px; padding: 2px 10px; }

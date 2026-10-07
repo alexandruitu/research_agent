@@ -5,7 +5,7 @@ import { usePaperGroups, usePapers, type GroupDimension, type PaperParams } from
 import type { PaperGroupOut, PaperRow } from "../../api/types";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Tooltip } from "../../components/ui/Tooltip";
-import { emptyGroupReason, groupIcon, groupName, readCollapsed, writeCollapsed } from "./groups";
+import { emptyGroupReason, QUALITY_ONELINER, groupIcon, groupName, readCollapsed, writeCollapsed } from "./groups";
 
 const STEP = 25;
 const MAX_SIZE = 200; // the API's largest page
@@ -23,9 +23,11 @@ type Props = {
   /** The rows each open group shows, in group order, so shortcuts and selection span the groups. */
   onRows: (key: string, rows: PaperRow[]) => void;
   onGroups?: (keys: string[], collapsed: Set<string>) => void;
+  /** Simple view: headers show name, count and a one-liner; the rule moves behind a "?". */
+  simple?: boolean;
 };
 
-export function PaperGroups({ runId, by, params, userId, renderTable, onRows, onGroups }: Props) {
+export function PaperGroups({ runId, by, params, userId, renderTable, onRows, onGroups, simple = false }: Props) {
   const groups = usePaperGroups(runId, by, params);
   const [collapsed, setCollapsed] = useState<{ by: GroupDimension; keys: Set<string> }>(() => ({ by, keys: readCollapsed(userId, by) }));
   const keys = useMemo(() => (collapsed.by === by ? collapsed.keys : readCollapsed(userId, by)), [collapsed, by, userId]);
@@ -66,7 +68,7 @@ export function PaperGroups({ runId, by, params, userId, renderTable, onRows, on
       </div>
       {emptyLine}
       {list.map((group) => (
-        <GroupSection key={group.key} by={by} group={group} open={!keys.has(group.key)} onToggle={() => toggle(group.key)}>
+        <GroupSection key={group.key} by={by} group={group} simple={simple} open={!keys.has(group.key)} onToggle={() => toggle(group.key)}>
           <GroupBody runId={runId} by={by} group={group} params={params} renderTable={renderTable} onRows={onRows} />
         </GroupSection>
       ))}
@@ -74,7 +76,7 @@ export function PaperGroups({ runId, by, params, userId, renderTable, onRows, on
   );
 }
 
-function GroupSection({ by, group, open, onToggle, children }: { by: GroupDimension; group: PaperGroupOut; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+function GroupSection({ by, group, open, onToggle, children, simple }: { by: GroupDimension; group: PaperGroupOut; open: boolean; onToggle: () => void; children: React.ReactNode; simple: boolean }) {
   const id = useId();
   const icon = groupIcon(by, group.key);
   const name = groupName(by, group.key, group.label);
@@ -88,7 +90,12 @@ function GroupSection({ by, group, open, onToggle, children }: { by: GroupDimens
           <span className="group-count">{group.count} {group.count === 1 ? "paper" : "papers"}</span>
         </button>
       </h2>
-      <p className="group-rule">{group.rule}</p>
+      {simple ? (
+        <p className="group-rule group-rule--simple">
+          {(by === "quality" && QUALITY_ONELINER[group.key]) || null}{" "}
+          <Tooltip trigger={<span className="term-q" aria-hidden="true" />} triggerLabel={`How “${name}” is decided`} className="term-tip" tip={group.rule} />
+        </p>
+      ) : <p className="group-rule">{group.rule}</p>}
       <div id={`${id}-body`} hidden={!open}>
         {open && (group.count === 0 ? <p className="sub-inline group-empty">No papers in this group.</p> : children)}
       </div>

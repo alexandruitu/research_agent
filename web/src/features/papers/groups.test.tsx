@@ -45,14 +45,20 @@ function setup(route = "/") {
   return api;
 }
 
-const head = (name: RegExp) => screen.findByRole("button", { name });
+/** A group header (the "?" next to it also names the group, but does not expand anything). */
+const head = async (name: RegExp) => (await screen.findAllByRole("button", { name })).find((b) => b.hasAttribute("aria-expanded"))!;
 
 describe("quality groups", () => {
   it("shows each group with its count and rule; rows load per group, score first; Not relevant starts collapsed", async () => {
     const { calls } = setup();
     const readFirst = await head(/Read first 1 paper/);
     expect(readFirst).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Kept by screening, editor verdict include and 0 red flags.")).toBeInTheDocument();
+    // Simple view (the default): a one-liner; the rule sits behind a "?"
+    expect(screen.getByText(/Fits your search and the review found no problems\./)).toBeInTheDocument();
+    expect(screen.queryByText("Kept by screening, editor verdict include and 0 red flags.")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "How “Read first” is decided" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Kept by screening, editor verdict include and 0 red flags.");
+    await userEvent.keyboard("{Escape}");
     expect(await screen.findByText("Diagnostic accuracy of a deep learning approach to calculate FFR")).toBeInTheDocument();
     const request = calls.find((c) => c.search.includes("group=read_first"))!;
     expect(new URLSearchParams(request.search).get("sort")).toBe("score");
@@ -65,6 +71,13 @@ describe("quality groups", () => {
     const why = screen.getByRole("button", { name: /Worth a look — why\?/ });
     await userEvent.click(why);
     expect(screen.getByRole("tooltip")).toHaveTextContent("No kept paper has an include or uncertain verdict with at most 1 red flag.");
+  });
+
+  it("the Detailed view shows each group's rule in full", async () => {
+    window.localStorage.setItem(`papers.view.${user().id}`, "detailed");
+    setup();
+    await head(/Read first 1 paper/);
+    expect(screen.getByText("Kept by screening, editor verdict include and 0 red flags.")).toBeInTheDocument();
   });
 
   it("opens and closes a group from the keyboard and remembers it for this user", async () => {

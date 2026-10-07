@@ -19,6 +19,15 @@ export const QUALITY_ICON: Record<string, string> = { read_first: "★", worth_a
 /** The quality group's name as the API labels it (rows carry the key only). */
 export const QUALITY_LABEL: Record<string, string> = { read_first: "Read first", worth_a_look: "Worth a look", has_problems: "Has problems", not_relevant: "Not relevant", not_reviewed: "Not reviewed" };
 
+/** The Simple view's one-liner under a quality group header (the full rule sits behind its "?"). */
+export const QUALITY_ONELINER: Record<string, string> = {
+  read_first: "Fits your search and the review found no problems.",
+  worth_a_look: "Fits your search; the review is mixed or not final.",
+  has_problems: "Fits your search, but the review found serious problems.",
+  not_reviewed: "Fits your search; not reviewed in depth yet.",
+  not_relevant: "Does not fit your search.",
+};
+
 const SPECIAL = new Set(["none", "kept", "not_screened", "unattributed", "not_saved"]);
 
 /** The header name of a group: the server's label for quality and special keys, readable labels otherwise. */

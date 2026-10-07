@@ -252,11 +252,13 @@ describe("PapersPage · peer-review columns", () => {
 describe("PapersPage · Simple and Detailed view", () => {
   beforeEach(() => localStorage.clear());
 
-  it("starts in the Simple view: paper, group, criteria, why and library", async () => {
+  it("starts in the Simple view: paper, quality, plain why, next action and team decision", async () => {
     setup({}, flat(`/?run=${RUN_ID}`));
     const table = await screen.findByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Quality", "Criteria", "Why", "Team decision"]);
-    expect(within(table).getByText("Dropped: doesn't meet topic match (LLM).")).toBeInTheDocument();
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Quality", "Why", "Next action", "Team decision"]);
+    expect(within(table).getByText("Does not match your search.")).toBeInTheDocument();
+    // the mechanics stay in Detailed
+    expect(table.textContent).not.toMatch(/Jev|LLM|escalated|threshold/);
     expect(screen.getByRole("button", { name: "Simple" })).toHaveAttribute("aria-pressed", "true");
   });
 

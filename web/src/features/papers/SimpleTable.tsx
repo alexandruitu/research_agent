@@ -1,8 +1,7 @@
 import type { PaperRow } from "../../api/types";
-import { CriteriaLine } from "./cells";
-import { QUALITY_ICON, QUALITY_LABEL } from "./groups";
+import { QualityCell } from "./cells";
 import { LibraryBadge } from "./PaperTable";
-import { whySentence } from "./why";
+import { nextAction, plainWhy } from "./simpleWords";
 import { Term } from "../../components/ui/Term";
 
 type Props = {
@@ -17,7 +16,10 @@ type Props = {
   onSave?: ((paperId: string) => void) | null;
 };
 
-/** The Simple view: what the paper is, which group it is in, why, and whether it is in the library. */
+/**
+ * The Simple view: the paper, its quality, why in one plain sentence, what to do next and the team's decision.
+ * How screening and the panel decided (Jev, LLM, escalation, provisional detail) is in the Detailed view.
+ */
 export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = null, cursorId = null, onSave = null }: Props) {
   return (
     <div className="table-scroll">
@@ -32,8 +34,8 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
             )}
             <th scope="col" className="col-paper">Paper</th>
             <th scope="col"><Term k="quality">Quality</Term></th>
-            <th scope="col"><Term k="criterion">Criteria</Term></th>
             <th scope="col" className="col-why">Why</th>
+            <th scope="col">Next action</th>
             <th scope="col"><Term k="team_decision">Team decision</Term></th>
           </tr>
         </thead>
@@ -41,6 +43,7 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
           {rows.map((row) => {
             const selected = selectedPaperId === row.paper.id;
             const group = row.group ?? null;
+            const action = nextAction(row);
             return (
               <tr key={row.paper.id} className={`${row.screen.decision === "exclude" ? "dropped" : ""} ${selected ? "selected" : ""} ${cursorId === row.paper.id ? "is-cursor" : ""} ${selection?.ids.has(row.paper.id) ? "is-checked" : ""}`} aria-current={selected ? "true" : undefined} onClick={() => onOpen(row.paper.id)}>
                 {selection && (
@@ -54,11 +57,16 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
                   </button>
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
                 </td>
-                <td className={`col-group group-tag--${group ?? "none"}`}>
-                  {group ? <span className="group-tag"><span aria-hidden="true">{QUALITY_ICON[group] ?? ""}</span> {QUALITY_LABEL[group] ?? group}</span> : <span className="na">–</span>}
+                <td className="col-group"><QualityCell group={group} /></td>
+                <td className="col-why">{plainWhy(row, texts)}</td>
+                <td className="col-next" onClick={(e) => e.stopPropagation()}>
+                  {action ? (
+                    <button type="button" className="next-action" title={action.hint} aria-describedby={`title-${row.paper.id}`}
+                      onClick={() => (action.word === "Save" && onSave ? onSave(row.paper.id) : onOpen(row.paper.id))}>
+                      {action.word}
+                    </button>
+                  ) : <span className="sub">none</span>}
                 </td>
-                <td onClick={(e) => e.stopPropagation()}><CriteriaLine screen={row.screen} texts={texts} /></td>
-                <td className="col-why">{whySentence(row, { texts })}</td>
                 <td onClick={(e) => e.stopPropagation()}>
                   {row.library ? <LibraryBadge library={row.library} />
                     : onSave ? <button type="button" className="row-save" aria-describedby={`title-${row.paper.id}`} onClick={() => onSave(row.paper.id)}>Save</button>
