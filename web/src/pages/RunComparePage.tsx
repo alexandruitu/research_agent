@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useRunCompare, useRuns } from "../api/hooks";
 import type { ComparePaper, RunCompareOut } from "../api/types";
 import { Skeleton } from "../components/ui/Skeleton";
-import { runLabel, runOption } from "../features/runs/runWords";
+import { newestFirst, runLabel, runOption } from "../features/runs/runWords";
 
 /** Two runs side by side: what differed in how they were started, and which papers came out differently. */
 export function RunComparePage() {
@@ -26,8 +26,8 @@ export function RunComparePage() {
           <label key={which}>Run {which === 0 ? "A" : "B"}
             <select className="run-picker" value={(which === 0 ? a : b) ?? ""} onChange={(e) => choose(which, e.target.value)}>
               <option value="">Choose…</option>
-              {runs.data?.map((run) => {
-                const option = runOption(run, [new Date(run.created_at).toLocaleDateString(), run.status]);
+              {newestFirst(runs.data ?? []).map((run) => {
+                const option = runOption(run);
                 return <option key={run.id} value={run.id} title={option.title}>{option.text}</option>;
               })}
             </select>

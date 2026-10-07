@@ -196,7 +196,7 @@ describe("PapersPage", () => {
       "GET /api/v1/fields/:id/versions/2": { body: versionOut() },
     });
     await screen.findByRole("table");
-    expect(screen.getByRole("combobox", { name: "Run" })).toHaveTextContent("ML CT-FFR · v2 · eval");
+    expect(screen.getByRole("combobox", { name: "Run" })).toHaveTextContent(/ML CT-FFR v2 · \d+ \w+, \d\d:\d\d · done · 151 papers/);
     const by = await screen.findByRole("combobox", { name: "Dropped by criterion" });
     await within(by).findByRole("option", { name: /excl 1: The paper is a review/ });
     await userEvent.selectOptions(by, "e1");

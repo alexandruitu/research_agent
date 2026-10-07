@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageRun, coverageLine, runOption, formatSeconds, formatUsd, runLabel } from "./runWords";
+import { canManageRun, coverageLine, newestFirst, runIdentity, runOption, formatSeconds, formatUsd, runLabel } from "./runWords";
 
 const me = { id: "u1", email: "m@x", name: "M", role: "member", active: true };
 
@@ -42,12 +42,23 @@ describe("coverage line", () => {
   });
 });
 
+const base = { name: null, field_name: "ML CT-FFR", field_version: 3, topic: "deep learning CT-FFR", created_at: "2026-10-06T11:25:00", status: "done" };
+
 describe("run picker options", () => {
-  it("use the short name, clip long labels and keep the full text with the topic for hover", () => {
-    expect(runOption({ name: "Baseline", field_name: "F", field_version: 1, topic: "deep learning CT-FFR" }, ["12 papers"])).toEqual({ text: "Baseline · 12 papers", title: "Baseline · 12 papers — deep learning CT-FFR" });
-    const long = runOption({ name: null, field_name: "x".repeat(100), field_version: null, topic: "" });
-    expect(long.text).toHaveLength(72);
-    expect(long.text.endsWith("…")).toBe(true);
-    expect(long.title).toBe("x".repeat(100));
+  it("say short name · field vN · date · status, with the topic for hover", () => {
+    expect(runIdentity({ ...base, name: "Baseline" })).toBe("Baseline · ML CT-FFR v3 · 6 Oct, 11:25 · done");
+    expect(runOption({ ...base, name: "Baseline" }, ["12 papers"])).toEqual({
+      text: "Baseline · ML CT-FFR v3 · 6 Oct, 11:25 · done · 12 papers",
+      title: "Baseline · ML CT-FFR v3 · 6 Oct, 11:25 · done · 12 papers — deep learning CT-FFR",
+    });
+  });
+  it("fall back to the topic, clipped, and mark failed or cancelled runs in words", () => {
+    const run = { ...base, topic: "x".repeat(60), status: "failed" };
+    expect(runIdentity(run)).toBe(`${"x".repeat(39)}… · ML CT-FFR v3 · 6 Oct, 11:25 · ! failed`);
+    expect(runIdentity({ ...base, status: "cancelled" })).toMatch(/· ⊘ cancelled$/);
+  });
+  it("sort most recent first", () => {
+    const runs = [{ id: "a", created_at: "2026-10-01T00:00:00Z" }, { id: "b", created_at: "2026-10-06T00:00:00Z" }];
+    expect(newestFirst(runs).map((r) => r.id)).toEqual(["b", "a"]);
   });
 });

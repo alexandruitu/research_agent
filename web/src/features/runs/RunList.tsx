@@ -4,7 +4,7 @@ import type { RunOut } from "../../api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { MenuButton, type MenuItem } from "../../components/ui/MenuButton";
 import { Tooltip } from "../../components/ui/Tooltip";
-import { coverageLine, runLabel, runStatusMeta } from "./runWords";
+import { coverageLine, runDate, runLabel, runShortName, runStatusMeta } from "./runWords";
 import { PartialSearchMarker } from "./SearchWarnings";
 
 export function RunStatus({ status }: { status: string }) {
@@ -50,13 +50,13 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
             <tr key={run.id} className={`runs__row runs__row--${run.status}${selected.has(run.id) ? " is-selected" : ""}`}>
               <td className="runs__check"><input type="checkbox" aria-label={`Select ${label}`} checked={selected.has(run.id)} onChange={() => onToggle(run.id)} /></td>
               <th scope="row">
-                <Link to={`/runs/${run.id}`} className="runs__name">{label}</Link>
+                <Link to={`/runs/${run.id}`} className="runs__name">{runShortName(run)}</Link>
                 {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
                 <PartialSearchMarker warnings={run.search_warnings} />
                 {coverageLine(run.coverage) && (
                   <Tooltip className="runs__coverage" trigger="coverage" triggerLabel={`Coverage of ${label}`} tip={coverageLine(run.coverage)} />
                 )}
-                {run.name && <span className="runs__sub">{run.field_name}{run.field_version ? ` · v${run.field_version}` : ""}</span>}
+                <span className="runs__sub">{run.field_name}{run.field_version ? ` v${run.field_version}` : ""} · {runDate(run.created_at)} · {runStatusMeta(run.status).word}</span>
                 {run.note && <span className="runs__note">{run.note}</span>}
                 {run.status === "failed" && run.error && <span className="runs__error" title={run.error}>{shortError(run.error)}</span>}
               </th>
@@ -64,7 +64,7 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
               <td><RunStatus status={run.status} /></td>
               <td className="num">{run.paper_count}</td>
               <td>{run.created_by_name ?? "imported"}</td>
-              <td className="runs__date"><time dateTime={run.created_at} title={new Date(run.created_at).toLocaleString()}>{shortDate(run.created_at)}</time></td>
+              <td className="runs__date"><time dateTime={run.created_at} title={new Date(run.created_at).toLocaleString()}>{runDate(run.created_at)}</time></td>
               <td className="runs__actions">
                 <Link to={`/?run=${run.id}`}>Papers<span className="sr-only"> of {label}</span></Link>
                 <MenuButton label={`Actions for ${label}`} text="Actions" items={items(run)} />

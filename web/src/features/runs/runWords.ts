@@ -47,9 +47,34 @@ export function coverageLine(coverage: RunOut["coverage"]): string | null {
   return parts.join(" · ");
 }
 
-/** A run picker option: the short label clipped to `max` characters, the full text (with the topic) for hover. */
-export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_version" | "topic">, details: string[] = [], max = 72) {
-  const full = [runLabel(run), ...details].join(" · ");
-  const text = full.length > max ? `${full.slice(0, max - 1).trimEnd()}…` : full;
+const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
+/** "6 Oct, 11:25" (local time). */
+export const runDate = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** The run's short name: its own name, else its topic clipped to 40 (null when it has neither). */
+const ownName = (run: Pick<RunOut, "name" | "topic">) => run.name || (run.topic?.trim() ? clip(run.topic.trim(), 40) : null);
+
+/** The run's short name, else its field and version. */
+export const runShortName = (run: Pick<RunOut, "name" | "topic" | "field_name" | "field_version">) => ownName(run) ?? runLabel(run);
+
+/** Status in words; failed and cancelled carry their mark too, so they stand out without colour. */
+const statusText = (status: string) => (status === "failed" || status === "cancelled" ? `${runStatusMeta(status).icon} ${status}` : runStatusMeta(status).word);
+
+/** One way to name a run everywhere: "Baseline · ML CT-FFR v3 · 6 Oct, 11:25 · done". */
+export function runIdentity(run: Pick<RunOut, "name" | "topic" | "field_name" | "field_version" | "created_at" | "status">) {
+  const field = `${run.field_name}${run.field_version ? ` v${run.field_version}` : ""}`;
+  return [ownName(run), field, runDate(run.created_at), statusText(run.status)].filter(Boolean).join(" · ");
+}
+
+/** Run pickers list the most recent run first. */
+export const newestFirst = <T extends { created_at: string }>(runs: T[]) =>
+  [...runs].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+
+/** A run picker option: the run's identity plus details, clipped to `max`; the full text with the topic for hover. */
+export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_version" | "topic" | "created_at" | "status">, details: string[] = [], max = 110) {
+  const full = [runIdentity(run), ...details].join(" · ");
+  const text = clip(full, max);
   return { text, title: run.topic ? `${full} — ${run.topic}` : full };
 }

@@ -30,7 +30,7 @@ import { PapersSidePanel } from "../features/papers/PapersSidePanel";
 import { SaveDialog } from "../features/library/SaveDialog";
 import { PartialSearchBanner } from "../features/runs/SearchWarnings";
 import { useSaveFlow } from "../features/library/saveFlow";
-import { runOption } from "../features/runs/runWords";
+import { newestFirst, runOption } from "../features/runs/runWords";
 import { Term } from "../components/ui/Term";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
@@ -185,8 +185,8 @@ export function PapersPage() {
         <label>
           Run
           <select className="run-picker" value={runId} title={selected ? runOption(selected).title : undefined} onChange={(e) => change({ run: e.target.value })}>
-            {runs.data?.map((r) => {
-              const option = runOption(r, [r.kind, ...(r.gold_set_name ? [r.gold_set_name] : []), `${r.paper_count} papers`]);
+            {newestFirst(runs.data ?? []).map((r) => {
+              const option = runOption(r, [`${r.paper_count} papers`, ...(r.gold_set_name ? [r.gold_set_name] : [])]);
               return <option key={r.id} value={r.id} title={option.title}>{option.text}</option>;
             })}
           </select>

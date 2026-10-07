@@ -43,7 +43,8 @@ describe("RunsPage list", () => {
     expect(within(table).getByText("done")).toBeInTheDocument();
     expect(within(table).getByText(/mlffrct-2024/)).toBeInTheDocument();
     expect(within(table).getAllByRole("link", { name: /^Papers/ })[1]).toHaveAttribute("href", `/?run=${RUN_ID}`);
-    expect(within(table).getAllByRole("link", { name: "ML CT-FFR" })[0]).toHaveAttribute("href", `/runs/${FAILED.id}`);
+    expect(within(table).getByRole("link", { name: "ct-ffr" })).toHaveAttribute("href", `/runs/${FAILED.id}`); // named by its topic
+    expect(within(table).getByText(/ML CT-FFR · \d+ \w+, \d\d:\d\d · failed/)).toBeInTheDocument();
     expect(within(table).getByText("Failed at screen (ValidationError)")).toHaveAttribute("title", expect.stringMatching(/Etapa nu s-a încheiat/));
   });
 
