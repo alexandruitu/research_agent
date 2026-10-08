@@ -72,6 +72,17 @@ describe("run detail", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/rerun"))).toBe(true));
   });
 
+  it("a run that failed after the search reads Partial search, not 'no source answered'", async () => {
+    const stage = (name: string, status: string) => ({ name, status, started_at: null, finished_at: null, seconds: null });
+    setup("member", detail({
+      status: "failed", error: "failed at stage 'screen': CriteriaAnswerError",
+      search_warnings: [{ source: "semantic_scholar", error_type: "SourceUnavailable", reason: "rate limited (HTTP 429)", detail: "" }],
+      timeline: { stages: [stage("discover", "completed"), stage("screen", "failed")], started_at: null, updated_at: null, status: "failed", recorded: false },
+    } as Partial<RunDetailOut>));
+    expect(await screen.findByRole("heading", { name: /Partial search/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /No search source answered/ })).not.toBeInTheDocument();
+  });
+
   it("cancels a running run after confirming", async () => {
     const { calls } = setup("member", detail({ status: "running", active_job_id: "55555555-5555-4555-8555-555555555555" }), {
       "POST /api/v1/runs/:id/cancel": { status: 202, body: { status: "cancelling" } },

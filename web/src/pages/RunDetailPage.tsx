@@ -56,7 +56,7 @@ export function RunDetailPage() {
         </div>
       </header>
 
-      <SearchWarningPanel warnings={data.search_warnings} failed={data.status === "failed"} />
+      <SearchWarningPanel warnings={data.search_warnings} failed={data.status === "failed" && !data.timeline?.stages?.some((s) => s.name === "discover" && s.status === "completed")} />
       {data.status === "failed" && <div role="alert" className="banner banner--bad"><p><strong>The run failed.</strong> {data.error ?? "No details were stored."}</p></div>}
       {data.status === "cancelled" && <div className="banner"><p><strong>Cancelled.</strong> The checkpoint is kept{data.can_manage && data.resume?.allowed ? "; Resume continues where it stopped." : "."}</p></div>}
       {data.resume?.code === "prompt_version_changed" && (
