@@ -56,8 +56,6 @@ def test_quotes_snap_to_the_abstract_and_answers_follow_the_field_order():
         ((("i1", "yes", ""),), CriteriaAnswerError),  # e1 missing
         ((("i1", "yes", ""), ("e1", "no", ""), ("e2", "no", "")), CriteriaAnswerError),  # unknown key
         ((("i1", "yes", ""), ("i1", "yes", ""), ("e1", "no", "")), CriteriaAnswerError),  # duplicate
-        ((("i1", "no", ""), ("e1", "no", "")), CriteriaAnswerError),  # 'no' on inclusion needs a quote
-        ((("i1", "yes", ""), ("e1", "yes", " ")), CriteriaAnswerError),  # 'yes' on exclusion needs a quote
         ((("i1", "yes", ""), ("e1", "yes", "We summarise prior work.")), EvidenceQuoteError),  # mangled
         (
             (("i1", "yes", "Invented."), ("e1", "no", "")),
@@ -68,6 +66,26 @@ def test_quotes_snap_to_the_abstract_and_answers_follow_the_field_order():
 def test_bad_answers_are_refused(answers, error):
     with pytest.raises(error):
         snap_screen(screen(*answers), CRITERIA, ABSTRACT)
+
+
+@pytest.mark.parametrize(
+    "answers,key",
+    [
+        ((("i1", "no", ""), ("e1", "no", "")), "i1"),  # 'no' on inclusion without a quote
+        ((("i1", "yes", ""), ("e1", "yes", " ")), "e1"),  # 'yes' on exclusion without a quote
+    ],
+)
+def test_an_unquoted_dropping_answer_counts_as_unclear_and_says_so(answers, key):
+    result = snap_screen(screen(*answers, reason="Off topic."), CRITERIA, ABSTRACT)
+    changed = next(a for a in result.answers if a.key == key)
+    assert (changed.answer, changed.quote) == ("unclear", "")
+    assert result.reason.startswith("Off topic.") and f"{key} '" in result.reason
+    assert "Counted as unclear" in result.reason
+
+
+def test_answers_with_quotes_leave_the_reason_untouched():
+    result = snap_screen(screen(("i1", "yes", ""), ("e1", "no", ""), reason="Fits."), CRITERIA, ABSTRACT)
+    assert result.reason == "Fits."
 
 
 def test_demo_screen_answers_every_criterion_and_is_cached_under_the_new_role(tmp_path):

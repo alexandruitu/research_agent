@@ -421,22 +421,30 @@ def snap_evidence(evidence, abstract):
 
 def snap_screen(screen, criteria, abstract):
     """Each criterion answered exactly once (in the field's order); every non-empty quote snapped to the
-    abstract; a quote is required for 'no' on an inclusion criterion and 'yes' on an exclusion criterion."""
+    abstract. 'no' on an inclusion criterion and 'yes' on an exclusion criterion would drop the paper, so
+    they need a quote; without one the answer becomes 'unclear' (the paper is kept, never dropped on an
+    unquoted answer) and the reason names the change. A quote that is not in the abstract is still refused."""
     kinds = {c["key"]: kind for kind in ("include", "exclude") for c in criteria[kind]}
     answers = {a.key: a for a in screen.answers}
     if len(answers) != len(screen.answers) or set(answers) != set(kinds):
         raise CriteriaAnswerError("the screen must answer each criterion key exactly once")
-    ordered = []
+    ordered, unquoted = [], []
     for key, kind in kinds.items():
         answer = answers[key]
         required = (kind == "include" and answer.answer == "no") or (
             kind == "exclude" and answer.answer == "yes"
         )
         if required and not answer.quote.strip():
-            raise CriteriaAnswerError(f"criterion {key}: this answer needs a quote from the abstract")
+            unquoted.append(f"{key} '{answer.answer}'")
+            ordered.append(answer.model_copy(update={"answer": "unclear", "quote": ""}))
+            continue
         quote = snap_quote(answer.quote, abstract) if answer.quote.strip() else ""
         ordered.append(answer.model_copy(update={"quote": quote}))
-    return screen.model_copy(update={"answers": ordered})
+    update = {"answers": ordered}
+    if unquoted:
+        note = f"Counted as unclear (answer without a quote from the abstract): {', '.join(unquoted)}."
+        update["reason"] = f"{screen.reason} {note}".strip()
+    return screen.model_copy(update=update)
 
 
 def snap_panel(review, items, text):
