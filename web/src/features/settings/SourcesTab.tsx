@@ -121,6 +121,36 @@ function ContactForm({ admin, value }: { admin: boolean; value: string | null })
   );
 }
 
+function AlertsLimitForm({ admin, value }: { admin: boolean; value: number }) {
+  const patch = usePatchSettings();
+  const [limit, setLimit] = useState(String(value));
+  const [message, setMessage] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  if (!admin) return <p>Alert runs per day (whole deployment): at most {value}</p>;
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setMessage(null);
+    const n = Number(limit);
+    if (!Number.isInteger(n) || n < 0 || n > 100) return setProblem("Enter a whole number from 0 to 100.");
+    setProblem(null);
+    try {
+      await patch.mutateAsync({ alerts_max_runs_per_day: n });
+      setMessage("Saved.");
+    } catch (error) {
+      setProblem(errorText(error));
+    }
+  };
+  return (
+    <form className="inline" onSubmit={submit} noValidate aria-label="Alert runs per day">
+      <label>Alert runs per day (whole deployment) <input type="number" min={0} max={100} value={limit} onChange={(e) => setLimit(e.target.value)} /></label>
+      <button type="submit" disabled={patch.isPending}>Save limit</button>
+      <span className="sub">Alerts due after the limit wait for the next day. 0 stops scheduled alert runs.</span>
+      {message && <span role="status">{message}</span>}
+      {problem && <span role="alert" className="form-error">{problem}</span>}
+    </form>
+  );
+}
+
 export function SourcesTab() {
   const { user } = useAuth();
   const admin = hasRole(user, "admin");
@@ -175,7 +205,7 @@ export function SourcesTab() {
         <strong>Google Scholar is not supported, on purpose.</strong> It has no official API; scraping it breaks its terms and could not be audited. The sources above reach what it indexes for medical imaging through official APIs.
       </aside>
       <p className="legend">Test runs one real search for one result with the worker’s keys. After adding or changing a key in the worker environment, restart the worker: it checks every key when it starts. Public APIs receive the contact address below, as they ask.</p>
-      {settings.isLoading ? <p role="status">Loading…</p> : settings.isError ? <p role="alert" className="form-error">{errorText(settings.error)}</p> : <ContactForm admin={admin} value={settings.data?.contact_email ?? null} />}
+      {settings.isLoading ? <p role="status">Loading…</p> : settings.isError ? <p role="alert" className="form-error">{errorText(settings.error)}</p> : <><ContactForm admin={admin} value={settings.data?.contact_email ?? null} /><AlertsLimitForm admin={admin} value={settings.data?.alerts_max_runs_per_day ?? 5} /></>}
     </section>
   );
 }

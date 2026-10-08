@@ -19,6 +19,7 @@ import { PreviewPanel } from "../features/fieldflow/PreviewPanel";
 import { QueryPanel } from "../features/fieldflow/QueryPanel";
 import { Stepper, type StepNumber } from "../features/fieldflow/Stepper";
 import { Suggestions, GROUP_LABEL } from "../features/fieldflow/Suggestions";
+import { AlertCard } from "../features/alerts/AlertCard";
 import { SummaryCard } from "../features/fieldflow/SummaryCard";
 import { TagInput } from "../features/fieldflow/TagInput";
 import { useReportDirty } from "../features/settings/dirtyGuard";
@@ -297,6 +298,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
         </div>
         <div className="editor-aside">
           <SummaryCard form={form} dirty={dirty} version={field?.current_version ?? null} />
+          {field && <AlertCard fieldId={field.id} archived={archived} demo={demo} />}
           {field && <FieldSidePanel field={field} />}
         </div>
       </div>

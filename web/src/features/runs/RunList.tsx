@@ -60,7 +60,7 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
                 {run.note && <span className="runs__note">{run.note}</span>}
                 {run.status === "failed" && run.error && <span className="runs__error" title={run.error}>{shortError(run.error)}</span>}
               </th>
-              <td>{run.kind}{run.gold_set_name ? ` · ${run.gold_set_name}` : ""}</td>
+              <td>{run.kind}{run.trigger === "alert" ? <span className="chip">alert</span> : null}{run.gold_set_name ? ` · ${run.gold_set_name}` : ""}</td>
               <td><RunStatus status={run.status} /></td>
               <td className="num">{run.paper_count}</td>
               <td>{run.created_by_name ?? "imported"}</td>

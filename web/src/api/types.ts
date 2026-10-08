@@ -93,6 +93,14 @@ export type LibraryPage = S["LibraryPage"];
 export type LibrarySaveRequest = S["LibrarySaveRequest"];
 export type LibrarySaveOut = S["LibrarySaveOut"];
 export type LibraryPatch = S["LibraryPatch"];
+export type AlertOut = S["AlertOut"];
+export type AlertIn = S["AlertIn"];
+export type DigestOut = S["DigestOut"];
+export type DigestItemOut = S["DigestItemOut"];
+export type DigestListOut = S["DigestListOut"];
+export type SubscriptionOut = S["SubscriptionOut"];
+/** `counts` of a digest. */
+export type DigestCounts = { found?: number; already_seen?: number; new?: number; over_cap?: number; reviewed?: number; in_digest?: number; deferred?: boolean };
 
 export type KeywordGroup = "all" | "any" | "none";
 export type KeywordSuggestion = { term: string; synonyms: string[] };

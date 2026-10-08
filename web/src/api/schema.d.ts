@@ -1062,6 +1062,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fields/{field_id}/alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Alert */
+        get: operations["get_alert_api_v1_fields__field_id__alert_get"];
+        /** Put Alert */
+        put: operations["put_alert_api_v1_fields__field_id__alert_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fields/{field_id}/alert/run-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Now */
+        post: operations["run_now_api_v1_fields__field_id__alert_run_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/{alert_id}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Follow */
+        post: operations["follow_api_v1_alerts__alert_id__subscription_post"];
+        /** Unfollow */
+        delete: operations["unfollow_api_v1_alerts__alert_id__subscription_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Digests
+         * @description Newest first. `scope=following` (default): digests of the alerts the user follows; `all`: admins only.
+         *     `unread` (the nav badge) always counts the followed alerts' unread digests.
+         */
+        get: operations["list_digests_api_v1_digests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digests/{digest_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Digest */
+        get: operations["get_digest_api_v1_digests__digest_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digests/{digest_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_api_v1_digests__digest_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stages": {
         parameters: {
             query?: never;
@@ -1251,6 +1359,105 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlertIn */
+        AlertIn: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Cadence
+             * @default weekly
+             * @enum {string}
+             */
+            cadence: "weekly" | "daily";
+            /**
+             * Weekday
+             * @default 0
+             */
+            weekday: number;
+            /**
+             * Hour
+             * @default 7
+             */
+            hour: number;
+            /**
+             * Max New
+             * @default 50
+             */
+            max_new: number;
+            /**
+             * Min Group
+             * @default worth_a_look
+             * @enum {string}
+             */
+            min_group: "read_first" | "worth_a_look";
+            /**
+             * Years Back
+             * @default 1
+             */
+            years_back: number;
+        };
+        /** AlertOut */
+        AlertOut: {
+            /** Exists */
+            exists: boolean;
+            /** Id */
+            id: string | null;
+            /**
+             * Field Id
+             * Format: uuid
+             */
+            field_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Cadence */
+            cadence: string;
+            /** Weekday */
+            weekday: number;
+            /** Hour */
+            hour: number;
+            /** Timezone */
+            timezone: string;
+            /** Max New */
+            max_new: number;
+            /** Effective Max New */
+            effective_max_new: number;
+            /** Min Group */
+            min_group: string;
+            /** Years Back */
+            years_back: number;
+            /** Next Run At */
+            next_run_at: string | null;
+            /** Last Run Id */
+            last_run_id: string | null;
+            /** Last Run Status */
+            last_run_status: string | null;
+            /** Failures */
+            failures: number;
+            /** Paused Reason */
+            paused_reason: string | null;
+            /** Deferred At */
+            deferred_at: string | null;
+            /** Subscribed */
+            subscribed: boolean;
+            /** Subscriber Count */
+            subscriber_count: number;
+            /** Created By */
+            created_by: string | null;
+            /** Can Edit */
+            can_edit: boolean;
+        };
+        /** AlertRunIn */
+        AlertRunIn: {
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
+        };
         /**
          * AssistRequest
          * @description A draft to get suggestions for: a description and/or a topic and/or keywords.
@@ -1619,6 +1826,68 @@ export interface components {
              * @enum {string}
              */
             folder: "trashed" | "missing" | "outside";
+        };
+        /** DigestItemOut */
+        DigestItemOut: {
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Group */
+            group: string;
+            /** Why */
+            why: string;
+            /** Title */
+            title: string;
+            /** Year */
+            year?: number | null;
+        };
+        /** DigestListOut */
+        DigestListOut: {
+            /** Unread */
+            unread: number;
+            /** Digests */
+            digests: components["schemas"]["DigestOut"][];
+        };
+        /** DigestOut */
+        DigestOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Alert Id
+             * Format: uuid
+             */
+            alert_id: string;
+            /**
+             * Field Id
+             * Format: uuid
+             */
+            field_id: string;
+            /** Field Name */
+            field_name: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string | null;
+            /** Counts */
+            counts: {
+                [key: string]: unknown;
+            };
+            /** Items */
+            items: components["schemas"]["DigestItemOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read */
+            read: boolean;
         };
         /** DisagreementOut */
         DisagreementOut: {
@@ -3342,6 +3611,8 @@ export interface components {
             /** Search Warnings */
             search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
             coverage?: components["schemas"]["RunCoverageOut"] | null;
+            /** Trigger */
+            trigger?: string;
             /** Manifest */
             manifest: {
                 [key: string]: unknown;
@@ -3455,6 +3726,8 @@ export interface components {
             /** Search Warnings */
             search_warnings?: components["schemas"]["SearchWarningOut"][] | null;
             coverage?: components["schemas"]["RunCoverageOut"] | null;
+            /** Trigger */
+            trigger?: string;
         };
         /** RunPanelOut */
         RunPanelOut: {
@@ -3623,11 +3896,15 @@ export interface components {
         SettingsOut: {
             /** Contact Email */
             contact_email: string | null;
+            /** Alerts Max Runs Per Day */
+            alerts_max_runs_per_day?: number;
         };
         /** SettingsPatch */
         SettingsPatch: {
             /** Contact Email */
             contact_email?: string | null;
+            /** Alerts Max Runs Per Day */
+            alerts_max_runs_per_day?: number | null;
         };
         /** SnapshotRequest */
         SnapshotRequest: {
@@ -3723,6 +4000,16 @@ export interface components {
              * Format: uuid
              */
             run_id: string;
+        };
+        /** SubscriptionOut */
+        SubscriptionOut: {
+            /**
+             * Alert Id
+             * Format: uuid
+             */
+            alert_id: string;
+            /** Subscribed */
+            subscribed: boolean;
         };
         /** UserCreate */
         UserCreate: {
@@ -6092,6 +6379,266 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryItemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_alert_api_v1_fields__field_id__alert_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_alert_api_v1_fields__field_id__alert_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_now_api_v1_fields__field_id__alert_run_now_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AlertRunIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_api_v1_alerts__alert_id__subscription_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfollow_api_v1_alerts__alert_id__subscription_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_digests_api_v1_digests_get: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+                scope?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_digest_api_v1_digests__digest_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                digest_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_digests__digest_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                digest_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestOut"];
                 };
             };
             /** @description Validation Error */

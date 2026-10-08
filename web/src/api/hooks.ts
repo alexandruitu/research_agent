@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
+  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -58,6 +58,10 @@ export const keys = {
   libraryItem: (id: string) => ["library", "item", id] as const,
   allCollections: ["collections"] as const,
   collections: (archived: boolean) => ["collections", { archived }] as const,
+  alert: (fieldId: string) => ["alert", fieldId] as const,
+  digests: ["digests"] as const,
+  digestList: (scope: "following" | "all") => ["digests", "list", scope] as const,
+  digestUnread: ["digests", "unread"] as const,
   reviewerVersion: (key: string, version: number) => ["reviewer", key, "version", version] as const,
 };
 
@@ -253,7 +257,7 @@ export const useCheckSource = () => useMutation({ mutationFn: (name: string) => 
 export function usePatchSettings() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: { contact_email: string | null }) => api.patch<SettingsOut>("/settings", { body }),
+    mutationFn: (body: { contact_email?: string | null; alerts_max_runs_per_day?: number | null }) => api.patch<SettingsOut>("/settings", { body }),
     onSuccess: (settings) => client.setQueryData(keys.settings, settings),
   });
 }
@@ -493,3 +497,55 @@ export function useSubmitRatings(sampleId: string) {
 }
 export const useReveal = (sampleId: string, paperId: string | null) =>
   useQuery({ queryKey: keys.reveal(sampleId, paperId ?? ""), enabled: !!paperId, retry: false, queryFn: () => api.get<RevealOut>(`/rating-samples/${sampleId}/papers/${encodeURIComponent(paperId ?? "")}/reveal`) });
+
+export const useAlert = (fieldId: string | null) =>
+  useQuery({ queryKey: keys.alert(fieldId ?? ""), enabled: !!fieldId, queryFn: () => api.get<AlertOut>(`/fields/${fieldId}/alert`) });
+
+export function useSaveAlert(fieldId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AlertIn) => api.put<AlertOut>(`/fields/${fieldId}/alert`, { body }),
+    onSuccess: (alert) => client.setQueryData(keys.alert(fieldId), alert),
+  });
+}
+
+export function useRunAlertNow(fieldId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (mode: "live" | "demo") =>
+      api.post<StartRunOut>(`/fields/${fieldId}/alert/run-now`, { body: { mode }, headers: { "Idempotency-Key": newIdempotencyKey() } }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.alert(fieldId) });
+      void client.invalidateQueries({ queryKey: keys.runs });
+    },
+  });
+}
+
+export function useFollowAlert(fieldId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ alertId, follow }: { alertId: string; follow: boolean }) =>
+      follow ? api.post<SubscriptionOut>(`/alerts/${alertId}/subscription`) : api.delete<SubscriptionOut>(`/alerts/${alertId}/subscription`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.alert(fieldId) });
+      void client.invalidateQueries({ queryKey: keys.digests });
+    },
+  });
+}
+
+/** The nav badge: polled once a minute. */
+export const useUnreadDigests = (enabled = true) =>
+  useQuery({
+    queryKey: keys.digestUnread, enabled, refetchInterval: 60_000,
+    queryFn: () => api.get<DigestListOut>("/digests", { unread: 1, limit: 1 }),
+  });
+export const useDigests = (scope: "following" | "all" = "following") =>
+  useQuery({ queryKey: keys.digestList(scope), queryFn: () => api.get<DigestListOut>("/digests", { scope }) });
+
+export function useMarkDigestRead() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<DigestOut>(`/digests/${id}/read`),
+    onSuccess: () => void client.invalidateQueries({ queryKey: keys.digests }),
+  });
+}

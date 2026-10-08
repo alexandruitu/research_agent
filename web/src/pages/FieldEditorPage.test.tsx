@@ -23,6 +23,7 @@ function setup(role: "viewer" | "member" | "admin" = "member", extra: Parameters
     "GET /api/v1/evals": { body: [] },
     "GET /api/v1/fields/:id/versions/1": { body: legacyVersion() },
     "GET /api/v1/fields/:id/versions/2": { body: versionOut() },
+    "GET /api/v1/fields/:id/alert": { body: { exists: false, id: null, field_id: FIELD_ID, enabled: false, cadence: "weekly", weekday: 0, hour: 7, timezone: "UTC", max_new: 50, effective_max_new: 50, min_group: "worth_a_look", years_back: 1, next_run_at: null, last_run_id: null, last_run_status: null, failures: 0, paused_reason: null, deferred_at: null, subscribed: false, subscriber_count: 0, created_by: null, can_edit: true } },
     ...extra,
   });
   renderWithProviders(

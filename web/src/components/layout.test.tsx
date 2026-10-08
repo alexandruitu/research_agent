@@ -43,10 +43,19 @@ describe("routing and navigation", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     renderApp("/");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Papers", "Library", "Runs", "Fields", "Evals", "System map", "Settings"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Papers", "Library", "Runs", "Fields", "Alerts", "Evals", "System map", "Settings"]);
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     expect(screen.getByText("Member")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Literature Radar/ })).toHaveAttribute("href", "/");
+  });
+
+  it("shows the unread alert digests as a number with words", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") }, "GET /api/v1/digests": { body: { unread: 3, digests: [] } } });
+    renderApp("/");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    const link = within(nav).getByRole("link", { name: /Alerts/ });
+    await waitFor(() => expect(link).toHaveTextContent(/Alerts\s*3\s*unread/));
+    expect(link).toHaveAttribute("href", "/alerts");
   });
 
   it("offers the Users tab under Settings to admins only", async () => {

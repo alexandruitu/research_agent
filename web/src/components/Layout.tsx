@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
+import { useUnreadDigests } from "../api/hooks";
 import { useAuth } from "../auth/AuthProvider";
 import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -13,6 +14,7 @@ const NAV = [
   { to: "/library", label: "Library" },
   { to: "/runs", label: "Runs" },
   { to: "/fields", label: "Fields" },
+  { to: "/alerts", label: "Alerts" },
   { to: "/evals", label: "Evals" },
   { to: "/system", label: "System map" },
   { to: "/settings", label: "Settings" },
@@ -22,6 +24,7 @@ function Chrome() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const { confirmLeave } = useLeaveGuard();
+  const unread = useUnreadDigests(!!user).data?.unread ?? 0;
   const guard = (event: MouseEvent) => {
     if (!confirmLeave()) event.preventDefault();
   };
@@ -31,7 +34,12 @@ function Chrome() {
       <header className="topbar">
         <Link to="/" className="brand" onClick={guard}><img className="brand-logo" src="/healthineers-logo.svg" alt="Siemens Healthineers" width="128" height="32" /><span className="brand-name">Literature Radar</span></Link>
         <nav aria-label="Main">
-          {NAV.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={guard}>{item.label}</NavLink>)}
+          {NAV.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={guard}>
+              {item.label}
+              {item.to === "/alerts" && unread > 0 && <span className="nav-count">{unread}<span className="sr-only"> unread</span></span>}
+            </NavLink>
+          ))}
         </nav>
         <div className="who">
           <span>{user?.name}</span> <span className="role">{user?.role}</span>
