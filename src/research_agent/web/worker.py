@@ -9,15 +9,17 @@ import subprocess
 import tempfile
 import threading
 import time
+import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ..sources import REGISTRY
 from ..storage import Store
+from .alerts import finish_alert_run, record_failure, schedule_due, write_seen_file
 from .assist import assist_model, field_assist
 from .checks import check_keys, check_source_keys, criteria_test, source_check
-from .db.models import Job, Run, SourceRow, WorkerStatus
+from .db.models import Alert, Job, Run, SourceRow, WorkerStatus
 from .db.session import make_engine, make_session_factory
 from .fields import settings_row
 from .importer.common import ImportFailed
@@ -116,12 +118,23 @@ class Worker:
             return False
         with self.factory() as db:
             requeue_stale(db, self.settings.job_stale_seconds, self.settings.job_max_attempts, self.clock())
+            db.commit()
+            self.schedule_alerts(db)
             job = claim(db, self.worker_id, self.clock())
             db.commit()  # the claim is visible to other workers immediately
             if job is None:
                 return False
             job_id = job.id
         return self.execute(job_id)
+
+    def schedule_alerts(self, db):
+        """Queue the alert runs whose slot has come (see alerts.schedule_due). Never fatal for the queue."""
+        try:
+            schedule_due(db, self.settings, self.clock() or datetime.now(UTC))
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 -- the queue must not depend on the scheduler
+            db.rollback()
+            log.warning("alert scheduling failed: %s", redact(f"{type(exc).__name__}: {exc}"))
 
     def check_keys(self):
         """Record, per model role, whether the provider key is present and accepted (never its value).
@@ -215,9 +228,22 @@ class Worker:
             run_id = (job.payload or {}).get("run_id")
             if run_id and (run := db.get(Run, run_id)) is not None:
                 run.status, run.error, run.finished_at = "failed", message, datetime.now(UTC)
+                if run.trigger == "alert":
+                    finish_alert_run(db, run, job.payload)
             db.commit()
         else:
             db.rollback()
+
+    def _digest(self, db, run, payload, skip_counts):
+        """The finished alert run's digest; a digest that cannot be built is recorded as a failed one (the run
+        itself stays done)."""
+        try:
+            with db.begin_nested():
+                finish_alert_run(db, run, payload, skip_counts)
+        except Exception as exc:  # noqa: BLE001 -- the imported run must not be lost to a digest error
+            alert = db.get(Alert, uuid.UUID(payload["alert_id"]))
+            if alert is not None:
+                record_failure(db, alert, run.id, "The digest could not be built: " + sanitize_error(exc))
 
     def _release(self, db, job):
         """Back to the queue, attempt not counted; the run is queued again."""
@@ -284,6 +310,10 @@ class Worker:
             run_dir.mkdir(parents=True, exist_ok=True)
             review_file = run_dir / REVIEW_REQUEST
             review_file.write_text(json.dumps(review, ensure_ascii=False, indent=2))
+        seen_file = None
+        if payload.get("alert_id") and not resume:  # Skip seen: the field's seen set, as it is now
+            run_dir.mkdir(parents=True, exist_ok=True)
+            seen_file = write_seen_file(db, run_dir, run.field_id, int(payload.get("max_new") or 50))
         if review:  # uploaded PDFs, on every start and resume (papers are found during the run)
             materialize(db, self.settings.uploads_dir, run_dir)
         run.status, run.error = "running", None
@@ -299,6 +329,7 @@ class Worker:
             run_dir=run_dir,
             domain_file=domain_file,
             review_file=review_file,
+            seen_file=seen_file,
         )
         process = self.spawn(spec, child_environment(), run_dir / "worker.log")
         deadline = self.monotonic() + self.settings.job_timeout_seconds
@@ -338,6 +369,8 @@ class Worker:
                 db.rollback()  # lost the job while importing: leave the import to its new owner
                 return True
             run.status = "done"
+            if run.trigger == "alert":
+                self._digest(db, run, payload, read_progress(run_dir).get("skip_seen"))
             db.commit()
         else:
             if (warnings := read_progress(run_dir).get("search_warnings")) is not None:

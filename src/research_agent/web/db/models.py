@@ -155,6 +155,9 @@ class Run(Base):
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # Partial search: [{source, error_type, reason, detail}] the run skipped; null: legacy or older import
     search_warnings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    trigger: Mapped[str] = mapped_column(
+        String(16), default="manual", server_default="manual"
+    )  # manual | alert
     created_at: Mapped[datetime] = created()
 
 
@@ -335,6 +338,7 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)  # always 1
     contact_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    alerts_max_runs_per_day: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -579,3 +583,78 @@ class LibraryEvent(Base):
     kind: Mapped[str] = mapped_column(String(16))
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = created()
+
+
+class Alert(Base):
+    """A field's scheduled "what's new" run (one per field). weekday 0 = Monday; hour in the server's local time."""
+
+    __tablename__ = "alerts"
+    id: Mapped[uuid.UUID] = pk()
+    field_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("fields.id", ondelete="CASCADE"), unique=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    cadence: Mapped[str] = mapped_column(
+        String(16), default="weekly", server_default="weekly"
+    )  # weekly | daily
+    weekday: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    hour: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    last_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True
+    )
+    max_new: Mapped[int] = mapped_column(Integer, default=50, server_default="50")
+    min_group: Mapped[str] = mapped_column(
+        String(16), default="worth_a_look", server_default="worth_a_look"
+    )  # read_first | worth_a_look
+    years_back: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # consecutive failed runs
+    paused_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the daily budget pushed the last slot to the next day; the next digest says so, then this is cleared
+    deferred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class AlertSubscription(Base):
+    __tablename__ = "alert_subscriptions"
+    alert_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("alerts.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    created_at: Mapped[datetime] = created()
+
+
+class Digest(Base):
+    """What one alert run found. counts {found, already_seen, new, reviewed, in_digest, over_cap}; items
+    [{paper_id, group, why, title, year}] frozen at creation (they survive the run's deletion)."""
+
+    __tablename__ = "digests"
+    id: Mapped[uuid.UUID] = pk()
+    alert_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("alerts.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="done")  # done | failed
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    counts: Mapped[dict] = mapped_column(JSONB, default=dict)
+    items: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = created()
+
+
+class DigestRead(Base):
+    __tablename__ = "digest_reads"
+    digest_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("digests.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

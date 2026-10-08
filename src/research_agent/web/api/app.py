@@ -7,6 +7,7 @@ from ..settings import load_settings
 from .errors import install_error_handlers
 from .routers import (
     admin,
+    alerts,
     auth,
     evals,
     fields,
@@ -51,6 +52,7 @@ def create_app(settings=None, session_factory=None):
         ratings,
         files,
         library,
+        alerts,
         stages,
         evals,
         gold_sets,

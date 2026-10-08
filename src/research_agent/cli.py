@@ -21,6 +21,11 @@ def main():
         default=[],
         help="extra directory of uploaded PDFs named <paper-id>.pdf (repeatable)",
     )
+    parser.add_argument(
+        "--seen",
+        type=Path,
+        help="alert run: seen.json; papers the field has seen are skipped before screening",
+    )
     parser.add_argument("--mode", choices=["demo", "live"], default="demo")
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--max-papers", type=int, default=12)
@@ -42,6 +47,8 @@ def main():
         parser.error("--resume reads the saved run; do not pass --domain")
     if args.domain and (args.jev_min_confidence is not None or args.jev_exclude_min_confidence is not None):
         parser.error("With --domain the Jev thresholds come from domain.json")
+    if args.seen and args.resume:
+        parser.error("--resume reads the saved run; do not pass --seen")
     if args.review and args.resume:
         parser.error("--resume reads the saved run; do not pass --review")
     if not args.resume and not (args.topic or args.domain):
@@ -84,6 +91,7 @@ def main():
             domain_file=args.domain,
             review_file=args.review,
             uploads=args.uploads,
+            seen_file=args.seen,
         )
     except RunRefused as exc:
         record_refusal(args.run_dir, str(exc))

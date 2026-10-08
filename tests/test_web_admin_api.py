@@ -38,19 +38,26 @@ def test_only_admins_change_sources(sign_in):
 def test_contact_email_setting(sign_in):
     viewer, _ = sign_in("viewer")
     admin, csrf = sign_in("admin")
-    assert viewer.get(f"{API}/settings").json() == {"contact_email": None}
+    assert viewer.get(f"{API}/settings").json() == {"contact_email": None, "alerts_max_runs_per_day": 5}
     assert viewer.patch(f"{API}/settings", json={"contact_email": "a@b.org"}).status_code == 403
     r = admin.patch(f"{API}/settings", json={"contact_email": "team@example.org"}, headers=csrf)
-    assert r.status_code == 200 and r.json() == {"contact_email": "team@example.org"}
+    assert r.status_code == 200 and r.json() == {
+        "contact_email": "team@example.org",
+        "alerts_max_runs_per_day": 5,
+    }
     assert admin.patch(f"{API}/settings", json={}, headers=csrf).json() == {
-        "contact_email": "team@example.org"
+        "contact_email": "team@example.org",
+        "alerts_max_runs_per_day": 5,
     }
     assert (
         admin.patch(f"{API}/settings", json={"contact_email": "not an email"}, headers=csrf).status_code
         == 422
     )
-    assert admin.patch(f"{API}/settings", json={"contact_email": None}, headers=csrf).json() == {
-        "contact_email": None
+    assert admin.patch(
+        f"{API}/settings", json={"contact_email": None, "alerts_max_runs_per_day": 5}, headers=csrf
+    ).json() == {
+        "contact_email": None,
+        "alerts_max_runs_per_day": 5,
     }
 
 
@@ -76,3 +83,17 @@ def test_worker_status_lists_rows_and_never_a_key(sign_in, db, monkeypatch):
     assert row["role"] == "screen" and row["key_present"] is True and row["key_accepted"] is False
     assert row["detail"] == "rejected (401)" and row["checked_at"]
     assert sentinel not in r.text
+
+
+def test_alerts_daily_budget_setting(sign_in):
+    viewer, vcsrf = sign_in("viewer")
+    admin, csrf = sign_in("admin")
+    r = admin.patch(f"{API}/settings", json={"alerts_max_runs_per_day": 2}, headers=csrf)
+    assert r.status_code == 200 and r.json()["alerts_max_runs_per_day"] == 2
+    assert viewer.get(f"{API}/settings").json()["alerts_max_runs_per_day"] == 2
+    assert (
+        admin.patch(f"{API}/settings", json={"alerts_max_runs_per_day": -1}, headers=csrf).status_code == 422
+    )
+    assert (
+        viewer.patch(f"{API}/settings", json={"alerts_max_runs_per_day": 9}, headers=vcsrf).status_code == 403
+    )

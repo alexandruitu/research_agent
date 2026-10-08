@@ -324,11 +324,14 @@ class SourcePatch(Model):
 
 
 class SettingsOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["alerts_max_runs_per_day"])
     contact_email: str | None
+    alerts_max_runs_per_day: int = 5
 
 
 class SettingsPatch(Model):
     contact_email: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    alerts_max_runs_per_day: int | None = Field(default=None, ge=0, le=100)
 
 
 class WorkerStatusOut(Model):
@@ -382,6 +385,7 @@ class RunOut(Model):
             "started_at",
             "search_warnings",
             "coverage",
+            "trigger",
         ]
     )
     id: uuid.UUID
@@ -407,6 +411,7 @@ class RunOut(Model):
     # Partial search: sources skipped by this run (null: not recorded, e.g. a legacy run; []: none skipped)
     search_warnings: list[SearchWarningOut] | None = None
     coverage: RunCoverageOut | None = None
+    trigger: str = "manual"  # manual | alert
 
 
 class RunSourceOut(Model):
@@ -1547,3 +1552,77 @@ DrawerOut.model_rebuild()
 
 for _model in (EvalJobOut, EvalDetailOut, RatingSubmitOut, CompareOut):
     _model.model_rebuild()
+
+
+# --- field alerts -------------------------------------------------------------------------------------------------
+
+
+class AlertIn(Model):
+    enabled: bool = True
+    cadence: Literal["weekly", "daily"] = "weekly"
+    weekday: int = Field(default=0, ge=0, le=6)  # 0 = Monday
+    hour: int = Field(default=7, ge=0, le=23)  # server local time
+    max_new: int = Field(default=50, ge=1, le=200)
+    min_group: Literal["read_first", "worth_a_look"] = "worth_a_look"
+    years_back: int = Field(default=1, ge=0, le=10)
+
+
+class AlertOut(Model):
+    exists: bool  # false: no alert yet; the other fields are the defaults a new alert would get
+    id: uuid.UUID | None
+    field_id: uuid.UUID
+    enabled: bool
+    cadence: str
+    weekday: int
+    hour: int
+    timezone: str  # the server's local time zone the weekday/hour are in
+    max_new: int
+    effective_max_new: int  # min(max_new, the deployment's max papers per run)
+    min_group: str
+    years_back: int
+    next_run_at: datetime | None
+    last_run_id: uuid.UUID | None
+    last_run_status: str | None
+    failures: int
+    paused_reason: str | None
+    deferred_at: datetime | None
+    subscribed: bool
+    subscriber_count: int
+    created_by: uuid.UUID | None
+    can_edit: bool
+
+
+class AlertRunIn(Model):
+    mode: Literal["live", "demo"] = "live"
+
+
+class SubscriptionOut(Model):
+    alert_id: uuid.UUID
+    subscribed: bool
+
+
+class DigestItemOut(Model):
+    paper_id: uuid.UUID
+    group: str  # read_first | worth_a_look
+    why: str
+    title: str
+    year: int | None = None
+
+
+class DigestOut(Model):
+    id: uuid.UUID
+    alert_id: uuid.UUID
+    field_id: uuid.UUID
+    field_name: str
+    run_id: uuid.UUID | None  # null: the run was deleted, or the run could not start
+    status: str  # done | failed
+    reason: str | None
+    counts: dict[str, Any]  # found, already_seen, new, over_cap, reviewed, in_digest (+ deferred: true)
+    items: list[DigestItemOut]
+    created_at: datetime
+    read: bool
+
+
+class DigestListOut(Model):
+    unread: int
+    digests: list[DigestOut]

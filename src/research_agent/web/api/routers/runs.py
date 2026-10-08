@@ -146,6 +146,7 @@ def _run_out(db, run, cls=RunOut, names=None, **extra):
         started_at=run.started_at,
         search_warnings=search_warnings(run),
         coverage=run_coverage(db, run),
+        trigger=run.trigger or "manual",
         **extra,
     )
 

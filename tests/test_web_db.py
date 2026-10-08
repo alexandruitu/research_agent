@@ -42,6 +42,10 @@ TABLES = {
     "red_flags",
     "rating_samples",
     "human_ratings",
+    "alerts",
+    "alert_subscriptions",
+    "digests",
+    "digest_reads",
 }
 
 

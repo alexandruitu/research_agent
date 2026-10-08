@@ -18,6 +18,7 @@ from .schemas import (
     Screen,
 )
 from .scoring import rank_panel, score_paper
+from .seen import skip_seen
 
 NO_ABSTRACT = "No abstract available; retained in audit, unranked."
 KEYWORD_PLAN = "Queries built in code from the field's keywords; no planning call."
@@ -63,6 +64,8 @@ class State(TypedDict, total=False):
     panel: Annotated[dict, merge]  # reviewer key -> paper id -> review (reviewers write in parallel)
     editor_decisions: dict
     review: dict  # paper id -> per-paper panel result for report.json
+    # Alert runs (seen.json) only: {found, already_seen, new, over_cap} of the Skip seen step.
+    skip_seen: dict
 
 
 def disagreement(a, b):
@@ -111,8 +114,11 @@ def build_graph(
     jev=None,
     fulltext=None,
     panel=None,
+    seen=None,
 ):
-    """Legacy graph (review_a/review_b/adjudicate) unless `fulltext` and `panel` (review.json's reviewers)
+    """`seen` (alert runs): (research_agent.seen.SeenSet, max_new); normalize then drops seen papers.
+
+    Legacy graph (review_a/review_b/adjudicate) unless `fulltext` and `panel` (review.json's reviewers)
     are given: then screen -> fulltext -> extract -> review_<key> (parallel) -> editor -> score -> rank."""
 
     def plan(s):
@@ -144,7 +150,13 @@ def build_graph(
         # Bound expensive model work, deterministically in query/rank discovery order.
         order = {p["id"]: i for i, p in reversed(list(enumerate(s["discovered"])))}
         papers.sort(key=lambda p: min(order.get(src.record_id, 10**9) for src in p.provenance))
-        return {"papers": [p.model_dump() for p in papers[: s["contract"]["max_papers"]]]}
+        if seen is None:
+            return {"papers": [p.model_dump() for p in papers[: s["contract"]["max_papers"]]]}
+        # Skip seen (alert runs): deterministic, before any model call; newest first within the cap.
+        kept, counts = skip_seen(papers, *seen)
+        kept = kept[: s["contract"]["max_papers"]]
+        counts["over_cap"] = counts["new"] - len(kept)
+        return {"papers": [p.model_dump() for p in kept], "skip_seen": counts}
 
     def screen_topic(topic, paper):
         # Tier 1 (optional): Jev decides only when confident; otherwise the LLM sees the same

@@ -92,7 +92,8 @@ def check_source(
 
 @router.get("/settings", response_model=SettingsOut)
 def get_settings_row(user=Depends(require_role("viewer")), db=Depends(get_db)):
-    return SettingsOut(contact_email=settings_row(db).contact_email)
+    row = settings_row(db)
+    return SettingsOut(contact_email=row.contact_email, alerts_max_runs_per_day=row.alerts_max_runs_per_day)
 
 
 @router.patch("/settings", response_model=SettingsOut)
@@ -100,8 +101,10 @@ def patch_settings(body: SettingsPatch, user=Depends(require_role("admin")), db=
     row = settings_row(db)
     if "contact_email" in body.model_fields_set:  # an explicit null clears it; an absent key keeps it
         row.contact_email = body.contact_email
+    if body.alerts_max_runs_per_day is not None:
+        row.alerts_max_runs_per_day = body.alerts_max_runs_per_day
     db.commit()
-    return SettingsOut(contact_email=row.contact_email)
+    return SettingsOut(contact_email=row.contact_email, alerts_max_runs_per_day=row.alerts_max_runs_per_day)
 
 
 @router.get("/workers/status", response_model=list[WorkerStatusOut])

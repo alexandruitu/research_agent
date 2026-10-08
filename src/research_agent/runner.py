@@ -21,6 +21,7 @@ from .jev import DEFAULT_MODEL, JEV_SCREEN_VERSION, JevScreener, JevThresholds
 from .report import write_report
 from .schemas import Contract
 from .scoring import SCORE_VERSION
+from .seen import SEEN_FILE, read_seen
 from .storage import Store
 
 STAGES = {
@@ -59,6 +60,12 @@ FAILED = (
 
 
 SEARCH_KEYS = ("search_warnings", "sources_used", "sources_skipped")
+
+
+def skipped(values):
+    """The Skip seen counts of an alert run's normalize stage ({} otherwise)."""
+    counts = (values or {}).get("skip_seen")
+    return {"skip_seen": counts} if counts else {}
 
 
 def search_summary(values):
@@ -246,7 +253,9 @@ def run_research(
     domain_file=None,
     review_file=None,
     uploads=(),
+    seen_file=None,
 ):
+    """`seen_file` (a new alert run): seen.json, copied into the folder; the run then skips seen papers."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("LANGGRAPH_STRICT_MSGPACK", "true")
@@ -263,6 +272,7 @@ def run_research(
                 raise RunRefused("The topic cannot be changed when resuming.")
             contract, models = saved, manifest["models"]
             uploads = (manifest.get("review") or {}).get("uploads", [])
+            seen_file = path / SEEN_FILE if manifest.get("skip_seen") else None
         else:
             if manifest_path.exists():
                 raise RunRefused("This research already exists; resume it or choose a new folder.")
@@ -285,7 +295,14 @@ def run_research(
                     for p in ["langgraph", "langgraph-checkpoint-sqlite", "pydantic", "langchain"]
                 },
             }
+            if seen_file is not None:
+                target = path / SEEN_FILE
+                if Path(seen_file).resolve() != target.resolve():
+                    shutil.copyfile(seen_file, target)
+                seen_file = target
+                manifest["skip_seen"] = {"file": SEEN_FILE, "max_new": read_seen(target)[1]}
             atomic_json(manifest_path, manifest)
+        seen = read_seen(seen_file) if seen_file is not None else None  # fails closed when unreadable
         progress = Progress(path)
         progress.write()
         try:
@@ -321,11 +338,14 @@ def run_research(
                     jev,
                     fulltext=fulltext,
                     panel=panel,
+                    seen=seen,
                 )
                 snapshot = graph.get_state(config)
                 # Reconstruct committed progress rather than trusting a previous process's display state.
                 progress.write(
-                    stages=completed_stages(snapshot.values, contract), **search_summary(snapshot.values)
+                    stages=completed_stages(snapshot.values, contract),
+                    **search_summary(snapshot.values),
+                    **skipped(snapshot.values),
                 )
                 if resume and snapshot.values and not snapshot.next:
                     result = snapshot.values
@@ -334,6 +354,8 @@ def run_research(
                     for event in graph.stream(initial, config, stream_mode="updates"):
                         if search := search_summary((event or {}).get("discover")):
                             progress.write(**search)
+                        if counts := skipped((event or {}).get("normalize")):
+                            progress.write(**counts)
                         if on_event:
                             on_event(event)
                     snapshot = graph.get_state(config)
@@ -343,6 +365,9 @@ def run_research(
                     result = snapshot.values
                 if search := search_summary(result):
                     manifest["search"] = search
+                    atomic_json(manifest_path, manifest)
+                if counts := skipped(result):
+                    manifest["skip_seen"] = {**manifest.get("skip_seen", {}), "counts": counts["skip_seen"]}
                     atomic_json(manifest_path, manifest)
                 store.save_papers("research-v1", result["papers"])
                 write_report(result, path, manifest)
