@@ -9,6 +9,7 @@ import { drawerOut, JOB_ID, jobOut, PAPER_ID, RUN_ID, session } from "../test/fi
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { segments } from "../features/reader/segments";
+import { readerState } from "../features/reader/origin";
 import { ReaderPage } from "./ReaderPage";
 
 afterEach(() => {
@@ -51,7 +52,7 @@ const related = (over: Partial<RelatedResult> = {}): RelatedResult => ({
   ...over,
 });
 
-function setup(role: "viewer" | "member", data: ReaderOut = reader(), extra: Record<string, MockHandler> = {}) {
+function setup(role: "viewer" | "member", data: ReaderOut = reader(), extra: Record<string, MockHandler> = {}, state?: unknown) {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/runs/:id/papers/:id/reader": { body: data },
@@ -61,7 +62,7 @@ function setup(role: "viewer" | "member", data: ReaderOut = reader(), extra: Rec
   });
   renderWithProviders(
     <Routes><Route path="/read/:runId/:paperId" element={<ReaderPage />} /></Routes>,
-    { route: `/read/${RUN_ID}/${PAPER_ID}` },
+    { route: { pathname: `/read/${RUN_ID}/${PAPER_ID}`, state } },
   );
   return api;
 }
@@ -194,7 +195,7 @@ describe("ReaderPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Earlier work" }));
     expect(await screen.findByRole("heading", { name: "Papers mentioning this before 2026" })).toBeInTheDocument();
     expect(screen.getByText("This paper: 2026")).toBeInTheDocument();
-    const panel = screen.getByRole("region", { name: "Related and earlier work" });
+    const panel = screen.getByRole("region", { name: /^Answers/ });
     expect(panel.textContent).not.toMatch(/\bnovel|\bfirst to|is new\b/i);
   });
 
@@ -205,5 +206,72 @@ describe("ReaderPage", () => {
     });
     await userEvent.click(await screen.findByRole("button", { name: "Find related" }));
     expect(await screen.findByText("No matching papers in the sources, the team library or past runs.")).toBeInTheDocument();
+  });
+
+  it("goes back to the paper in Results by default", async () => {
+    setup("viewer");
+    expect(await screen.findByRole("link", { name: "Back to Results" })).toHaveAttribute("href", `/results?run=${RUN_ID}&paper=${PAPER_ID}`);
+  });
+
+  it("names the Library as the way back when opened from it, with its filters", async () => {
+    setup("viewer", reader(), {}, readerState("library", "/library?q=ffr"));
+    expect(await screen.findByRole("link", { name: "Back to Library" })).toHaveAttribute("href", "/library?q=ffr");
+    expect(screen.queryByRole("link", { name: /Back to Results/ })).not.toBeInTheDocument();
+  });
+
+  it("returns to the exact Results view it was opened from", async () => {
+    setup("viewer", reader(), {}, readerState("results", `/results?run=${RUN_ID}&group=none`));
+    expect(await screen.findByRole("link", { name: "Back to Results" })).toHaveAttribute("href", `/results?run=${RUN_ID}&group=none`);
+  });
+
+  it("shows where you are in the flow and keeps the run context in a compact strip", async () => {
+    setup("member");
+    const steps = await screen.findByRole("navigation", { name: "Research steps" });
+    expect(within(steps).getByText("Read").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    const strip = screen.getByText("In this run").closest("details")!;
+    expect(strip).not.toHaveAttribute("open");
+    expect(within(strip).getByText(/Team status: Not in the library/)).toBeInTheDocument();
+    expect(within(strip).getByRole("heading", { name: "Quotes from this run (1)" })).toBeInTheDocument();
+    // the run's quotes stay in the page, so the marks' aria-describedby resolve even while the strip is closed
+    expect(document.getElementById("hl-0")).toHaveTextContent("Red flag: No external validation");
+  });
+
+  it("offers Save to library as the next step, through the existing save flow", async () => {
+    const api = setup("member", reader(), { "POST /api/v1/library": { status: 201, body: { created: [PAPER_ID], existing: [], items: [], collection: null } } });
+    await userEvent.click(await screen.findByRole("button", { name: "Save to library" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.path === "/api/v1/library")).toBe(true));
+  });
+
+  it("groups the tools as tiles that say, in words, when they will use the selection", async () => {
+    setup("member");
+    await screen.findByRole("heading", { name: "Methods" });
+    for (const name of ["Understand", "Explore", "Coming"]) expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+    const explain = screen.getByRole("button", { name: "Explain (from the paper)" });
+    expect(explain).toHaveAccessibleDescription(/every statement quoted from the paper\. Uses the whole paper/);
+    expect(screen.getByRole("button", { name: "Background explanation" })).toBeDisabled();
+    select("The test set was external");
+    expect(explain).toHaveAccessibleDescription(/Ready for your selection/);
+    expect(explain.closest("li")).toHaveClass("is-ready");
+    expect(screen.getByRole("button", { name: "Background explanation" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "In-house" })).toHaveAccessibleDescription("needs an internal collection — coming");
+  });
+
+  it("stacks answers newest first, each with its own Save as note", async () => {
+    let n = 0;
+    const ids = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"];
+    setup("member", reader(), {
+      "POST /api/v1/runs/:id/papers/:id/reader/ask": () => ({ status: 202, body: jobOut({ id: ids[n++]!, kind: "reader_ask", run_id: null }) }),
+      "GET /api/v1/jobs/:id": (req) => ({ body: jobOut({ id: req.url.pathname.split("/").pop()!, kind: "reader_ask", run_id: null, status: "done", progress: { result: req.url.pathname.endsWith(ids[0]!) ? result() : result({ tool: "background", general: true, statements: [], answer: "Second answer." }) } }) }),
+    });
+    await screen.findByRole("heading", { name: "Methods" });
+    await userEvent.click(screen.getByRole("button", { name: "Explain (from the paper)" }));
+    expect(await screen.findByText("The data were split by patient.")).toBeInTheDocument();
+    select("AUC 0.91.");
+    await userEvent.click(screen.getByRole("button", { name: "Background explanation" }));
+    expect(await screen.findByText("Second answer.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Answers (2, newest first)" })).toBeInTheDocument();
+    const cards = within(screen.getByRole("region", { name: /^Answers/ })).getAllByRole("listitem").filter((li) => li.classList.contains("answer-card"));
+    expect(cards.map((c) => within(c).getByRole("heading").textContent)).toEqual(["Background explanation", "Explain"]);
+    expect(screen.getAllByRole("button", { name: "Save as note" })).toHaveLength(2);
   });
 });

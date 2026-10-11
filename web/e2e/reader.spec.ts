@@ -69,4 +69,42 @@ test.describe("member", () => {
     await expect(panel.getByText(/seen in run/).first()).toBeVisible();
     await expect(panel.locator(".reader-related-item", { hasText: paper.paper.title })).toHaveCount(0);
   });
+
+  test("opens from a Results row, uses the full width with text and tools side by side, and goes back to Results", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const runs = await (await page.request.get("/api/v1/runs")).json();
+    const run = runs.find((r: { kind: string; status: string; paper_count: number }) => r.kind === "research" && r.status === "done" && r.paper_count > 0);
+    await page.goto(`/results?run=${run.id}&group=none`);
+    const resultsUrl = page.url();
+    await page.locator("table.papers tbody tr").first().getByRole("link", { name: "Read" }).click();
+    const text = page.getByRole("article", { name: "Paper text" });
+    const tools = page.getByRole("complementary", { name: "Reading tools" });
+    await expect(text).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Research steps" }).locator("[aria-current=step]")).toContainText("Read");
+    const [a, b] = [await text.boundingBox(), await tools.boundingBox()];
+    expect(a!.x + a!.width).toBeLessThanOrEqual(b!.x); // side by side
+    expect(a!.width / (a!.width + b!.width)).toBeGreaterThan(0.5); // the text gets the larger share
+    expect(a!.width + b!.width).toBeGreaterThan(1200); // past the 1440px page column: the whole viewport
+    await expect(tools.getByRole("heading", { name: "Understand" })).toBeVisible();
+    await expect(tools.getByRole("button", { name: "In-house" })).toBeDisabled();
+    await page.getByRole("link", { name: "Back to Results" }).click();
+    await expect(page).toHaveURL(resultsUrl);
+  });
+
+  test("stacks the text above the tools on a narrow screen", async ({ page }) => {
+    await page.setViewportSize({ width: 600, height: 900 });
+    const runs = await (await page.request.get("/api/v1/runs")).json();
+    const run = runs.find((r: { kind: string; status: string; paper_count: number }) => r.kind === "research" && r.status === "done" && r.paper_count > 0);
+    const papers = await (await page.request.get(`/api/v1/runs/${run.id}/papers`, { params: { page_size: 5 } })).json();
+    await page.goto(`/read/${run.id}/${papers.items[0].paper.id}`);
+    const text = page.getByRole("article", { name: "Paper text" });
+    await expect(text).toBeVisible();
+    const [a, b] = [await text.boundingBox(), await page.getByRole("complementary", { name: "Reading tools" }).boundingBox()];
+    expect(b!.y).toBeGreaterThanOrEqual(a!.y + a!.height);
+    // nothing pokes out sideways (named in the failure, so it is clear what to fix)
+    const wide = await page.evaluate(() => [...document.querySelectorAll("body *")]
+      .filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && getComputedStyle(e).position !== "fixed")
+      .map((e) => `${e.tagName.toLowerCase()}.${[...e.classList].join(".")}`).slice(0, 8));
+    expect(wide).toEqual([]);
+  });
 });
