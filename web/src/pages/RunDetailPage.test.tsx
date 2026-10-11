@@ -21,7 +21,7 @@ const detail = (over: Partial<RunDetailOut> = {}): RunDetailOut => runDetail({
   },
   timeline: { stages: [{ name: "plan", status: "completed", started_at: "2026-10-06T10:00:00Z", finished_at: "2026-10-06T10:00:12Z", seconds: 12 }], started_at: "2026-10-06T10:00:00Z", updated_at: "2026-10-06T10:05:00Z", status: "completed", recorded: true },
   wall_seconds: 300, resume: { allowed: false, code: "not_resumable", reason: "Only a failed or cancelled run can be resumed" },
-  links: { papers: `/?run=${RUN_ID}`, evals: [], library_count: 2 }, can_manage: true, active_job_id: null, ...over,
+  links: { papers: `/results?run=${RUN_ID}`, evals: [], library_count: 2 }, can_manage: true, active_job_id: null, ...over,
 });
 
 const CALLS = { recorded: true, estimate: true, rows: [{ stage: "screen", role: "screen", model: "anthropic:claude-sonnet-5", provider: "anthropic", calls: 4, input_chars: 8000, output_chars: 900, cost_usd: 0.012, cache_hits: null, seconds: null }], providers: [{ provider: "anthropic", calls: 4, cost_usd: 0.012 }], totals: { calls: 4, cost_usd: 0.012, unpriced_models: [] } };
@@ -34,11 +34,22 @@ function setup(role: "viewer" | "member" = "member", data = detail(), extra: Par
     "GET /api/v1/runs/:id/log": { body: { exists: true, size: 40, text: "plan: start\nkey ***\n", truncated: false, failed_stage: null, reason: null, attempts: [] } },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/runs/:runId" element={<RunDetailPage />} /><Route path="/runs" element={<p>runs list</p>} /></Routes>, { route: `/runs/${RUN_ID}` });
+  renderWithProviders(<Routes><Route path="/screening/:runId" element={<RunDetailPage />} /><Route path="/screening" element={<p>runs list</p>} /></Routes>, { route: `/screening/${RUN_ID}` });
   return api;
 }
 
 describe("run detail", () => {
+  it("points a finished run to its results, and not a failed one", async () => {
+    setup("viewer", detail({ status: "done" }));
+    expect(await screen.findByRole("link", { name: "Next: see results" })).toHaveAttribute("href", `/results?run=${RUN_ID}`);
+  });
+
+  it("offers no Next on a run that did not finish", async () => {
+    setup("viewer", detail({ status: "failed", error: "boom" }));
+    await screen.findByText(/The run failed/);
+    expect(screen.queryByRole("link", { name: "Next: see results" })).not.toBeInTheDocument();
+  });
+
   it("says in one line what the run searched, skipped, capped and read", async () => {
     setup("member", detail({ coverage: { searched: ["europepmc"], skipped: [{ source: "semantic_scholar", error_type: "x", reason: "rate limited (HTTP 429)", detail: "" }], max_papers: 12, full_text: 3, abstract_only: 7 } }));
     expect(await screen.findByText("Searched: Europe PMC · Skipped: Semantic Scholar (rate limited) · Max papers: 12 · Text: 3 full text / 7 abstract only")).toBeInTheDocument();

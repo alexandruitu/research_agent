@@ -174,7 +174,7 @@ export function SourcesTab() {
   return (
     <section aria-labelledby="sources-heading">
       <h2 id="sources-heading">Sources</h2>
-      <p className="intro">Where a field can search. A field picks among the enabled sources. Keys live only in the worker’s environment and are never shown here; this page says whether the worker has them.</p>
+      <p className="intro">Where a topic can search. A topic picks among the enabled sources. Keys live only in the worker’s environment and are never shown here; this page says whether the worker has them.</p>
       {problem && <p role="alert" className="form-error">{problem}</p>}
       {groupSources(sources.data ?? []).map((group) => (
         <section key={group.key} className="source-group" aria-labelledby={`group-${group.key}`}>

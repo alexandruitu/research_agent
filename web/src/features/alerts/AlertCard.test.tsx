@@ -59,7 +59,7 @@ describe("AlertCard", () => {
     const api = setup(alertOut({ max_new: 150, effective_max_new: 100, paused_reason: "3 failed runs in a row", failures: 3 }), { demo: true });
     expect(await screen.findByText(/Paused:/)).toBeInTheDocument();
     expect(screen.getByText(/reviews at most 100 papers per run/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "done" })).toHaveAttribute("href", `/runs/${RUN_ID}`);
+    expect(screen.getByRole("link", { name: "done" })).toHaveAttribute("href", `/screening/${RUN_ID}`);
     expect(screen.getByText(/2 people follow \(including you\)/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Run now (demo)" }));
     await waitFor(() => expect(api.calls.find((c) => c.path.endsWith("/run-now"))?.body).toEqual({ mode: "demo" }));

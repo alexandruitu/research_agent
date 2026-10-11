@@ -27,7 +27,7 @@ const page = (items: unknown[], total = items.length, extra: Record<string, unkn
 /** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
 const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
 
-function setup(handlers: Parameters<typeof mockApi>[0] = {}, route = "/") {
+function setup(handlers: Parameters<typeof mockApi>[0] = {}, route = "/results") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session("member") },
     "GET /api/v1/runs": { body: [runOut({ id: "99999999-9999-4999-8999-999999999999", paper_count: 0, gold_set_name: null, kind: "research" }), runOut()] },
@@ -38,7 +38,7 @@ function setup(handlers: Parameters<typeof mockApi>[0] = {}, route = "/") {
   });
   renderWithProviders(
     <>
-      <Routes><Route path="/" element={<PapersPage />} /></Routes>
+      <Routes><Route path="/results" element={<PapersPage />} /></Routes>
       <Location />
     </>,
     { route: flat(route) },
@@ -65,7 +65,7 @@ describe("PapersPage", () => {
         "GET /api/v1/runs/:id": { body: runDetail({ ...research, counts: { screened: 10, kept: 6, dropped: 4, escalated: 2, in_sr: null } }) },
         "GET /api/v1/runs/:id/papers": { body: page([paperRow({ in_sr: null })], 1) },
       },
-      "/?in_sr=true",
+      "/results?in_sr=true",
     );
     await screen.findByRole("table");
     expect(await screen.findByText(/10 screened/)).not.toHaveTextContent("in the SR");
@@ -96,7 +96,7 @@ describe("PapersPage", () => {
   it("a filter chip changes the request, the URL and goes back to page 1", async () => {
     const { calls } = setup(
       { "GET /api/v1/runs/:id/papers": ({ url }) => ({ body: url.searchParams.get("decision") === "exclude" ? page([lostRow()], 1) : page([paperRow(), lostRow()], 60) }) },
-      "/?page=2",
+      "/results?page=2",
     );
     await screen.findByRole("table");
     await userEvent.click(screen.getByRole("button", { name: "Dropped" }));
@@ -134,13 +134,13 @@ describe("PapersPage", () => {
   });
 
   it("says so when nothing matches", async () => {
-    setup({ "GET /api/v1/runs/:id/papers": { body: page([], 0) } }, "/?decision=exclude");
+    setup({ "GET /api/v1/runs/:id/papers": { body: page([], 0) } }, "/results?decision=exclude");
     expect(await screen.findByText("No papers match these filters")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear all filters" })).toBeInTheDocument();
   });
 
   it("shows active filters as chips; one removes its filter, Clear all removes them all", async () => {
-    setup({}, "/?decision=exclude&escalated=true&src=openalex");
+    setup({}, "/results?decision=exclude&escalated=true&src=openalex");
     const chips = await screen.findByRole("group", { name: "Active filters" });
     expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Dropped × (remove filter)", "Only escalated × (remove filter)", "Source: OpenAlex × (remove filter)", "Clear all",
@@ -164,7 +164,7 @@ describe("PapersPage", () => {
     await userEvent.keyboard("o");
     expect(screen.getByLabelText("location")).toHaveTextContent("paper=55555555");
     await userEvent.keyboard("?");
-    expect(screen.getByRole("dialog", { name: "Papers shortcuts" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Results shortcuts" })).toBeInTheDocument();
   });
 
   it("shows the request id when the table cannot be loaded", async () => {
@@ -174,8 +174,8 @@ describe("PapersPage", () => {
 
   it("says what the app is for and offers to start a search in the last used field", async () => {
     setup();
-    expect(await screen.findByText("Find, screen and appraise papers for your field — every decision explained.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start a literature search" })).toHaveAttribute("href", `/runs?field=${FIELD_ID}`);
+    expect(await screen.findByText("Find, screen and appraise papers for your topic — every decision explained.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start a literature search" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
   });
 
   it("viewers see the purpose line but no start action", async () => {
@@ -186,9 +186,9 @@ describe("PapersPage", () => {
 
   it("asks for a run when there is none", async () => {
     setup({ "GET /api/v1/runs": { body: [] } });
-    expect(await screen.findByRole("heading", { name: "Create your first field in 3 steps" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Create your first field" })).toHaveAttribute("href", "/fields/new");
-    expect(screen.getByText("Find, screen and appraise papers for your field — every decision explained.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Create your first topic in 3 steps" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create your first topic" })).toHaveAttribute("href", "/topics/new");
+    expect(screen.getByText("Find, screen and appraise papers for your topic — every decision explained.")).toBeInTheDocument();
   });
 
   it("filters by the deciding criterion and by source, naming criteria from the run's field version", async () => {
@@ -254,7 +254,7 @@ describe("PapersPage · Simple and Detailed view", () => {
   beforeEach(() => localStorage.clear());
 
   it("starts in the Simple view: paper, quality, plain why, next action and team decision", async () => {
-    setup({}, flat(`/?run=${RUN_ID}`));
+    setup({}, flat(`/results?run=${RUN_ID}`));
     const table = await screen.findByRole("table");
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "Paper", "Quality", "Why", "Next action", "Team decision"]);
     expect(within(table).getByText("Does not match your search.")).toBeInTheDocument();
@@ -263,8 +263,24 @@ describe("PapersPage · Simple and Detailed view", () => {
     expect(screen.getByRole("button", { name: "Simple" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("offers Read on each row, opening the Reader with the way back to this view", async () => {
+    setup({}, flat(`/results?run=${RUN_ID}`));
+    const table = await screen.findByRole("table");
+    const read = within(table).getAllByRole("link", { name: "Read" })[0]!;
+    expect(read).toHaveAttribute("href", `/read/${RUN_ID}/${paperRow().paper.id}`);
+    expect(read).toHaveAccessibleDescription(paperRow().paper.title);
+  });
+
+  it("is step 3 of the flow", async () => {
+    setup({}, flat(`/results?run=${RUN_ID}`));
+    await screen.findByRole("table");
+    const steps = screen.getByRole("navigation", { name: "Research steps" });
+    expect(within(steps).getByText("Results").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    expect(within(steps).getByRole("link", { name: "Step 2: Screening" })).toHaveAttribute("href", "/screening");
+  });
+
   it("v switches to the Detailed view and the choice is remembered for this user", async () => {
-    setup({}, flat(`/?run=${RUN_ID}`));
+    setup({}, flat(`/results?run=${RUN_ID}`));
     await screen.findByRole("columnheader", { name: "Why" });
     await userEvent.keyboard("v");
     expect(await screen.findByRole("columnheader", { name: /Search match/ })).toBeInTheDocument();
@@ -275,7 +291,7 @@ describe("PapersPage · Simple and Detailed view", () => {
   });
 
   it("lists v in the shortcuts sheet", async () => {
-    setup({}, flat(`/?run=${RUN_ID}`));
+    setup({}, flat(`/results?run=${RUN_ID}`));
     await screen.findByRole("table");
     await userEvent.keyboard("?");
     expect(within(screen.getByRole("dialog")).getByText("Switch between the Simple and Detailed view")).toBeInTheDocument();

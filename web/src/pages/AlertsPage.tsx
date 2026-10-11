@@ -17,7 +17,7 @@ const MAX_ITEMS = 10;
 export function countsSentence(counts: DigestCounts, worth: number): string[] {
   const parts = [`${counts.found ?? 0} found`, `${counts.already_seen ?? 0} already seen`, `${counts.new ?? 0} new`, `${worth} worth reading`];
   const lines = [parts.join(" · ")];
-  if (counts.over_cap) lines.push(`${counts.over_cap} more not reviewed — run the field to see them.`);
+  if (counts.over_cap) lines.push(`${counts.over_cap} more not reviewed — run the topic to see them.`);
   if (counts.deferred) lines.push("This run was deferred: the daily limit of alert runs was reached.");
   return lines;
 }
@@ -51,7 +51,7 @@ function DigestCard({ digest, member }: { digest: DigestOut; member: boolean }) 
   return (
     <article ref={ref} className="digest-card" aria-labelledby={`digest-${digest.id}`}>
       <header className="digest-head">
-        <h2 id={`digest-${digest.id}`}><Link to={`/fields/${digest.field_id}`}>{digest.field_name}</Link></h2>
+        <h2 id={`digest-${digest.id}`}><Link to={`/topics/${digest.field_id}`}>{digest.field_name}</Link></h2>
         <time dateTime={digest.created_at}>{date.toLocaleString()}</time>
         {!digest.read && <span className="chip chip--warn">New<span className="sr-only"> (unread)</span></span>}
       </header>
@@ -72,7 +72,7 @@ function DigestCard({ digest, member }: { digest: DigestOut; member: boolean }) 
               {item.why && <p className="digest-why">{item.why}</p>}
               {digest.run_id && (
                 <div className="actions">
-                  <Link to={`/?run=${digest.run_id}&paper=${item.paper_id}`} aria-label={`Open ${item.title}`}>Open</Link>
+                  <Link to={`/results?run=${digest.run_id}&paper=${item.paper_id}`} aria-label={`Open ${item.title}`}>Open</Link>
                   <Link to={`/read/${digest.run_id}/${item.paper_id}`} aria-label={`Read ${item.title}`}>Read</Link>
                   {member && <button type="button" disabled={pending} aria-label={`Save to library: ${item.title}`} onClick={() => void save(digest.run_id!, [item.paper_id], { status: "to_read", note: "" })}>Save to library</button>}
                 </div>
@@ -81,7 +81,7 @@ function DigestCard({ digest, member }: { digest: DigestOut; member: boolean }) 
           ))}
         </ul>
       )}
-      {digest.items.length > MAX_ITEMS && digest.run_id && <p className="sub"><Link to={`/?run=${digest.run_id}`}>See all {digest.items.length} in the run</Link></p>}
+      {digest.items.length > MAX_ITEMS && digest.run_id && <p className="sub"><Link to={`/results?run=${digest.run_id}`}>See all {digest.items.length} in the run</Link></p>}
     </article>
   );
 }

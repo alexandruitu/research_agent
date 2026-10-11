@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { FlowStepper } from "../components/FlowStepper";
 
 import { ApiError } from "../api/client";
 import { useFields } from "../api/hooks";
@@ -38,38 +39,39 @@ export function FieldsPage() {
   const rows = fields.data ?? [];
   return (
     <section>
+      <FlowStepper current={1} />
       <div className="page-head">
         <div>
-          <h1>Fields</h1>
-          <p className="lede">Each field is a research question the agent searches and screens for. Every save is a new version; runs record the version they used.</p>
+          <h1>Topics</h1>
+          <p className="lede">Each topic is a research question the agent searches and screens for. Every save is a new version; runs record the version they used.</p>
         </div>
-        {canEdit && <Link className="button-link" to="/fields/new">New field</Link>}
+        {canEdit && <Link className="button-link" to="/topics/new">New topic</Link>}
       </div>
-      <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived fields</label>
+      <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived topics</label>
       {fields.isLoading ? (
-        <Skeleton label="the fields" rows={4} />
+        <Skeleton label="the topics" rows={4} />
       ) : fields.isError ? (
-        <p role="alert" className="form-error">{fields.error instanceof ApiError ? fields.error.message : "Could not load the fields."}</p>
+        <p role="alert" className="form-error">{fields.error instanceof ApiError ? fields.error.message : "Could not load the topics."}</p>
       ) : rows.length === 0 ? (
-        <EmptyState title={archived ? "No fields here" : "No fields yet"} action={canEdit && !archived ? <Link className="button-link" to="/fields/new">Create your first field</Link> : undefined}>
-          {archived ? "No field has been archived." : "A field is a research question: a description, keywords for the search and criteria for the screen."}
+        <EmptyState title={archived ? "No topics here" : "No topics yet"} action={canEdit && !archived ? <Link className="button-link" to="/topics/new">Create your first topic</Link> : undefined}>
+          {archived ? "No topic has been archived." : "A topic is a research question: a description, keywords for the search and criteria for the screen."}
         </EmptyState>
       ) : (
         <table className="runs">
           <thead>
-            <tr><th scope="col">Field</th><th scope="col"><Term k="field_version">Version</Term></th><th scope="col"><Term k="criterion">Criteria</Term></th><th scope="col">Sources</th><th scope="col">Last run</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+            <tr><th scope="col">Topic</th><th scope="col"><Term k="field_version">Version</Term></th><th scope="col"><Term k="criterion">Criteria</Term></th><th scope="col">Sources</th><th scope="col">Last run</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
             {rows.map((field) => (
               <tr key={field.id}>
-                <td><Link to={`/fields/${field.id}`}>{field.name}</Link><span className="sub">{field.topic}</span></td>
+                <td><Link to={`/topics/${field.id}`}>{field.name}</Link><span className="sub">{field.topic}</span></td>
                 <td>{versionText(field)}</td>
                 <td>{criteriaText(field)}</td>
                 <td>{field.current?.sources.map(sourceLabel).join(", ") || "–"}</td>
                 <td>{lastRunText(field)}</td>
                 <td>
                   {field.archived_at ? <span className="pill">archived</span>
-                    : canEdit ? <Link to={`/runs?field=${field.id}`}>Start run{" "}<span className="sr-only">for {field.name}</span></Link> : null}
+                    : canEdit ? <Link to={`/screening?field=${field.id}`}>Start run{" "}<span className="sr-only">for {field.name}</span></Link> : null}
                 </td>
               </tr>
             ))}

@@ -27,7 +27,7 @@ const GROUPS = [
 ];
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_size: 25 });
 
-function setup(route = "/") {
+function setup(route = "/results") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session("member") },
     "GET /api/v1/runs": { body: [runOut()] },
@@ -41,7 +41,7 @@ function setup(route = "/") {
       return { body: page(group === "not_relevant" ? [lostRow()] : group === "read_first" || group === "2019" ? [paperRow()] : []) };
     },
   });
-  renderWithProviders(<><Routes><Route path="/" element={<PapersPage />} /></Routes><Location /></>, { route });
+  renderWithProviders(<><Routes><Route path="/results" element={<PapersPage />} /></Routes><Location /></>, { route });
   return api;
 }
 

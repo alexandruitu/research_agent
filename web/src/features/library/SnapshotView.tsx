@@ -32,7 +32,7 @@ export function SnapshotView({ snapshot }: { snapshot: Record<string, unknown> }
     <div className="snapshot">
       <p className="hint">
         Frozen {when(s.taken_at)} from {s.field?.name ?? "a run"}{s.field?.version ? ` v${s.field.version}` : ""}
-        {s.run?.id && <> · <Link to={`/?run=${s.run.id}`}>open that run</Link></>}
+        {s.run?.id && <> · <Link to={`/results?run=${s.run.id}`}>open that run</Link></>}
       </p>
       <section className="snap-block">
         <h3>Screening</h3>

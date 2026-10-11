@@ -44,7 +44,7 @@ describe("SystemMapPage", () => {
     const panel = await screen.findByRole("complementary", { name: "About Screen" });
     expect(within(panel).getByText(/Jev decides when confident/)).toBeInTheDocument();
     expect(within(panel).getByText("Abstract only.")).toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: "See the screened papers" })).toHaveAttribute("href", "/");
+    expect(within(panel).getByRole("link", { name: "See the screened papers" })).toHaveAttribute("href", "/results");
     expect(screen.getByLabelText("location")).toHaveTextContent("stage=screen");
   });
 

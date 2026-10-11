@@ -57,8 +57,8 @@ const GROUP_NAME = { all: "Must include", any: "At least one of", none: "Exclude
 /** Every problem in form order; empty when the form can be saved or tested. */
 export function validate(form: FieldForm): string[] {
   const problems: string[] = [];
-  if (!form.name.trim()) problems.push("Give the field a name.");
-  if (effectiveTopic(form).length < 3) problems.push("Describe the field or add keywords.");
+  if (!form.name.trim()) problems.push("Give the topic a name.");
+  if (effectiveTopic(form).length < 3) problems.push("Describe the topic or add keywords.");
   for (const group of ["all", "any", "none"] as const) {
     const terms = form.keywords[group];
     if (terms.length > MAX_TERMS) problems.push(`${GROUP_NAME[group]} has more than ${MAX_TERMS} keywords.`);

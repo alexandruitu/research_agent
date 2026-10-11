@@ -37,17 +37,17 @@ describe("FieldsPage", () => {
     expect(row).toHaveTextContent("2 incl · 1 excl");
     expect(row).toHaveTextContent("Europe PMC");
     expect(row).toHaveTextContent("done · research · v2");
-    expect(within(row).getByRole("link", { name: "Start run for ML CT-FFR" })).toHaveAttribute("href", `/runs?field=${FIELD_ID}`);
-    expect(within(row).getByRole("link", { name: "ML CT-FFR" })).toHaveAttribute("href", `/fields/${FIELD_ID}`);
+    expect(within(row).getByRole("link", { name: "Start run for ML CT-FFR" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
+    expect(within(row).getByRole("link", { name: "ML CT-FFR" })).toHaveAttribute("href", `/topics/${FIELD_ID}`);
     expect(screen.getByRole("row", { name: /Legacy topic/ })).toHaveTextContent("topic match (legacy)");
-    expect(screen.getByRole("link", { name: "New field" })).toHaveAttribute("href", "/fields/new");
+    expect(screen.getByRole("link", { name: "New topic" })).toHaveAttribute("href", "/topics/new");
   });
 
   it("shows archived fields on request, without Start run", async () => {
     const { calls } = setup();
     await screen.findByRole("table");
     expect(screen.queryByText("Old field")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Show archived fields" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Show archived topics" }));
     const row = await screen.findByRole("row", { name: /Old field/ });
     expect(row).toHaveTextContent("archived");
     expect(within(row).queryByRole("link", { name: /Start run/ })).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("FieldsPage", () => {
   it("viewers read the list but cannot create fields or start runs", async () => {
     setup("viewer");
     await screen.findByRole("table");
-    expect(screen.queryByRole("link", { name: "New field" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New topic" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Start run/ })).not.toBeInTheDocument();
   });
 });

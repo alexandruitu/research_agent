@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 
-export const PURPOSE = "Find, screen and appraise papers for your field — every decision explained.";
+export const PURPOSE = "Find, screen and appraise papers for your topic — every decision explained.";
 
 /** Where a new literature search starts: the Runs start form preselecting the last used field, else a new field. */
-export const startSearchHref = (lastFieldId: string | null | undefined) => (lastFieldId ? `/runs?field=${encodeURIComponent(lastFieldId)}` : "/fields/new");
+export const startSearchHref = (lastFieldId: string | null | undefined) => (lastFieldId ? `/screening?field=${encodeURIComponent(lastFieldId)}` : "/topics/new");
 
 /** The purpose line and, for members, the primary action. */
 export function StartPoint({ member, lastFieldId }: { member: boolean; lastFieldId: string | null | undefined }) {

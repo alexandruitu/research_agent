@@ -105,7 +105,7 @@ describe("LoginPage redirect target", () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<p>home</p>} />
-        <Route path="/runs" element={<p>runs page</p>} />
+        <Route path="/screening" element={<p>runs page</p>} />
         <Route path="*" element={<p>somewhere else</p>} />
       </Routes>,
       { route: { pathname: "/login", state: { from } } },
@@ -113,7 +113,7 @@ describe("LoginPage redirect target", () => {
   };
 
   it("returns to the page the user was going to", async () => {
-    signedIn("/runs?x=1");
+    signedIn("/screening?x=1");
     expect(await screen.findByText("runs page")).toBeInTheDocument();
   });
 

@@ -15,8 +15,8 @@ function Measurement({ field }: { field: FieldOut }) {
   if (runs.isLoading || evals.isLoading) return <p className="sub">Checking measurements…</p>;
   const runIds = new Set((runs.data ?? []).filter((r) => r.field_id === field.id && (r.field_version ?? 1) === current).map((r) => r.id));
   const golds = [...new Set((evals.data ?? []).filter((e) => runIds.has(e.run_id)).flatMap((e) => (e.gold_set ? [e.gold_set.name] : [])))];
-  if (golds.length > 0) return <p className="banner">Screening for this field (v{current}): measured against {golds.join(", ")}.</p>;
-  return <p className="banner banner--warn">Screening for this field (v{current}): not measured. No eval against a published review has used this version yet.</p>;
+  if (golds.length > 0) return <p className="banner">Screening for this topic (v{current}): measured against {golds.join(", ")}.</p>;
+  return <p className="banner banner--warn">Screening for this topic (v{current}): not measured. No eval against a published review has used this version yet.</p>;
 }
 
 function VersionDiff({ fieldId, versions }: { fieldId: string; versions: number[] }) {
@@ -58,7 +58,7 @@ function VersionDiff({ fieldId, versions }: { fieldId: string; versions: number[
 export function FieldSidePanel({ field }: { field: FieldOut }) {
   const versions = field.versions ?? [];
   return (
-    <aside aria-label="Field history" className="side-panel">
+    <aside aria-label="Topic history" className="side-panel">
       <h2>History</h2>
       <Measurement field={field} />
       <ol className="versions">

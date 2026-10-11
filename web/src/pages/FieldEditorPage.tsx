@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { FlowStepper } from "../components/FlowStepper";
 
 import { ApiError } from "../api/client";
 import { useArchiveField, useAssist, useField, useJob, usePreview, useSaveField, useSources, useTestCriteria } from "../api/hooks";
@@ -19,6 +20,7 @@ import { PreviewPanel } from "../features/fieldflow/PreviewPanel";
 import { QueryPanel } from "../features/fieldflow/QueryPanel";
 import { Stepper, type StepNumber } from "../features/fieldflow/Stepper";
 import { Suggestions, GROUP_LABEL } from "../features/fieldflow/Suggestions";
+import { FEATURES } from "../config";
 import { AlertCard } from "../features/alerts/AlertCard";
 import { SummaryCard } from "../features/fieldflow/SummaryCard";
 import { TagInput } from "../features/fieldflow/TagInput";
@@ -31,7 +33,7 @@ export function FieldEditorPage() {
   const { fieldId } = useParams();
   const field = useField(fieldId ?? null);
   const sources = useSources();
-  if ((fieldId && field.isLoading) || sources.isLoading) return <section><h1>{fieldId ? "Field" : "New field"}</h1><Skeleton label="the field" rows={6} /></section>;
+  if ((fieldId && field.isLoading) || sources.isLoading) return <section><h1>{fieldId ? "Topic" : "New topic"}</h1><Skeleton label="the topic" rows={6} /></section>;
   if (field.isError) return <p role="alert" className="form-error">{errorText(field.error)}</p>;
   if (sources.isError) return <p role="alert" className="form-error">{errorText(sources.error)}</p>;
   const data = fieldId ? (field.data ?? null) : null;
@@ -79,7 +81,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
   const update = (patch: Partial<FieldForm>) => setForm((f) => ({ ...f, ...patch }));
   const legacy = !!current && current.include.length + current.exclude.length === 0 && current.legacy.length > 0;
   const nextVersion = (field?.current_version ?? 0) + 1;
-  // demo mode lives in the URL, so it survives the remount after "Create field" and a reload
+  // demo mode lives in the URL, so it survives the remount after "Create topic" and a reload
   const [demo, setDemoState] = useState(() => search.get("demo") === "1");
   const setDemo = (on: boolean) => {
     setDemoState(on); // at once: the router applies URL changes in a transition
@@ -112,7 +114,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
     try {
       const saved = await save.mutateAsync({ fieldId: field?.id ?? null, baseVersion: field?.current_version ?? null, body: toBody(form) });
       toast.show({ text: field ? `Saved ${saved.name} as v${saved.current_version}` : `Created ${saved.name}` });
-      if (!field) navigate(`/fields/${saved.id}?step=3${demo ? "&demo=1" : ""}`, { replace: true });
+      if (!field) navigate(`/topics/${saved.id}?step=3${demo ? "&demo=1" : ""}`, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.code === "stale_version") setStale(error.message);
       else setProblem(errorText(error));
@@ -173,23 +175,24 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
 
   return (
     <section className="field-editor">
+      <FlowStepper current={1} next={field && !archived && member ? <Link className="button-link" to={`/screening?field=${field.id}`}>Next: run screening</Link> : undefined} />
       <div className="page-head">
-        <h1>{field ? `${field.name} (v${field.current_version ?? 1})` : "New field"}</h1>
+        <h1>{field ? `${field.name} (v${field.current_version ?? 1})` : "New topic"}</h1>
         <div className="actions">
           {canEdit && <span className="check-with-term"><label className="check"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Demo mode (offline stand-in: no model, no network)</label><TermHint k="demo_mode" /></span>}
           {admin && field && <button type="button" onClick={toggleArchive} disabled={archive.isPending}>{archived ? "Restore" : "Archive"}</button>}
         </div>
       </div>
-      {archived && <p className="banner banner--warn">This field is archived: it cannot be edited, tested or run. {admin ? "Restore it to change it." : "An admin can restore it."}</p>}
-      {!member && <p className="sub">Read-only: members and admins edit fields.</p>}
+      {archived && <p className="banner banner--warn">This topic is archived: it cannot be edited, tested or run. {admin ? "Restore it to change it." : "An admin can restore it."}</p>}
+      {!member && <p className="sub">Read-only: members and admins edit topics.</p>}
       <Stepper step={step} done={done} onStep={goTo} />
       <div className="editor-layout">
         <div>
-          <form onSubmit={submit} aria-label="Field editor" className="field-form" noValidate>
+          <form onSubmit={submit} aria-label="Topic editor" className="field-form" noValidate>
             <fieldset className="plain" disabled={!canEdit}>
               {step === 1 && (
                 <section className="step-panel" aria-labelledby="step-1-heading">
-                  <h2 id="step-1-heading" tabIndex={-1}>1 · Describe the field</h2>
+                  <h2 id="step-1-heading" tabIndex={-1}>1 · Describe the topic</h2>
                   <p className="lede">Say what you are looking for as you would to a colleague. We suggest keywords and criteria from it; you choose what to keep.</p>
                   <label className="block">Name<input value={form.name} onChange={(e) => update({ name: e.target.value })} placeholder="e.g. AI plaque on coronary CT" /></label>
                   <label className="block">Description
@@ -266,7 +269,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                       </div>
                     )
                   ) : (
-                    <p className="sub">Save the field first to test its criteria.</p>
+                    <p className="sub">Save the topic first to test its criteria.</p>
                   )}
                   {testJob && <CriteriaTestPanel key={testJob} jobId={testJob} />}
                 </section>
@@ -290,7 +293,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
               {canEdit && (
                 <>
                   <label className="note">Change note <input value={form.note} onChange={(e) => update({ note: e.target.value })} placeholder="What changed and why" /></label>
-                  <button type="submit" className="primary" disabled={save.isPending}>{field ? `Save as v${nextVersion}` : "Create field"}</button>
+                  <button type="submit" className="primary" disabled={save.isPending}>{field ? `Save as v${nextVersion}` : "Create topic"}</button>
                 </>
               )}
             </div>
@@ -298,7 +301,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
         </div>
         <div className="editor-aside">
           <SummaryCard form={form} dirty={dirty} version={field?.current_version ?? null} />
-          {field && <AlertCard fieldId={field.id} archived={archived} demo={demo} />}
+          {FEATURES.alerts && field && <AlertCard fieldId={field.id} archived={archived} demo={demo} />}
           {field && <FieldSidePanel field={field} />}
         </div>
       </div>

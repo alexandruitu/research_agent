@@ -1104,3 +1104,26 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .reader-related-item { margin: 0.35rem 0; }
 .reader-related-self { border-top: 2px solid currentColor; padding-top: 0.25rem; }
 .reader-related-warnings { padding: 0.5rem; border-radius: 4px; }
+
+/* ---- Flow: numbered nav, the stepper over the four flow pages, Next ------------------------------- */
+.nav-step { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 2px; border-radius: 50%; border: 1px solid var(--rule-2); font: 600 11px/1 var(--sans); color: var(--ink-2); vertical-align: 1px; }
+.topbar nav a[aria-current="page"] .nav-step { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.nav-sep { align-self: stretch; width: 1px; margin: 4px 6px; background: var(--rule-2); }
+.topbar nav a.nav-quiet { color: var(--ink-2); font-weight: 400; font-size: 13px; }
+.flow-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); flex-wrap: wrap; margin: 0 0 var(--s4); padding-bottom: var(--s2); border-bottom: 1px solid var(--rule); }
+.flow-stepper ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.flow-stepper li { display: flex; align-items: center; font-size: 13px; color: var(--ink-2); }
+.flow-stepper li + li::before { content: ""; width: 28px; height: 1px; margin: 0 8px; background: var(--rule-2); }
+.flow-stepper li.is-done + li::before, .flow-stepper li.is-done + li.is-current::before { background: var(--accent); }
+.flow-stepper a, .flow-stepper span[aria-current], .flow-stepper li > span { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; padding: 2px 0; }
+.flow-stepper a:hover .flow-label { text-decoration: underline; }
+.flow-num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--rule-2); font: 600 11px/1 var(--sans); background: var(--card); }
+.flow-stepper li.is-done .flow-num { border-color: var(--accent); color: var(--accent); }
+.flow-stepper li.is-current { color: var(--ink); font-weight: 600; }
+.flow-stepper li.is-current .flow-num { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.flow-stepper li.is-current .flow-label { border-bottom: 2px solid var(--accent); }
+.flow-next { display: flex; gap: var(--s2); }
+.runs-history-heading { margin-top: var(--s6); padding-top: var(--s4); border-top: 1px solid var(--rule); }
+.row-read { margin-left: 6px; font-size: 13px; font-weight: 600; }
+
+@media (max-width: 760px) { .topbar { flex-wrap: wrap; row-gap: var(--s1); } .topbar nav { order: 3; flex-basis: 100%; } }

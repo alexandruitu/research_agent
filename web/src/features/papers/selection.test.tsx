@@ -20,7 +20,7 @@ const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_
 /** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
 const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
 
-function setup(role: "viewer" | "member" = "member", extra: Record<string, MockHandler> = {}, route = "/") {
+function setup(role: "viewer" | "member" = "member", extra: Record<string, MockHandler> = {}, route = "/results") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/runs": { body: [runOut()] },
@@ -30,7 +30,7 @@ function setup(role: "viewer" | "member" = "member", extra: Record<string, MockH
     "GET /api/v1/library/collections": { body: [collectionOut()] },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/" element={<PapersPage />} /></Routes>, { route: flat(route) });
+  renderWithProviders(<Routes><Route path="/results" element={<PapersPage />} /></Routes>, { route: flat(route) });
   return api;
 }
 
@@ -121,7 +121,7 @@ describe("saving papers to the library", () => {
         library = { item_id: ITEM_ID, status: (body as { status: string }).status, collections: [] };
         return { body: {} };
       },
-    }, `/?paper=${LOST_ID}`);
+    }, `/results?paper=${LOST_ID}`);
     const drawer = await screen.findByRole("complementary", { name: "Paper details" });
     await userEvent.click(await within(drawer).findByRole("button", { name: "Save to library…" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save to library" }));

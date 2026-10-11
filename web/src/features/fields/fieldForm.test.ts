@@ -12,7 +12,7 @@ describe("field form", () => {
 
   it("lists every problem in form order", () => {
     expect(validate({ ...emptyForm([]), include: ["ok", " "], exclude: [""] })).toEqual([
-      "Give the field a name.", "Describe the field or add keywords.", "Inclusion criterion 2 is empty.", "Exclusion criterion 1 is empty.", "Choose at least one source.",
+      "Give the topic a name.", "Describe the topic or add keywords.", "Inclusion criterion 2 is empty.", "Exclusion criterion 1 is empty.", "Choose at least one source.",
     ]);
   });
 

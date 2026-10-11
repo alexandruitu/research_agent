@@ -46,7 +46,7 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
       const started = await rerun.mutateAsync({ runId: run.id, config });
       toast.show({
         text: config === "same" ? `Started again with the same configuration: ${runLabel(run)}.` : `Started again with current settings: ${runLabel(run)}.`,
-        action: { label: "Open", run: () => navigate(`/runs/${started.run_id}`) },
+        action: { label: "Open", run: () => navigate(`/screening/${started.run_id}`) },
       });
     } catch (error) {
       toast.show({ tone: "bad", text: message(error) });
@@ -103,7 +103,7 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
     const manage = canManageRun(user, run);
     const research = run.kind === "research";
     const list: MenuItem[] = [];
-    if (open) list.push({ label: "Open", onSelect: () => navigate(`/runs/${run.id}`) });
+    if (open) list.push({ label: "Open", onSelect: () => navigate(`/screening/${run.id}`) });
     if (member && research) {
       list.push({ label: "Run again (same configuration)", onSelect: () => void runAgain(run, "same") });
       list.push({ label: "Run again with current settings", onSelect: () => void runAgain(run, "current") });
@@ -164,7 +164,7 @@ function RenameDialog({ run, onClose }: { run: RunOut; onClose: () => void }) {
       <form role="dialog" aria-modal="true" aria-label="Rename run" className="confirm confirm--plain" onSubmit={submit}
         onKeyDown={(event) => event.key === "Escape" && onClose()}>
         <h2>Name and note</h2>
-        <label className="stack">Name <span className="hint">blank: show the field and version</span>
+        <label className="stack">Name <span className="hint">blank: show the topic and version</span>
           <input value={name} maxLength={200} autoFocus onChange={(e) => setName(e.target.value)} placeholder={runLabel({ ...run, name: null })} />
         </label>
         <label className="stack">Note

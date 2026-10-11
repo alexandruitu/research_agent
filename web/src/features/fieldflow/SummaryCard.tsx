@@ -10,9 +10,9 @@ export function SummaryCard({ form, dirty, version }: { form: FieldForm; dirty: 
   const overrides = QUERY_SOURCES.filter((s) => form.overrides[s].trim()).length;
   const topic = effectiveTopic(form);
   return (
-    <aside aria-label="Field summary" className="summary-card">
-      <p className="summary-kicker">{version ? `Field · next save v${version + 1}` : "New field"}</p>
-      <h2 className="summary-name">{form.name.trim() || <span className="sub">Untitled field</span>}</h2>
+    <aside aria-label="Topic summary" className="summary-card">
+      <p className="summary-kicker">{version ? `Topic · next save v${version + 1}` : "New topic"}</p>
+      <h2 className="summary-name">{form.name.trim() || <span className="sub">Untitled topic</span>}</h2>
       {topic && <p className="summary-topic">{topic}</p>}
       <dl className="summary-facts">
         <div><dt>Must include</dt><dd>{form.keywords.all.length ? form.keywords.all.join(" · ") : "–"}</dd></div>

@@ -17,7 +17,7 @@ export function StartRunForm({ onStarted, initialFieldId = "" }: { onStarted: (j
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const count = Number(papers);
-    if (!fieldId) return setProblem("Choose a field.");
+    if (!fieldId) return setProblem("Choose a topic.");
     if (!Number.isInteger(count) || count < 1 || count > MAX_PAPERS) return setProblem(`Choose between 1 and ${MAX_PAPERS} papers.`);
     setProblem(null);
     try {
@@ -25,7 +25,7 @@ export function StartRunForm({ onStarted, initialFieldId = "" }: { onStarted: (j
       onStarted(started.job.id);
     } catch (error) {
       if (error instanceof ApiError && error.code === "no_enabled_source") {
-        setProblem(`${error.message}. An admin can enable a source in Settings → Sources, or edit the field to use an enabled one.`);
+        setProblem(`${error.message}. An admin can enable a source in Settings → Sources, or edit the topic to use an enabled one.`);
       } else {
         setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
       }
@@ -34,7 +34,7 @@ export function StartRunForm({ onStarted, initialFieldId = "" }: { onStarted: (j
 
   return (
     <form onSubmit={submit} className="start-run" aria-label="Start a run">
-      <label>Field
+      <label>Topic
         <select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
           <option value="">Choose…</option>
           {fields.data?.map((field) => <option key={field.id} value={field.id}>{field.name} · v{field.current_version ?? 1}</option>)}

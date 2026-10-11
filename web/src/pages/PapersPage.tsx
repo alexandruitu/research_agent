@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { FlowStepper } from "../components/FlowStepper";
 
 import { ApiError } from "../api/client";
 import type { PaperRow } from "../api/types";
@@ -100,7 +101,7 @@ export function PapersPage() {
     if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-open-paper="${open}"]`)?.focus());
   };
 
-  if (runs.isLoading) return <section><h1>Papers</h1><Skeleton label="the runs" rows={6} /></section>;
+  if (runs.isLoading) return <section><h1>Results</h1><Skeleton label="the runs" rows={6} /></section>;
   if (runs.isError) return <p role="alert">{errorText(runs.error)}</p>;
   if (!runId) return <HomeEmpty member={member} hasRuns={(runs.data ?? []).length > 0} />;
 
@@ -155,6 +156,7 @@ export function PapersPage() {
   const table = (items: PaperRow[], onToggleAll: (on: boolean) => void) => viewMode === "simple" ? (
     <SimpleTable
       rows={items} texts={texts} selectedPaperId={view.paperId} onOpen={(paper) => change({ paper }, false)} cursorId={cursor} onSave={saveOne}
+      readHref={(paperId) => `/read/${runId}/${paperId}`}
       selection={member ? { ids: selectedIds, onToggle: toggle, onToggleAll } : null}
     />
   ) : (
@@ -175,8 +177,9 @@ export function PapersPage() {
 
   return (
     <section className="papers-page">
+      <FlowStepper current={3} />
       <div className="page-head">
-        <h1>Papers</h1>
+        <h1>Results</h1>
         <button type="button" className="kbd-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts"><kbd aria-hidden="true">?</kbd></button>
       </div>
       {/* runs come newest first: the first one names the last used field */}
@@ -220,7 +223,7 @@ export function PapersPage() {
         </div>
       )}
       {saving && <SaveDialog count={Math.max(1, selectedIds.size)} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
-      {help && <ShortcutsHelp title="Papers shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
+      {help && <ShortcutsHelp title="Results shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
       <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">
@@ -262,7 +265,7 @@ export function PapersPage() {
                 Remove a filter above, or clear them all.
               </EmptyState>
             ) : (
-              <EmptyState title="This run has no papers yet">If it is still running, its papers appear when it finishes (see Runs).</EmptyState>
+              <EmptyState title="This run has no papers yet">If it is still running, its papers appear when it finishes (see Screening).</EmptyState>
             )
           ) : (
             <ErrorBoundary label="the paper table">

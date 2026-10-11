@@ -1,7 +1,7 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api, setCsrfToken } from "../api/client";
@@ -35,27 +35,68 @@ function renderApp(route: string) {
 describe("routing and navigation", () => {
   it("sends anonymous visitors to the sign-in page", async () => {
     mockApi({ "GET /api/v1/auth/me": unauthorized });
-    renderApp("/runs");
+    renderApp("/screening");
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });
 
-  it("shows the main navigation, the user and a skip link", async () => {
+  it("shows the main navigation as the numbered flow, then Settings and Validation, with a skip link", async () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
-    renderApp("/");
+    renderApp("/library");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Fields", "Papers", "Library", "Alerts", "Runs", "Validation", "Settings"]);
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/topics", "/screening", "/results", "/library", "/settings", "/validation"]);
+    // the step number is in words for screen readers, not only a badge
+    expect(within(nav).getByRole("link", { name: "Step 1: Topics" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Step 2: Screening" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Step 3: Results" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Step 5: Library" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Validation" })).toHaveClass("nav-quiet");
+    expect(within(nav).queryByRole("link", { name: /Alerts/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     expect(screen.getByText("Member")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Literature Radar/ })).toHaveAttribute("href", "/");
   });
 
-  it("shows the unread alert digests as a number with words", async () => {
-    mockApi({ "GET /api/v1/auth/me": { body: session("member") }, "GET /api/v1/digests": { body: { unread: 3, digests: [] } } });
-    renderApp("/");
+  it("hides Alerts: no nav item, no digest polling, and /alerts is not a page", async () => {
+    const api = mockApi({ "GET /api/v1/auth/me": { body: session("member") }, "GET /api/v1/digests": { body: { unread: 3, digests: [] } } });
+    renderApp("/alerts");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    const link = within(nav).getByRole("link", { name: /Alerts/ });
-    await waitFor(() => expect(link).toHaveTextContent(/Alerts\s*3\s*unread/));
-    expect(link).toHaveAttribute("href", "/alerts");
+    expect(within(nav).queryByRole("link", { name: /Alerts/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(api.calls.some((c) => c.path.startsWith("/api/v1/digests"))).toBe(false);
+  });
+
+  it.each([
+    ["/fields", "/topics"],
+    ["/fields/new?step=2#x", "/topics/new?step=2#x"],
+    ["/runs", "/screening"],
+    ["/runs/abc?tab=log", "/screening/abc?tab=log"],
+    ["/runs/compare?ids=a,b", "/screening/compare?ids=a,b"],
+    ["/papers?run=r1", "/results?run=r1"],
+    ["/?run=r1&paper=p1#top", "/results?run=r1&paper=p1#top"],
+  ])("redirects the old URL %s to %s, keeping the query and hash", async (from, to) => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
+    let seen = "";
+    function Where() {
+      const location = useLocation();
+      seen = `${location.pathname}${location.search}${location.hash}`;
+      return null;
+    }
+    render(
+      <QueryClientProvider client={createQueryClient(false)}>
+        <MemoryRouter initialEntries={[from]}>
+          <App />
+          <Where />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(seen).toBe(to));
+  });
+
+  it("lands on Topics when nothing has run yet", async () => {
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") }, "GET /api/v1/runs": { body: [] }, "GET /api/v1/fields": { body: [] } });
+    renderApp("/");
+    expect(await screen.findByRole("heading", { name: "Topics" })).toBeInTheDocument();
   });
 
   it("offers the Users tab under Settings to admins only", async () => {
@@ -120,13 +161,13 @@ describe("Layout", () => {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Boom />} />
-            <Route path="/runs" element={<p>runs page</p>} />
+            <Route path="/screening" element={<p>screening page</p>} />
           </Route>
         </Routes>,
       );
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong in this page");
-      await userEvent.click(screen.getByRole("link", { name: "Runs" }));
-      expect(await screen.findByText("runs page")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("link", { name: "Step 2: Screening" }));
+      expect(await screen.findByText("screening page")).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     } finally {
       window.removeEventListener("error", swallow);
@@ -145,7 +186,7 @@ describe("unsaved-changes guard", () => {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Editing />} />
-          <Route path="/runs" element={<p>runs page</p>} />
+          <Route path="/screening" element={<p>screening page</p>} />
         </Route>
       </Routes>,
     );
@@ -155,7 +196,7 @@ describe("unsaved-changes guard", () => {
     const confirm = vi.fn(() => false);
     vi.stubGlobal("confirm", confirm);
     renderEditing();
-    await userEvent.click(await screen.findByRole("link", { name: "Runs" }));
+    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Screening" }));
     expect(confirm).toHaveBeenCalledWith("You have unsaved changes on this page. Discard them?");
     expect(screen.getByText("editing")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
@@ -167,8 +208,8 @@ describe("unsaved-changes guard", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     vi.stubGlobal("confirm", vi.fn(() => true));
     renderEditing();
-    await userEvent.click(await screen.findByRole("link", { name: "Runs" }));
-    expect(await screen.findByText("runs page")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Screening" }));
+    expect(await screen.findByText("screening page")).toBeInTheDocument();
   });
 });
 

@@ -4,7 +4,7 @@
 export type Kind = "AI" | "Code";
 
 export const FLOW: { name: string; kind: Kind; what: string; parallel?: { name: string; what: string }[] }[] = [
-  { name: "Field", kind: "Code", what: "The topic, keywords, inclusion and exclusion criteria and sources a run starts from." },
+  { name: "Topic", kind: "Code", what: "The topic, keywords, inclusion and exclusion criteria and sources a run starts from." },
   { name: "Plan", kind: "AI", what: "Turns the topic into search queries." },
   { name: "Search", kind: "Code", what: "Queries each source in turn. A failing optional source is skipped with a visible warning." },
   { name: "Deduplicate", kind: "Code", what: "Merges the same paper found in several sources." },
@@ -23,7 +23,7 @@ export const FLOW: { name: string; kind: Kind; what: string; parallel?: { name: 
   },
   { name: "Editor", kind: "AI", what: "Waits for all reviewers, reads their reports side by side, names disagreements and gives the final verdict with a reason." },
   { name: "Score and red flags", kind: "Code", what: "Computed from the checklist answers, never asked of a model." },
-  { name: "Rank", kind: "Code", what: "Orders the papers. Results go to Papers, Library and Alerts." },
+  { name: "Rank", kind: "Code", what: "Orders the papers. Results go to Results and the Library." },
 ];
 
 export const FLOW_RULES = [

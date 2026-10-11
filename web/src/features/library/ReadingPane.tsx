@@ -144,7 +144,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             {[data.paper.year, data.paper.source_id, data.paper.doi && `doi ${data.paper.doi}`].filter(Boolean).join(" · ")}
             <br />
             Saved by {data.added_by_name ?? "unknown"} on {shortDate(data.added_at)}{data.field ? ` from ${data.field.name}${data.field.version ? ` v${data.field.version}` : ""}` : ""}
-            {data.run_id && <> · <Link to={`/?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
+            {data.run_id && <> · <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
           </p>
           <div role="group" aria-label="Reading pane sections" className="sections">
             <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")}>Overview</button>
@@ -176,7 +176,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             <>
               {newer && canEdit && (
                 <div className="banner">
-                  <p>A newer run of this field finished on {shortDate(newer.created_at)}.</p>
+                  <p>A newer run of this topic finished on {shortDate(newer.created_at)}.</p>
                   <button type="button" onClick={() => void refresh(newer.id)} disabled={snapshot.isPending}>Update evidence from the newer run</button>
                 </div>
               )}

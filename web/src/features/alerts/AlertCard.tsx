@@ -78,7 +78,7 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
 
   return (
     <aside className="side-panel alert-card" aria-label="Alert">
-      <h2>Alert <Tooltip trigger="?" triggerLabel="About alerts" tip="On a schedule, the alert re-runs this field, skips papers seen in earlier runs, reviews only what is new and puts the best of it in the Alerts inbox of everyone who follows it." /></h2>
+      <h2>Alert <Tooltip trigger="?" triggerLabel="About alerts" tip="On a schedule, the alert re-runs this topic, skips papers seen in earlier runs, reviews only what is new and puts the best of it in the Alerts inbox of everyone who follows it." /></h2>
       {alert.paused_reason && <p className="banner banner--bad" role="status"><strong>Paused:</strong> {alert.paused_reason}</p>}
       {!alert.paused_reason && alert.failures > 0 && <p className="banner banner--warn" role="status">The last {alert.failures === 1 ? "run" : `${alert.failures} runs`} failed; it pauses after repeated failures.</p>}
       {alert.deferred_at && <p className="banner banner--warn" role="status">Deferred: the daily limit of alert runs was reached; it runs at the next slot.</p>}
@@ -131,7 +131,7 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
         <dl className="alert-facts">
           <dt>Schedule</dt><dd>{scheduleText(alert)}</dd>
           <dt>Next run</dt><dd>{alert.next_run_at ? <time dateTime={alert.next_run_at}>{new Date(alert.next_run_at).toLocaleString()}</time> : "none (alert off)"}</dd>
-          <dt>Last run</dt><dd>{lastRun ? <Link to={`/runs/${lastRun}`}>{startedRun ? "started just now" : (alert.last_run_status ?? "open")}</Link> : "not run yet"}</dd>
+          <dt>Last run</dt><dd>{lastRun ? <Link to={`/screening/${lastRun}`}>{startedRun ? "started just now" : (alert.last_run_status ?? "open")}</Link> : "not run yet"}</dd>
         </dl>
       )}
       {alert.exists && alert.id && (

@@ -57,7 +57,7 @@ export function SearchWarningPanel({ warnings, failed = false }: { warnings: Run
         ))}
       </ul>
       <p className="hint">
-        Check the sources in <Link to="/settings/sources">Settings → Sources</Link>; mark a source Required in the field to stop the run when it fails.
+        Check the sources in <Link to="/settings/sources">Settings → Sources</Link>; mark a source Required in the topic to stop the run when it fails.
       </p>
     </section>
   );

@@ -17,7 +17,7 @@ afterEach(() => {
 const ME = "11111111-1111-4111-8111-111111111111";
 const FAILED = runOut({ id: "88888888-8888-4888-8888-888888888888", kind: "research", status: "failed", gold_set_name: null, paper_count: 0, error: "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat.", created_by: ME, created_by_name: "Member", topic: "ct-ffr" });
 
-function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = "/runs") {
+function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = "/screening") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/runs": { body: [FAILED, runOut()] },
@@ -36,14 +36,25 @@ describe("RunsPage list", () => {
     expect(screen.getByRole("tooltip")).toHaveTextContent("Searched: Europe PMC, OpenAlex · Skipped: none · Max papers: 12 · Text: 3 full text / 7 abstract only");
   });
 
+  it("is step 2 of the flow, with the runs under History; an alert run keeps its label", async () => {
+    setup("viewer", { "GET /api/v1/runs": { body: [runOut({ trigger: "alert" })] } });
+    const table = await screen.findByRole("table");
+    expect(screen.getByRole("heading", { level: 1, name: "Screening" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "History" })).toBeInTheDocument();
+    const steps = screen.getByRole("navigation", { name: "Research steps" });
+    expect(within(steps).getByText("Screening").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    expect(within(steps).getByRole("link", { name: "Step 1: Topics" })).toHaveAttribute("href", "/topics");
+    expect(within(table).getByText("alert")).toBeInTheDocument();
+  });
+
   it("lists runs with a status in words, a link to each run and its papers", async () => {
     setup("viewer");
     const table = await screen.findByRole("table");
     expect(within(table).getByText("failed")).toBeInTheDocument();
     expect(within(table).getByText("done")).toBeInTheDocument();
     expect(within(table).getByText(/mlffrct-2024/)).toBeInTheDocument();
-    expect(within(table).getAllByRole("link", { name: /^Papers/ })[1]).toHaveAttribute("href", `/?run=${RUN_ID}`);
-    expect(within(table).getByRole("link", { name: "ct-ffr" })).toHaveAttribute("href", `/runs/${FAILED.id}`); // named by its topic
+    expect(within(table).getAllByRole("link", { name: /^Results/ })[1]).toHaveAttribute("href", `/results?run=${RUN_ID}`);
+    expect(within(table).getByRole("link", { name: "ct-ffr" })).toHaveAttribute("href", `/screening/${FAILED.id}`); // named by its topic
     expect(within(table).getByText(/ML CT-FFR · \d+ \w+, \d\d:\d\d · failed/)).toBeInTheDocument();
     expect(within(table).getByText("Failed at screen (ValidationError)")).toHaveAttribute("title", expect.stringMatching(/Etapa nu s-a încheiat/));
   });
@@ -99,7 +110,7 @@ describe("bulk actions", () => {
     await screen.findByRole("table");
     await userEvent.click(screen.getByLabelText("Select every run shown"));
     const bar = screen.getByRole("region", { name: "Selected runs" });
-    expect(within(bar).getByRole("link", { name: "Compare" })).toHaveAttribute("href", `/runs/compare?ids=${FAILED.id},${mine.id}`);
+    expect(within(bar).getByRole("link", { name: "Compare" })).toHaveAttribute("href", `/screening/compare?ids=${FAILED.id},${mine.id}`);
     await userEvent.click(within(bar).getByRole("button", { name: /Delete/ }));
     const dialog = screen.getByRole("alertdialog", { name: "Delete 2 runs?" });
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
@@ -118,7 +129,7 @@ describe("starting and following a run", () => {
       [`GET /api/v1/jobs/${JOB_ID}`]: { body: jobOut({ status: "running", progress: { status: "running", stages: { plan: "completed", search: "running" } } }) },
     });
     await screen.findByRole("table");
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.clear(screen.getByLabelText("Papers to screen"));
     await userEvent.type(screen.getByLabelText("Papers to screen"), "5");
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
@@ -138,7 +149,7 @@ describe("starting and following a run", () => {
     });
     await screen.findByRole("table");
     const before = calls.filter((c) => c.method === "GET" && c.path === "/api/v1/runs").length;
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
     await waitFor(() => expect(calls.filter((c) => c.method === "GET" && c.path === "/api/v1/runs").length).toBeGreaterThan(before + 1));
   });
@@ -146,7 +157,7 @@ describe("starting and following a run", () => {
   it("the demo box switches the mode", async () => {
     const { calls } = setup("member", { "POST /api/v1/runs": { status: 202, body: { job: jobOut({ status: "done" }), run_id: RUN_ID } }, [`GET /api/v1/jobs/${JOB_ID}`]: { body: jobOut({ status: "done" }) } });
     await screen.findByRole("table");
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.click(screen.getByLabelText(/Demo mode/));
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
     await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/runs")?.body).toMatchObject({ mode: "demo" }));
@@ -155,7 +166,7 @@ describe("starting and following a run", () => {
   it("refuses a cap outside 1 to 12 before calling the server", async () => {
     const { calls } = setup();
     await screen.findByRole("table");
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.clear(screen.getByLabelText("Papers to screen"));
     await userEvent.type(screen.getByLabelText("Papers to screen"), "13");
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
@@ -166,7 +177,7 @@ describe("starting and following a run", () => {
   it("shows the server's reason when it refuses (too many active runs)", async () => {
     setup("member", { "POST /api/v1/runs": { status: 429, body: { code: "too_many_active_runs", message: "You already have the maximum number of active runs", request_id: "r-1" } } });
     await screen.findByRole("table");
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
     expect(await screen.findByText(/maximum number of active runs/)).toBeInTheDocument();
   });
@@ -177,29 +188,29 @@ describe("starting and following a run", () => {
       [`GET /api/v1/jobs/${JOB_ID}`]: { body: jobOut({ status: "failed", error: "failed at stage 'search': HTTPError: 503" }) },
     });
     await screen.findByRole("table");
-    await userEvent.selectOptions(screen.getByLabelText("Field"), FIELD_ID);
+    await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.click(screen.getByRole("button", { name: "Start run" }));
     const progress = await screen.findByRole("status", { name: "Run progress" });
     await waitFor(() => expect(progress).toHaveTextContent("failed at stage 'search'"));
   });
 
   it("preselects the field from the URL and names fields with their version", async () => {
-    setup("member", { "GET /api/v1/fields": { body: [{ ...fieldOut(), current_version: 3 }] } }, `/runs?field=${FIELD_ID}`);
-    const select = await screen.findByLabelText("Field");
+    setup("member", { "GET /api/v1/fields": { body: [{ ...fieldOut(), current_version: 3 }] } }, `/screening?field=${FIELD_ID}`);
+    const select = await screen.findByLabelText("Topic");
     expect(select).toHaveValue(FIELD_ID);
     expect(within(select).getByRole("option", { name: "ML CT-FFR · v3" })).toBeInTheDocument();
   });
 
   it("explains a field whose sources are all disabled", async () => {
-    setup("member", { "POST /api/v1/runs": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } }, `/runs?field=${FIELD_ID}`);
+    setup("member", { "POST /api/v1/runs": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } }, `/screening?field=${FIELD_ID}`);
     await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
     expect(await screen.findByText(/Settings → Sources/)).toHaveClass("form-error");
   });
 
   it("shows the refusal for an archived field", async () => {
-    setup("member", { "POST /api/v1/runs": { status: 409, body: { code: "archived", message: "This field is archived; restore it first", request_id: "r" } } }, `/runs?field=${FIELD_ID}`);
+    setup("member", { "POST /api/v1/runs": { status: 409, body: { code: "archived", message: "This topic is archived; restore it first", request_id: "r" } } }, `/screening?field=${FIELD_ID}`);
     await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
-    expect(await screen.findByText("This field is archived; restore it first")).toHaveAttribute("role", "alert");
+    expect(await screen.findByText("This topic is archived; restore it first")).toHaveAttribute("role", "alert");
   });
 });
 

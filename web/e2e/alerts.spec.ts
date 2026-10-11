@@ -1,9 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+import { FEATURES } from "../src/config";
 import { auth } from "./users";
 
 test.describe("admin", () => {
   test.use({ storageState: auth("admin") });
+  // Alerts are hidden (FEATURES.alerts); the code stays, so this spec comes back when they do
+  test.skip(!FEATURES.alerts, "Alerts are hidden behind FEATURES.alerts");
 
   test("turns on a field alert, runs it now in demo mode and reads the digest in Alerts", async ({ page }) => {
     test.setTimeout(180_000);
@@ -15,7 +18,7 @@ test.describe("admin", () => {
     });
     expect(created.status()).toBe(201);
     const field = await created.json();
-    await page.goto(`/fields/${field.id}`);
+    await page.goto(`/topics/${field.id}`);
     const card = page.getByRole("complementary", { name: "Alert" });
     await expect(card).toBeVisible();
     await page.getByLabel(/Demo mode/).check();

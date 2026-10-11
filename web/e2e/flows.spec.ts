@@ -23,18 +23,18 @@ test.describe("viewer", () => {
   test("cannot see Users or the start form", async ({ page }) => {
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    await expect(nav.getByRole("link", { name: "Papers" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Step 3: Results" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Users" })).toHaveCount(0);
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: "Not allowed" })).toBeVisible();
-    await page.goto("/runs");
+    await page.goto("/screening");
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByRole("button", { name: "Start run" })).toHaveCount(0);
   });
 
   test("the paper the screen dropped: filter, open, read the story, all from the keyboard", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Results of / }).click();
     await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
     await page.getByRole("combobox", { name: "Group by" }).selectOption({ label: "None (flat list)" }); // groups may start collapsed
     await page.getByRole("button", { name: "Dropped" }).click();
@@ -57,8 +57,8 @@ test.describe("viewer", () => {
   });
 
   test("the URL is the view: reloading keeps the filters and the open paper", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Results of / }).click();
     await page.getByRole("button", { name: "Only escalated", exact: true }).click();
     await page.reload();
     await expect(page.getByRole("button", { name: "Only escalated", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -89,20 +89,20 @@ test.describe("member", () => {
 
   test("starts a demo run, follows it to done and reads its papers", async ({ page }) => {
     test.setTimeout(150_000);
-    await page.goto("/runs");
-    await page.getByRole("combobox", { name: "Field", exact: true }).selectOption({ index: 1 });
+    await page.goto("/screening");
+    await page.getByRole("combobox", { name: "Topic", exact: true }).selectOption({ index: 1 });
     await page.getByLabel("Papers to screen").fill("3");
     await page.getByLabel(/Demo mode/).check();
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
     const row = page.locator("table.runs tbody tr").filter({ hasText: "research" }).filter({ has: page.locator("td", { hasText: /^3$/ }) });
-    await row.first().getByRole("link", { name: /^Papers of / }).click(); // newest first; other tests start 3-paper runs too
+    await row.first().getByRole("link", { name: /^Results of / }).click(); // newest first; other tests start 3-paper runs too
     await expect(page.locator("table.papers tbody tr")).toHaveCount(3);
   });
   test("describe a field, accept suggestions, preview, save, run it, keep two papers in the library, find and export them", async ({ page }) => {
     test.setTimeout(240_000);
-    await page.goto("/fields");
-    await page.getByRole("link", { name: "New field" }).click();
+    await page.goto("/topics");
+    await page.getByRole("link", { name: "New topic" }).click();
     await page.getByLabel("Name", { exact: true }).fill("E2E plaque");
     await page.getByLabel("Description").fill("Deep learning for coronary plaque characterisation on CT angiography, validated on patients.");
     await page.getByLabel(/Demo mode/).check();
@@ -110,7 +110,7 @@ test.describe("member", () => {
     const suggestions = page.getByRole("region", { name: /Suggestions/ });
     await expect(suggestions).toBeVisible({ timeout: 60_000 });
     await suggestions.getByRole("button", { name: "Accept all" }).click();
-    await expect(page.getByRole("complementary", { name: "Field summary" })).toContainText(/Criteria\s*2 inclusions, 1 exclusion/);
+    await expect(page.getByRole("complementary", { name: "Topic summary" })).toContainText(/Criteria\s*2 inclusions, 1 exclusion/);
 
     await page.getByRole("button", { name: "Next →" }).click();
     await expect(page.getByRole("heading", { name: /2 · Keywords & criteria/ })).toBeVisible();
@@ -121,20 +121,20 @@ test.describe("member", () => {
     await expect(preview.locator(".preview-source").first()).toBeVisible({ timeout: 60_000 });
     await expect(preview).toContainText(/paper|failed/);
     await page.getByLabel("Change note").fill("first version");
-    await page.getByRole("button", { name: "Create field" }).click();
+    await page.getByRole("button", { name: "Create topic" }).click();
     await expect(page.getByRole("heading", { name: "E2E plaque (v1)" })).toBeVisible();
 
     await page.getByRole("button", { name: "Test criteria" }).click();
     const results = page.getByRole("region", { name: "Criteria test" });
     await expect(results.getByRole("table")).toBeVisible({ timeout: 60_000 });
 
-    await page.goto("/fields");
+    await page.goto("/topics");
     await page.getByRole("link", { name: "Start run for E2E plaque" }).click();
     await page.getByLabel("Papers to screen").fill("3");
     await page.getByLabel(/Demo mode/).check();
     await page.getByRole("button", { name: "Start run" }).click();
     await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
-    await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /^Papers of / }).click();
+    await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /^Results of / }).click();
     await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque v1");
     await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
     await expect(page.locator("table.papers tbody tr").first()).toContainText(/all met|dropped by (incl|excl) \d|no single criterion decided/);
@@ -160,7 +160,7 @@ test.describe("member", () => {
     await drawer.getByRole("radio", { name: /Useful/ }).check();
     await expect(page.getByText("Marked useful")).toBeVisible();
 
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Step 5: Library" }).click();
     await page.getByLabel("Collection").selectOption({ label: `${collection} (2)` });
     const list = page.getByRole("list", { name: "Saved papers" });
     await expect(list.getByRole("listitem")).toHaveCount(2);
@@ -179,11 +179,12 @@ test.describe("member", () => {
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("text/csv");
     expect(await response.text()).toContain(titles[0]!.trim().slice(0, 20));
+
   });
 
   test("keyboard shortcuts on Papers and Library", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Results of / }).click();
     await expect(page.locator("table.papers tbody tr").first()).toBeVisible();
     await page.locator("h1").click();
     await page.keyboard.press("j");
@@ -194,7 +195,7 @@ test.describe("member", () => {
     await page.keyboard.press("Escape");
     await page.locator("h1").click();
     await page.keyboard.press("?");
-    await expect(page.getByRole("dialog", { name: "Papers shortcuts" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Results shortcuts" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -213,11 +214,11 @@ test.describe("member", () => {
   });
 
   test("leaving the field editor with unsaved edits asks first", async ({ page }) => {
-    await page.goto("/fields/new");
+    await page.goto("/topics/new");
     await page.getByLabel("Name", { exact: true }).fill("Unsaved");
     page.once("dialog", (dialog) => void dialog.dismiss());
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Runs" }).click();
-    await expect(page).toHaveURL(/\/fields\/new/);
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Step 2: Screening" }).click();
+    await expect(page).toHaveURL(/\/topics\/new/);
   });
 });
 

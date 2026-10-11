@@ -1,13 +1,18 @@
+import { Link, useLocation } from "react-router-dom";
+
 import type { PaperRow } from "../../api/types";
 import { QualityCell } from "./cells";
 import { LibraryBadge } from "./PaperTable";
 import { nextAction, plainWhy } from "./simpleWords";
 import { Term } from "../../components/ui/Term";
+import { readerState } from "../reader/origin";
 
 type Props = {
   rows: PaperRow[];
   selectedPaperId: string | null;
   onOpen: (paperId: string) => void;
+  /** Where "Read" opens the paper in the Reader; no link without it. */
+  readHref?: ((paperId: string) => string) | null;
   /** Criterion key → text, for the why sentence and the criteria tooltip. */
   texts: Record<string, string>;
   selection?: { ids: Set<string>; onToggle: (paperId: string, on: boolean) => void; onToggleAll: (on: boolean) => void } | null;
@@ -20,7 +25,8 @@ type Props = {
  * The Simple view: the paper, its quality, why in one plain sentence, what to do next and the team's decision.
  * How screening and the panel decided (Jev, LLM, escalation, provisional detail) is in the Detailed view.
  */
-export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = null, cursorId = null, onSave = null }: Props) {
+export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = null, cursorId = null, onSave = null, readHref = null }: Props) {
+  const location = useLocation();
   return (
     <div className="table-scroll">
       <table className="papers papers--simple">
@@ -66,6 +72,11 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
                       {action.word}
                     </button>
                   ) : <span className="sub">none</span>}
+                  {readHref && (
+                    <Link className="row-read" to={readHref(row.paper.id)} state={readerState("results", `${location.pathname}${location.search}`)} aria-describedby={`title-${row.paper.id}`}>
+                      Read
+                    </Link>
+                  )}
                 </td>
                 <td onClick={(e) => e.stopPropagation()}>
                   {row.library ? <LibraryBadge library={row.library} />

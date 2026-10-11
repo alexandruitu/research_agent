@@ -29,7 +29,7 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
       <EmptyState title="No runs match these filters">Clear a filter or the search to see more runs.</EmptyState>
     ) : (
       <EmptyState title="No runs yet">
-        A run searches a field's sources, screens what it finds and reviews what it keeps. Choose a field above and start one; demo mode runs offline.
+        A run searches a topic's sources, screens what it finds and reviews what it keeps. Choose a topic above and start one; demo mode runs offline.
       </EmptyState>
     );
   }
@@ -50,7 +50,7 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
             <tr key={run.id} className={`runs__row runs__row--${run.status}${selected.has(run.id) ? " is-selected" : ""}`}>
               <td className="runs__check"><input type="checkbox" aria-label={`Select ${label}`} checked={selected.has(run.id)} onChange={() => onToggle(run.id)} /></td>
               <th scope="row">
-                <Link to={`/runs/${run.id}`} className="runs__name">{runShortName(run)}</Link>
+                <Link to={`/screening/${run.id}`} className="runs__name">{runShortName(run)}</Link>
                 {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
                 <PartialSearchMarker warnings={run.search_warnings} />
                 {coverageLine(run.coverage) && (
@@ -66,7 +66,7 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
               <td>{run.created_by_name ?? "imported"}</td>
               <td className="runs__date"><time dateTime={run.created_at} title={new Date(run.created_at).toLocaleString()}>{runDate(run.created_at)}</time></td>
               <td className="runs__actions">
-                <Link to={`/?run=${run.id}`}>Papers<span className="sr-only"> of {label}</span></Link>
+                <Link to={`/results?run=${run.id}`}>Results<span className="sr-only"> of {label}</span></Link>
                 <MenuButton label={`Actions for ${label}`} text="Actions" items={items(run)} />
               </td>
             </tr>

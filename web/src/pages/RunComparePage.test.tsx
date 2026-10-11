@@ -23,7 +23,7 @@ describe("compare runs", () => {
         score_changes: [{ ...paper("Scored"), a: 60, b: 72.5, delta: 12.5 }],
       } },
     });
-    renderWithProviders(<RunComparePage />, { route: `/runs/compare?ids=${RUN_ID},${B}` });
+    renderWithProviders(<RunComparePage />, { route: `/screening/compare?ids=${RUN_ID},${B}` });
     expect(await screen.findByText("1 difference")).toBeInTheDocument();
     const row = screen.getByRole("row", { name: /Papers to screen/ });
     expect(within(row).getByText("differs")).toBeInTheDocument();
@@ -34,7 +34,7 @@ describe("compare runs", () => {
 
   it("asks for two runs when fewer are given", async () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("viewer") }, "GET /api/v1/runs": { body: [] } });
-    renderWithProviders(<RunComparePage />, { route: "/runs/compare" });
+    renderWithProviders(<RunComparePage />, { route: "/screening/compare" });
     expect(await screen.findByText(/Choose two runs/)).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { runsExportUrl, useFields, useRuns, type RunListParams } from "../api/hooks";
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { FlowStepper } from "../components/FlowStepper";
 import { Skeleton } from "../components/ui/Skeleton";
 import { JobProgress } from "../features/runs/JobProgress";
 import { download, useRunActions } from "../features/runs/RunActions";
@@ -47,7 +48,7 @@ export function RunsPage() {
     setSearch(next, { replace: true });
   };
 
-  if (status === "loading" || (runs.isLoading && !runs.data)) return <section><h1>Runs</h1><Skeleton label="the runs" rows={5} /></section>;
+  if (status === "loading" || (runs.isLoading && !runs.data)) return <section><FlowStepper current={2} /><h1>Screening</h1><Skeleton label="the runs" rows={5} /></section>;
   if (runs.isError) return <p role="alert">Could not load the runs.</p>;
   const rows = runs.data ?? [];
   const chosen = rows.filter((run) => selected.has(run.id));
@@ -57,16 +58,20 @@ export function RunsPage() {
 
   return (
     <section className="runs-page">
+      <FlowStepper current={2} />
       <header className="page-head">
-        <h1>Runs</h1>
-        <p className="lede">Every search-screen-review run, with what it was started with. Open one to see its timeline, cost and log; run it again, resume, cancel, compare or export.</p>
+        <h1>Screening</h1>
+        <p className="lede">Start a run: it searches a topic's sources, screens what it finds and reviews what it keeps. When it is done, its papers are in Results.</p>
       </header>
       {canRun && <StartRunForm onStarted={setJobId} initialFieldId={search.get("field") ?? ""} />}
       {jobId && <JobProgress jobId={jobId} />}
 
-      <form className="toolbar run-filters" role="search" aria-label="Filter runs" onSubmit={(e) => e.preventDefault()}>
+      <h2 id="history-heading" className="runs-history-heading">History</h2>
+      <p className="sub">Every run, with what it was started with. Open one to see its timeline, cost and log; run it again, resume, cancel, compare or export.</p>
+
+      <form className="toolbar run-filters" role="search" aria-label="Filter the history" onSubmit={(e) => e.preventDefault()}>
         <label>Search
-          <input type="search" placeholder="Name, topic or field" defaultValue={params.q ?? ""} onChange={(e) => set("q", e.target.value.trim() || null)} />
+          <input type="search" placeholder="Name or topic" defaultValue={params.q ?? ""} onChange={(e) => set("q", e.target.value.trim() || null)} />
         </label>
         <label>Status
           <select value={params.status ?? ""} onChange={(e) => set("status", e.target.value || null)}>
@@ -74,7 +79,7 @@ export function RunsPage() {
             {RUN_STATUSES.map((s) => <option key={s} value={s}>{runStatusMeta(s).word}</option>)}
           </select>
         </label>
-        <label>In field
+        <label>In topic
           <select value={params.field_id ?? ""} onChange={(e) => set("in", e.target.value || null)}>
             <option value="">Any</option>
             {fields.data?.map((field) => <option key={field.id} value={field.id}>{field.name}</option>)}
@@ -102,7 +107,7 @@ export function RunsPage() {
           <strong>{chosen.length} selected</strong>
           <button type="button" onClick={() => download(runsExportUrl(chosen.map((r) => r.id), "csv"))}>Export CSV</button>
           <button type="button" onClick={() => download(runsExportUrl(chosen.map((r) => r.id), "bibtex"))}>Export BibTeX</button>
-          {chosen.length === 2 && <Link className="button-link button-link--quiet" to={`/runs/compare?ids=${chosen.map((r) => r.id).join(",")}`}>Compare</Link>}
+          {chosen.length === 2 && <Link className="button-link button-link--quiet" to={`/screening/compare?ids=${chosen.map((r) => r.id).join(",")}`}>Compare</Link>}
           {deletable.length > 0 && <button type="button" onClick={() => actions.askDelete(deletable)}>Delete {deletable.length === chosen.length ? "" : `${deletable.length} of them`}…</button>}
           <button type="button" onClick={() => setSelected(new Set())}>Clear selection</button>
         </div>

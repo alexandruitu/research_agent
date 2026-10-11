@@ -14,7 +14,7 @@ afterEach(() => {
   setCsrfToken(null);
 });
 
-function setup(role: "viewer" | "member" | "admin" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = `/fields/${FIELD_ID}`) {
+function setup(role: "viewer" | "member" | "admin" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = `/topics/${FIELD_ID}`) {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/fields/:id": { body: fieldDetail() },
@@ -28,15 +28,15 @@ function setup(role: "viewer" | "member" | "admin" = "member", extra: Parameters
   });
   renderWithProviders(
     <Routes>
-      <Route path="/fields/new" element={<FieldEditorPage />} />
-      <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
+      <Route path="/topics/new" element={<FieldEditorPage />} />
+      <Route path="/topics/:fieldId" element={<FieldEditorPage />} />
     </Routes>,
     { route },
   );
   return api;
 }
 
-const form = () => screen.findByRole("form", { name: "Field editor" });
+const form = () => screen.findByRole("form", { name: "Topic editor" });
 /** Changing step moves focus to the step heading on the next frame; wait for it before typing. */
 const settle = () => waitFor(() => expect(document.activeElement?.tagName).toBe("H2"));
 const goStep = async (name: RegExp) => {
@@ -71,6 +71,19 @@ describe("FieldEditorPage", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("ML CT-FFR");
   });
 
+  it("is step 1 of the flow and, once the topic is saved, points to screening", async () => {
+    setup();
+    expect(await screen.findByRole("link", { name: "Next: run screening" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
+    const steps = screen.getByRole("navigation", { name: "Research steps" });
+    expect(within(steps).getByText("Topics").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+  });
+
+  it("does not offer Next before the topic exists", async () => {
+    setup("member", {}, "/topics/new");
+    await screen.findByRole("heading", { name: "New topic" });
+    expect(screen.queryByRole("link", { name: "Next: run screening" })).not.toBeInTheDocument();
+  });
+
   it("adds, reorders and removes criteria", async () => {
     setup();
     await form();
@@ -90,7 +103,7 @@ describe("FieldEditorPage", () => {
     await goStep(/Describe/);
     await userEvent.clear(screen.getByLabelText("Name"));
     await userEvent.click(screen.getByRole("button", { name: "Save as v3" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Give the field a name.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Give the topic a name.");
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 
@@ -122,9 +135,9 @@ describe("FieldEditorPage", () => {
 
   it("creates a new field and opens it", async () => {
     const created = fieldDetail({ current_version: 1, current: versionOut({ version: 1 }) });
-    const { calls } = setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/fields/new");
+    const { calls } = setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/topics/new");
     await form();
-    expect(screen.getByRole("heading", { name: "New field" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New topic" })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Name"), "ML CT-FFR");
     await userEvent.type(screen.getByLabelText("Description"), "Deep learning CT-FFR. Validated on patients.");
     await userEvent.click(screen.getByRole("button", { name: "Next →" }));
@@ -132,7 +145,7 @@ describe("FieldEditorPage", () => {
     await userEvent.type(screen.getByLabelText("Must include"), "CT-FFR{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Add inclusion criterion" }));
     await userEvent.type(screen.getByLabelText("incl 1"), "Uses deep learning.");
-    await userEvent.click(screen.getByRole("button", { name: "Create field" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create topic" }));
     expect(await screen.findByRole("heading", { name: "ML CT-FFR (v1)" })).toBeInTheDocument();
     expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
       name: "ML CT-FFR", topic: "Deep learning CT-FFR.", description: "Deep learning CT-FFR. Validated on patients.",
@@ -143,7 +156,7 @@ describe("FieldEditorPage", () => {
 
   it("keeps demo mode on after creating the field", async () => {
     const created = fieldDetail({ current_version: 1, current: versionOut({ version: 1 }) });
-    setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/fields/new");
+    setup("member", { "POST /api/v1/fields": { status: 201, body: created }, "GET /api/v1/fields/:id": { body: created } }, "/topics/new");
     await form();
     await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
     await userEvent.type(screen.getByLabelText("Name"), "ML CT-FFR");
@@ -151,7 +164,7 @@ describe("FieldEditorPage", () => {
     await goStep(/Keywords & criteria/);
     await userEvent.click(screen.getByRole("button", { name: "Add inclusion criterion" }));
     await userEvent.type(screen.getByLabelText("incl 1"), "Uses deep learning.");
-    await userEvent.click(screen.getByRole("button", { name: "Create field" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create topic" }));
     expect(await screen.findByRole("heading", { name: "ML CT-FFR (v1)" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Demo mode/ })).toBeChecked();
   });
@@ -184,7 +197,7 @@ describe("FieldEditorPage", () => {
     await form();
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
     expect(await screen.findByRole("button", { name: "Restore" })).toBeInTheDocument();
-    expect(screen.getByText(/This field is archived/)).toBeInTheDocument();
+    expect(screen.getByText(/This topic is archived/)).toBeInTheDocument();
     expect(screen.getByLabelText("incl 1")).toBeDisabled();
     expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/archive"))).toBe(true);
   });
@@ -197,7 +210,7 @@ describe("FieldEditorPage", () => {
 
   it("the history lists versions with notes and runs, and says the screen is not measured", async () => {
     setup();
-    const panel = await screen.findByRole("complementary", { name: "Field history" });
+    const panel = await screen.findByRole("complementary", { name: "Topic history" });
     expect(await within(panel).findByText(/not measured/)).toBeInTheDocument();
     expect(within(panel).getByText("added the exclusion")).toBeInTheDocument();
     expect(within(panel).getByText(/3 runs/)).toBeInTheDocument();
@@ -211,7 +224,7 @@ describe("FieldEditorPage", () => {
       "GET /api/v1/runs": { body: [runOut({ id: RUN_ID, field_id: FIELD_ID, field_version: 2 })] },
       "GET /api/v1/evals": { body: [evalSummary()] },
     });
-    const panel = await screen.findByRole("complementary", { name: "Field history" });
+    const panel = await screen.findByRole("complementary", { name: "Topic history" });
     await waitFor(() => expect(panel).toHaveTextContent("measured against mlffrct-2024"));
   });
 
@@ -245,14 +258,14 @@ describe("FieldEditorPage", () => {
     const { calls } = setup("member", {
       "POST /api/v1/fields/assist": { status: 202, body: jobOut({ kind: "field_assist", run_id: null }) },
       "GET /api/v1/jobs/:id": { body: jobOut({ kind: "field_assist", run_id: null, status: "done", progress: { status: "done", result: assistResult() } }) },
-    }, "/fields/new");
+    }, "/topics/new");
     await form();
     await userEvent.type(screen.getByLabelText("Description"), "AI for coronary plaque on CT");
     await userEvent.click(screen.getByRole("checkbox", { name: /Demo mode/ }));
     await userEvent.click(screen.getByRole("button", { name: "Suggest keywords & criteria" }));
     const panel = await screen.findByRole("region", { name: /Suggestions/ });
     expect(calls.find((c) => c.path.endsWith("/assist"))?.body).toEqual({ description: "AI for coronary plaque on CT", topic: "", keywords: null, mode: "demo" });
-    const summary = screen.getByRole("complementary", { name: "Field summary" });
+    const summary = screen.getByRole("complementary", { name: "Topic summary" });
     expect(summary).toHaveTextContent(/Must include\s*–/);
     await userEvent.click(within(panel).getByRole("button", { name: /plaque \(Must include\)/ }));
     expect(within(panel).getByRole("button", { name: /plaque \(Must include\)/ })).toHaveAttribute("aria-pressed", "true");
@@ -268,7 +281,7 @@ describe("FieldEditorPage", () => {
   });
 
   it("says what to do when there is nothing to suggest from", async () => {
-    setup("member", { "POST /api/v1/fields/assist": { status: 422, body: { code: "nothing_to_assist", message: "Describe the field or add a keyword first", request_id: "r" } } }, "/fields/new");
+    setup("member", { "POST /api/v1/fields/assist": { status: 422, body: { code: "nothing_to_assist", message: "Describe the field or add a keyword first", request_id: "r" } } }, "/topics/new");
     await form();
     await userEvent.click(screen.getByRole("button", { name: "Suggest keywords & criteria" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Describe the field or add a keyword first");
@@ -327,7 +340,7 @@ describe("FieldEditorPage", () => {
   });
 
   it("the step survives a reload through the URL", async () => {
-    setup("member", {}, `/fields/${FIELD_ID}?step=3`);
+    setup("member", {}, `/topics/${FIELD_ID}?step=3`);
     expect(await screen.findByRole("heading", { name: /3 · Preview & save/ })).toBeInTheDocument();
   });
 });

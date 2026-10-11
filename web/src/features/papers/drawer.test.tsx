@@ -35,7 +35,7 @@ async function openDrawer() {
 /** These tests cover the flat list (Group by: None); the grouped view has its own tests (features/papers/groups.test.tsx). */
 const flat = (route: string) => route + (route.includes("?") ? "&" : "?") + "group=none";
 
-function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = `/?run=${RUN_ID}&paper=${LOST_ID}`) {
+function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mockApi>[0] = {}, route = `/results?run=${RUN_ID}&paper=${LOST_ID}`) {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
     "GET /api/v1/runs": { body: [runOut()] },
@@ -45,7 +45,7 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
     "GET /api/v1/runs/:id/papers/:id": { body: drawerOut() },
     ...extra,
   });
-  renderWithProviders(<><Routes><Route path="/" element={<PapersPage />} /></Routes><Location /></>, { route: flat(route) });
+  renderWithProviders(<><Routes><Route path="/results" element={<PapersPage />} /></Routes><Location /></>, { route: flat(route) });
   return api;
 }
 
@@ -135,7 +135,7 @@ describe("paper drawer", () => {
   });
 
   it("clicking a paper title opens its drawer and puts it in the URL", async () => {
-    setup("member", {}, `/?run=${RUN_ID}`);
+    setup("member", {}, `/results?run=${RUN_ID}`);
     await userEvent.click(await screen.findByRole("button", { name: /Change in CT-Derived FFR/ }));
     expect(await screen.findByRole("complementary", { name: "Paper details" })).toBeInTheDocument();
     expect(screen.getByLabelText("location")).toHaveTextContent(`paper=${LOST_ID}`);
@@ -180,7 +180,7 @@ describe("stage panel", () => {
   });
 
   it("still opens from an old ?stage= link and closes with its close button", async () => {
-    setup("member", {}, `/?run=${RUN_ID}&stage=screen`);
+    setup("member", {}, `/results?run=${RUN_ID}&stage=screen`);
     expect(await screen.findByRole("complementary", { name: "About Screen" })).toBeInTheDocument();
     await userEvent.click(within(screen.getByRole("complementary", { name: "About Screen" })).getByRole("button", { name: /close/i }));
     await waitFor(() => expect(screen.queryByRole("complementary", { name: "About Screen" })).not.toBeInTheDocument());

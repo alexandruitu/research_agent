@@ -19,7 +19,7 @@ export function RunComparePage() {
 
   return (
     <section className="run-compare">
-      <p className="crumbs"><Link to="/runs">Runs</Link> <span aria-hidden="true">/</span></p>
+      <p className="crumbs"><Link to="/screening">Screening</Link> <span aria-hidden="true">/</span></p>
       <h1>Compare two runs</h1>
       <form className="toolbar" aria-label="Choose runs" onSubmit={(e) => e.preventDefault()}>
         {([0, 1] as const).map((which) => (
@@ -62,7 +62,7 @@ function Comparison({ data }: { data: RunCompareOut }) {
       <section aria-labelledby="cfg-h" className="run-detail__block">
         <h2 id="cfg-h">Configuration <span className="hint">{differs === 0 ? "identical" : `${differs} difference${differs === 1 ? "" : "s"}`}</span></h2>
         <table className="runs compare-table">
-          <thead><tr><th scope="col">Setting</th><th scope="col"><Link to={`/runs/${ra!.id}`}>A · {runLabel(ra!)}</Link></th><th scope="col"><Link to={`/runs/${rb!.id}`}>B · {runLabel(rb!)}</Link></th></tr></thead>
+          <thead><tr><th scope="col">Setting</th><th scope="col"><Link to={`/screening/${ra!.id}`}>A · {runLabel(ra!)}</Link></th><th scope="col"><Link to={`/screening/${rb!.id}`}>B · {runLabel(rb!)}</Link></th></tr></thead>
           <tbody>{data.config.map((row) => (
             <tr key={row.label} className={row.differs ? "is-different" : undefined}>
               <th scope="row">{row.label}{row.differs && <span className="chip chip--warn">differs</span>}</th>

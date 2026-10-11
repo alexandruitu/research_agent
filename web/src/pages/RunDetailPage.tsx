@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { FlowStepper } from "../components/FlowStepper";
 
 import { isActive, useRun, useRunCalls, useRunLog } from "../api/hooks";
 import { hasRole, type RunDetailOut, type RunOut } from "../api/types";
@@ -18,11 +19,11 @@ export function RunDetailPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const run = useRun(runId);
-  const actions = useRunActions({ onDeleted: (ids) => ids.includes(runId) && navigate("/runs") });
+  const actions = useRunActions({ onDeleted: (ids) => ids.includes(runId) && navigate("/screening") });
   const member = hasRole(user, "member");
 
   if (run.isLoading) return <section><h1>Run</h1><Skeleton label="the run" rows={6} /></section>;
-  if (run.isError || !run.data) return <section><h1>Run</h1><p role="alert">Could not load this run. It may have been deleted. <Link to="/runs">Back to runs</Link></p></section>;
+  if (run.isError || !run.data) return <section><h1>Run</h1><p role="alert">Could not load this run. It may have been deleted. <Link to="/screening">Back to Screening</Link></p></section>;
   const data = run.data;
   const asRow: RunOut = data;
   const label = runLabel(data);
@@ -36,7 +37,8 @@ export function RunDetailPage() {
 
   return (
     <article className="run-detail">
-      <p className="crumbs"><Link to="/runs">Runs</Link> <span aria-hidden="true">/</span></p>
+      <FlowStepper current={2} next={data.status === "done" && research ? <Link className="button-link" to={`/results?run=${data.id}`}>Next: see results</Link> : undefined} />
+      <p className="crumbs"><Link to="/screening">Screening</Link> <span aria-hidden="true">/</span></p>
       <header className="run-detail__head">
         <div>
           <h1>{label}{data.pinned && <span className="runs__mark"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}</h1>
@@ -76,7 +78,7 @@ export function RunDetailPage() {
           <div><dt>Wall time</dt><dd>{formatSeconds(data.wall_seconds)}</dd></div>
         </dl>
         <p className="run-detail__links">
-          <Link to={data.links?.papers ?? `/?run=${data.id}`}>See the papers</Link>
+          <Link to={`/results?run=${data.id}`}>See the papers</Link>
           {(data.links?.evals ?? []).map((e) => <Link key={e.id} to={`/validation/evals/${e.id}`}>{e.kind} evaluation of {new Date(e.created_at).toLocaleDateString()}</Link>)}
           {(data.links?.library_count ?? 0) > 0 && <Link to="/library">{data.links!.library_count} saved to the library</Link>}
         </p>
@@ -133,7 +135,7 @@ function Config({ data }: { data: RunDetailOut }) {
   if (!c) return null;
   const missing = <span className="hint">not recorded</span>;
   const rows: [React.ReactNode, React.ReactNode][] = [
-    [<Term key="f" k="field_version">Field</Term>, <>{c.field_name}{c.field_version ? ` · version ${c.field_version}` : ""}</>],
+    [<Term key="f" k="field_version">Topic</Term>, <>{c.field_name}{c.field_version ? ` · version ${c.field_version}` : ""}</>],
     ["Topic", c.topic || missing],
     ["Sources", c.sources.length ? c.sources.map((s) => `${s.name} (up to ${s.max_results})`).join(", ") : <span className="hint">Europe PMC (legacy topic run)</span>],
     ["Review settings", c.settings_version ? `version ${c.settings_version}` : <span className="hint">none (legacy A/B review)</span>],
@@ -171,7 +173,7 @@ function Calls({ runId }: { runId: string }) {
               <tr key={`${r.role}-${r.model}`}><td>{r.stage}</td><td>{r.role}</td><td>{r.model}</td><td className="num">{r.calls}</td><td className="num">{r.input_chars.toLocaleString()} / {r.output_chars.toLocaleString()}</td><td className="num">{formatUsd(r.cost_usd)}</td></tr>
             ))}</tbody>
           </table>
-          <p className="hint">Exact prompts and responses: open a paper in <Link to={`/?run=${runId}`}>Papers</Link> and use its Raw calls tab.</p>
+          <p className="hint">Exact prompts and responses: open a paper in <Link to={`/results?run=${runId}`}>Results</Link> and use its Raw calls tab.</p>
         </>
       )}
     </section>

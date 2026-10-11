@@ -23,15 +23,15 @@ test.describe("viewer", () => {
   test.use({ storageState: auth("viewer") });
 
   test("papers table with the pipeline strip", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Results of / }).click();
     await expect(page.locator("table.papers tbody tr").first()).toBeVisible();
     await audit(page);
   });
 
   test("paper drawer open", async ({ page }) => {
-    await page.goto("/runs");
-    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Papers of / }).click();
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /toy/ }).getByRole("link", { name: /^Results of / }).click();
     await page.locator("[data-open-paper]").first().click();
     await expect(page.getByRole("complementary", { name: "Paper details" })).toBeVisible();
     await audit(page);
@@ -78,7 +78,7 @@ test.describe("viewer", () => {
 test.describe("member", () => {
   test.use({ storageState: auth("member") });
   test("runs with the start form", async ({ page }) => {
-    await page.goto("/runs");
+    await page.goto("/screening");
     await expect(page.getByRole("button", { name: "Start run" })).toBeVisible();
     await audit(page);
   });
@@ -88,13 +88,13 @@ test.describe("fields and settings", () => {
   test.describe("member", () => {
     test.use({ storageState: auth("member") });
     test("fields list", async ({ page }) => {
-      await page.goto("/fields");
-      await expect(page.getByRole("heading", { name: "Fields" })).toBeVisible();
+      await page.goto("/topics");
+      await expect(page.getByRole("heading", { name: "Topics" })).toBeVisible();
       await audit(page);
     });
     test("field editor: every step, with suggestions, preview and test results", async ({ page }) => {
       test.setTimeout(150_000);
-      await page.goto("/fields/new");
+      await page.goto("/topics/new");
       await page.getByLabel("Description").fill("Deep learning for coronary plaque on CT angiography.");
       await page.getByLabel(/Demo mode/).check();
       await page.getByRole("button", { name: "Suggest keywords & criteria" }).click();
@@ -109,9 +109,9 @@ test.describe("fields and settings", () => {
       await expect(page.getByRole("region", { name: "Search preview" }).locator(".preview-source").first()).toBeVisible({ timeout: 60_000 });
       await audit(page);
 
-      await page.goto("/fields");
+      await page.goto("/topics");
       await page.locator("table.runs tbody tr a").first().click();
-      await expect(page.getByRole("form", { name: "Field editor" })).toBeVisible();
+      await expect(page.getByRole("form", { name: "Topic editor" })).toBeVisible();
       await page.getByRole("button", { name: "Add inclusion criterion" }).click();
       await page.getByLabel("incl 1", { exact: true }).fill("The study uses deep learning.");
       await page.getByLabel(/Demo mode/).check();
