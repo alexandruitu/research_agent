@@ -2,16 +2,17 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 
 from ... import reader as svc
+from ... import related
 from ...db.models import Job, LibraryItem, Paper, ReaderNote, Run, Screening, User
 from ...jobs import enqueue
 from ...papers import PaperQuery, _filtered
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import JobOut, ReaderAskIn, ReaderNoteIn, ReaderNoteOut, ReaderOut
+from ..schemas import JobOut, ReaderAskIn, ReaderNoteIn, ReaderNoteOut, ReaderOut, ReaderRelatedIn
 from .runs import check_active_cap, job_out
 
 router = APIRouter(tags=["reader"])
@@ -83,6 +84,42 @@ def ask(
         "mode": svc.run_mode(run),
     }
     job, _ = enqueue(db, "reader_ask", payload, user.id)
+    db.commit()
+    return job_out(job)
+
+
+@router.post("/runs/{run_id}/papers/{paper_id}/reader/related", response_model=JobOut, status_code=202)
+def find_related(
+    run_id: uuid.UUID,
+    paper_id: uuid.UUID,
+    body: ReaderRelatedIn,
+    request: Request,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Queue Find related / Earlier work for the selection (else the paper's title). The query is built by code
+    (key terms, no model) and sent to the enabled sources (at most 10 results each) plus the team library and
+    the papers seen in runs. Shares the field preview's budget: at most 10 searches per user per minute."""
+    run, paper = _run_paper(db, run_id, paper_id)
+    if related.search_keywords(body.selection, paper) is None:
+        raise ApiError(
+            422, "no_terms", "The selection has no key terms to search for; select a longer passage"
+        )
+    limiter, key = request.app.state.preview_limiter, f"preview:{user.id}"
+    if not limiter.allowed(key):
+        raise ApiError(429, "rate_limited", "Too many searches; try again in a minute")
+    check_active_cap(db, user, settings)
+    limiter.record_failure(key)  # counts every accepted search
+    # The run id is under `reader_run_id`, never `run_id`: a failed Reader job must not fail the run.
+    payload = {
+        "reader_run_id": str(run.id),
+        "paper_id": str(paper.id),
+        "selection": body.selection,
+        "mode": body.mode,
+        "search_mode": svc.run_mode(run),
+    }
+    job, _ = enqueue(db, "reader_related", payload, user.id)
     db.commit()
     return job_out(job)
 

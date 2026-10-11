@@ -217,6 +217,8 @@ class Worker:
                     return self._gold_build(db, job)
                 if job.kind == "reader_ask":
                     return self._reader_ask(db, job)
+                if job.kind == "reader_related":
+                    return self._reader_related(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -574,6 +576,51 @@ class Worker:
                 self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
                 return True
         result["text_kind"] = text["kind"]
+        return self._finish(db, job, result)
+
+    def _reader_related(self, db, job):
+        """Find related / earlier work for a passage: the enabled sources (partial failure → warnings) plus the
+        team library and the papers seen in runs. No model. Results are not kept beyond the job."""
+        from .checks import connector
+        from .fields import enabled_sources
+        from .related import RelatedFailed, default_years, find_related, search_keywords
+
+        payload = job.payload or {}
+        paper = db.get(Paper, uuid.UUID(payload["paper_id"]))
+        if paper is None:
+            self._fail(db, job, "The paper no longer exists")
+            return True
+        search_mode = payload.get("search_mode", "live")
+        selection = payload.get("selection", "")
+        contact = settings_row(db).contact_email
+        keywords, years = search_keywords(selection, paper), default_years()
+        with tempfile.TemporaryDirectory() as scratch, self._heartbeat_while(job.id):
+            store = Store(scratch)
+
+            def make(name):
+                return connector(
+                    name,
+                    store,
+                    mode=search_mode,
+                    years=years,
+                    contact=contact,
+                    http_client=self.http_client,
+                    keywords=keywords,  # the local filter of sources without boolean search
+                )
+
+            try:
+                result = find_related(
+                    db,
+                    paper,
+                    selection,
+                    payload.get("mode", "related"),
+                    names=sorted(enabled_sources(db)),
+                    make=make,
+                    search_mode=search_mode,
+                )
+            except RelatedFailed as exc:
+                self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
+                return True
         return self._finish(db, job, result)
 
     def _gold_build(self, db, job):

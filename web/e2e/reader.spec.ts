@@ -41,4 +41,32 @@ test.describe("member", () => {
     await expect(panel.getByText("Note saved.")).toBeVisible();
     await expect(panel.locator(".reader-note-list")).toContainText(sentence);
   });
+
+  test("finds related work for a selected sentence (demo sources, no network)", async ({ page }) => {
+    test.setTimeout(60_000);
+    const runs = await (await page.request.get("/api/v1/runs")).json();
+    const run = runs.find((r: { kind: string; status: string }) => r.kind === "research" && r.status === "done");
+    const papers = await (await page.request.get(`/api/v1/runs/${run.id}/papers`, { params: { page_size: 50, decision: "include" } })).json();
+    const paper = papers.items.find((row: { paper: { abstract?: string } }) => row.paper.abstract) ?? papers.items[0];
+    await page.goto(`/read/${run.id}/${paper.paper.id}`);
+    const text = page.getByRole("article", { name: "Paper text" });
+    await expect(text).toBeVisible();
+    await text.locator(".reader-paragraph").first().evaluate((p) => {
+      const node = [...p.querySelectorAll("span, mark")].map((e) => e.firstChild).find((n) => n && n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").includes("."))!;
+      const range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, (node.textContent ?? "").indexOf(".") + 1);
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+      p.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
+    await expect(page.getByText(/^Selected:/)).toBeVisible();
+    const panel = page.getByRole("complementary", { name: "Reading tools" });
+    await panel.getByRole("button", { name: "Find related" }).click();
+    await expect(panel.getByRole("heading", { name: /^Related papers \(\d+\)$/ })).toBeVisible({ timeout: 30_000 });
+    await expect(panel.getByText(/key terms \(code, no AI\)/)).toBeVisible();
+    await expect(panel.locator(".reader-related-item").first()).toBeVisible();
+    await expect(panel.getByText(/seen in run/).first()).toBeVisible();
+    await expect(panel.locator(".reader-related-item", { hasText: paper.paper.title })).toHaveCount(0);
+  });
 });

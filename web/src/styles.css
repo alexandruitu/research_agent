@@ -1100,3 +1100,7 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .reader-note { border-top: 1px solid var(--line); padding-top: 6px; }
 .reader-note-selection { margin: 4px 0; font-style: italic; }
 .drawer-read { margin: 4px 0 0; }
+.reader-related-list { padding-left: 1.2rem; }
+.reader-related-item { margin: 0.35rem 0; }
+.reader-related-self { border-top: 2px solid currentColor; padding-top: 0.25rem; }
+.reader-related-warnings { padding: 0.5rem; border-radius: 4px; }

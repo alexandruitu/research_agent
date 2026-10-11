@@ -1103,6 +1103,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/papers/{paper_id}/reader/related": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find Related
+         * @description Queue Find related / Earlier work for the selection (else the paper's title). The query is built by code
+         *     (key terms, no model) and sent to the enabled sources (at most 10 results each) plus the team library and
+         *     the papers seen in runs. Shares the field preview's budget: at most 10 searches per user per minute.
+         */
+        post: operations["find_related_api_v1_runs__run_id__papers__paper_id__reader_related_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/papers/{paper_id}/notes": {
         parameters: {
             query?: never;
@@ -3350,6 +3372,20 @@ export interface components {
             text: string;
             /** Quote */
             quote: string;
+        };
+        /** ReaderRelatedIn */
+        ReaderRelatedIn: {
+            /**
+             * Mode
+             * @default related
+             * @enum {string}
+             */
+            mode: "related" | "earlier";
+            /**
+             * Selection
+             * @default
+             */
+            selection: string;
         };
         /** ReaderSection */
         ReaderSection: {
@@ -6648,6 +6684,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReaderAskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_related_api_v1_runs__run_id__papers__paper_id__reader_related_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReaderRelatedIn"];
             };
         };
         responses: {

@@ -4,7 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import type { ReaderNoteOut, ReaderOut, ReaderResult } from "../api/types";
+import type { ReaderNoteOut, ReaderOut, ReaderResult, RelatedPaper, RelatedResult } from "../api/types";
 import { drawerOut, JOB_ID, jobOut, PAPER_ID, RUN_ID, session } from "../test/fixtures";
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
@@ -34,6 +34,21 @@ const note = (): ReaderNoteOut => ({
   id: "abababab-abab-4bab-8bab-abababababab", paper_id: PAPER_ID, run_id: RUN_ID, library_item_id: null, selection: "Data were split at patient level.",
   tool: "explain", question: "", answer: "The data were split by patient.", not_in_paper: false, general: false,
   quotes: [{ text: "Split by patient", quote: "Data were split at patient level." }], model: "synthetic-demo-v1", created_by_name: "Member", created_at: "2026-10-11T10:00:00Z",
+});
+
+const hit = (over: Partial<RelatedPaper> = {}): RelatedPaper => ({
+  title: "Patient-level splits", year: "2019", sources: ["europepmc"], doi: "10.1/x", url: "https://doi.org/10.1/x",
+  paper_id: null, in_library: false, library_item_id: null, seen_in_runs: [], matched_terms: 2, ...over,
+});
+const related = (over: Partial<RelatedResult> = {}): RelatedResult => ({
+  mode: "related", search_mode: "live", basis: "selection", selection: "The test set was external", terms: ["test set", "external"],
+  queries: { europepmc: "TITLE_ABS:\"test set\"" }, sources: ["europepmc", "core"], answered: ["europepmc"],
+  warnings: [{ source: "core", reason: "rate limited (HTTP 429)", detail: "Retry later." }], paper_year: 2026,
+  results: [
+    hit(),
+    hit({ title: "Later work", year: "2027", url: null, doi: null, sources: [], paper_id: "cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd", in_library: true, library_item_id: "x", seen_in_runs: [{ id: RUN_ID, name: "Weekly CT-FFR" }] }),
+  ],
+  ...over,
 });
 
 function setup(role: "viewer" | "member", data: ReaderOut = reader(), extra: Record<string, MockHandler> = {}) {
@@ -149,6 +164,46 @@ describe("ReaderPage", () => {
     await waitFor(() => expect(screen.getByText(/Explain · Member/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "In-house" })).toBeDisabled();
     expect(screen.getByText("needs an internal collection — coming")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Find related" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Find related" })).toBeEnabled();
+  });
+
+  it("finds related papers for the selection, with the query, warnings and team badges", async () => {
+    const api = setup("member", reader(), {
+      "POST /api/v1/runs/:id/papers/:id/reader/related": { status: 202, body: jobOut({ kind: "reader_related", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "reader_related", run_id: null, status: "done", progress: { result: related() } }) },
+    });
+    await screen.findByRole("heading", { name: "Methods" });
+    select("The test set was external");
+    await userEvent.click(screen.getByRole("button", { name: "Find related" }));
+    expect(await screen.findByRole("heading", { name: "Related papers (2)" })).toBeInTheDocument();
+    expect(api.calls.find((c) => c.path.endsWith("/reader/related"))!.body).toEqual({ mode: "related", selection: "The test set was external" });
+    expect(screen.getByText(/key terms \(code, no AI\): “test set”, “external”/)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("core: rate limited (HTTP 429)");
+    const link = screen.getByRole("link", { name: /Patient-level splits/ });
+    expect(link).toHaveAttribute("href", "https://doi.org/10.1/x");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(screen.getByText("in library")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Weekly CT-FFR" })).toHaveAttribute("href", `/read/${RUN_ID}/cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd`);
+  });
+
+  it("lists earlier work by year with the paper's own year marked, never a novelty verdict", async () => {
+    setup("member", reader(), {
+      "POST /api/v1/runs/:id/papers/:id/reader/related": { status: 202, body: jobOut({ kind: "reader_related", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "reader_related", run_id: null, status: "done", progress: { result: related({ mode: "earlier", warnings: [] }) } }) },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Earlier work" }));
+    expect(await screen.findByRole("heading", { name: "Papers mentioning this before 2026" })).toBeInTheDocument();
+    expect(screen.getByText("This paper: 2026")).toBeInTheDocument();
+    const panel = screen.getByRole("region", { name: "Related and earlier work" });
+    expect(panel.textContent).not.toMatch(/\bnovel|\bfirst to|is new\b/i);
+  });
+
+  it("says so when nothing was found, and shows a failed search as an error", async () => {
+    setup("member", reader(), {
+      "POST /api/v1/runs/:id/papers/:id/reader/related": { status: 202, body: jobOut({ kind: "reader_related", run_id: null }) },
+      "GET /api/v1/jobs/:id": { body: jobOut({ kind: "reader_related", run_id: null, status: "done", progress: { result: related({ results: [], warnings: [] }) } }) },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Find related" }));
+    expect(await screen.findByText("No matching papers in the sources, the team library or past runs.")).toBeInTheDocument();
   });
 });

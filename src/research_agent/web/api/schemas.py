@@ -1669,6 +1669,11 @@ class ReaderAskIn(Model):
     question: str = Field(default="", max_length=1000)
 
 
+class ReaderRelatedIn(Model):
+    mode: Literal["related", "earlier"] = "related"
+    selection: str = Field(default="", max_length=4000)
+
+
 class ReaderQuote(Model):
     text: str
     quote: str

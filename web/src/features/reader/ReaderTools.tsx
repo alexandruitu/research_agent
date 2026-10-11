@@ -5,6 +5,7 @@ import { useJob, useReaderAsk, useSaveNote } from "../../api/hooks";
 import type { DrawerOut, ReaderResult, ReaderTool } from "../../api/types";
 import { useSaveFlow } from "../library/saveFlow";
 import { GENERAL_LABEL, TOOL_LABEL } from "./ReaderNotes";
+import { ReaderRelated } from "./ReaderRelated";
 import { MAX_SELECTION } from "./segments";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
@@ -96,10 +97,9 @@ export function ReaderTools({ runId, paperId, selection, drawer }: { runId: stri
           </>
         )}
       </div>
+      <ReaderRelated runId={runId} paperId={paperId} selection={selection} disabled={tooLong} />
       <h3>More tools</h3>
       <ul className="reader-later">
-        <li><button type="button" disabled aria-describedby="later-related">Find related</button> <span id="later-related" className="sub">coming next</span></li>
-        <li><button type="button" disabled aria-describedby="later-earlier">Earlier work</button> <span id="later-earlier" className="sub">coming next</span></li>
         <li><button type="button" disabled aria-describedby="later-inhouse">In-house</button> <span id="later-inhouse" className="sub">needs an internal collection — coming</span></li>
       </ul>
     </section>

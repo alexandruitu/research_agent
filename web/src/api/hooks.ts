@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReaderAskIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
+  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -556,6 +556,8 @@ export const useReader = (runId: string, paperId: string) =>
   useQuery({ queryKey: keys.reader(runId, paperId), retry: false, queryFn: () => api.get<ReaderOut>(`/runs/${runId}/papers/${paperId}/reader`) });
 export const useReaderAsk = (runId: string, paperId: string) =>
   useMutation({ mutationFn: (body: ReaderAskIn) => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/ask`, { body }) });
+export const useReaderRelated = (runId: string, paperId: string) =>
+  useMutation({ mutationFn: (body: ReaderRelatedIn) => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/related`, { body }) });
 export const usePaperNotes = (paperId: string | null) =>
   useQuery({ queryKey: keys.paperNotes(paperId ?? ""), enabled: !!paperId, queryFn: () => api.get<ReaderNoteOut[]>(`/papers/${paperId}/notes`) });
 export function useSaveNote(runId: string, paperId: string) {

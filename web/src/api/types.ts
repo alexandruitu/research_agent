@@ -98,6 +98,20 @@ export type ReaderResult = {
   statements: { text: string; quote: string }[]; not_in_paper: boolean; general: boolean;
   selection: string; question: string; text_kind?: string;
 };
+export type ReaderRelatedIn = S["ReaderRelatedIn"];
+export type RelatedMode = NonNullable<ReaderRelatedIn["mode"]>;
+/** One result of a reader_related job: deduplicated across sources, with team badges. */
+export type RelatedPaper = {
+  title: string; year: string | null; sources: string[]; doi: string | null; url: string | null;
+  paper_id: string | null; in_library: boolean; library_item_id: string | null;
+  seen_in_runs: { id: string; name: string }[]; matched_terms: number;
+};
+/** A reader_related job's `progress.result`. */
+export type RelatedResult = {
+  mode: RelatedMode; search_mode: string; basis: "selection" | "title"; selection: string; terms: string[];
+  queries: Record<string, string>; sources: string[]; answered: string[];
+  warnings: { source: string; reason: string; detail: string }[]; paper_year: number | null; results: RelatedPaper[];
+};
 export type LibraryItemOut = S["LibraryItemOut"];
 export type LibraryItemDetail = S["LibraryItemDetail"];
 export type LibraryEventOut = S["LibraryEventOut"];
