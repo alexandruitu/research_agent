@@ -1204,3 +1204,81 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
 .reader-pop .reader-pop__flag { border-left-color: var(--warn-line); }
 .reader-pop .reader-pop__flag::before { content: "⚑ "; }
 .reader-pop .reader-pop__claim::before { content: "❝ "; }
+
+/* ---- Reader: Text · Map tabs and the paper map --------------------------------------------------------
+   The map reads like a specimen plate: the title in the middle, six pigment-coded branches, nodes on paper
+   cards with a coloured spine. Colour is never alone: every branch also carries its title. */
+:root {
+  --map-task: #3b5b8c; --map-data: #8a6a1f; --map-method: #0f5c4d; --map-validation: #7a3f6e;
+  --map-results: #2f6f3a; --map-limitations: #5b6670; --map-red_flags: #b0402f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --map-task: #8fb0e6; --map-data: #e0bd6a; --map-method: #6fd1b4; --map-validation: #d79ac8;
+    --map-results: #8fd39b; --map-limitations: #aeb8c2; --map-red_flags: #f0897a;
+  }
+}
+.reader-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.reader-tabs { display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; border: 1px solid var(--rule); border-radius: 999px; background: var(--sunk); }
+.reader-tab { border: 0; border-radius: 999px; padding: 5px 18px; background: transparent; font: 600 13px/1.3 var(--sans); color: var(--ink-2); }
+.reader-tab:hover:not(:disabled) { background: var(--card); color: var(--ink); }
+.reader-tab[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow), inset 0 -2px 0 var(--accent); }
+.reader-tab:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.reader-map-panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px clamp(14px, 2.5vw, 32px); }
+.paper-map h2 { font: 600 20px/1.25 var(--serif); margin: 0 0 2px; }
+.map-head-row { display: flex; justify-content: space-between; align-items: start; gap: 16px; flex-wrap: wrap; }
+.map-head-row .sub { max-width: 70ch; margin: 0; }
+.map-meta { margin: 10px 0 0; }
+.map-empty { margin: 22px 0 8px; padding: 22px; border: 1px dashed var(--rule-2); border-radius: var(--r3); background: var(--sunk); display: grid; justify-items: start; gap: 6px; }
+.map-empty .sub { margin: 0; }
+.map-stale, .map-failed { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.map-stale p, .map-failed p { margin: 0; }
+.map-building { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+.map-building__bar { display: block; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent-wash), var(--accent), var(--accent-wash)); background-size: 200% 100%; animation: map-progress 1.4s linear infinite; }
+@keyframes map-progress { from { background-position: 200% 0; } to { background-position: 0 0; } }
+
+.map-canvas { margin-top: 12px; border-radius: var(--r3); background: radial-gradient(circle at 50% 45%, var(--paper), var(--card) 70%); border: 1px solid var(--rule); overflow: hidden; }
+.map-svg { display: block; width: 100%; height: auto; }
+.map-b--task { --b: var(--map-task); } .map-b--data { --b: var(--map-data); } .map-b--method { --b: var(--map-method); }
+.map-b--validation { --b: var(--map-validation); } .map-b--results { --b: var(--map-results); }
+.map-b--limitations { --b: var(--map-limitations); } .map-b--red_flags { --b: var(--map-red_flags); }
+.map-link { fill: none; stroke: var(--b); stroke-width: 1.5; opacity: 0.55; }
+.map-link--trunk { stroke-width: 3; opacity: 0.8; stroke-linecap: round; }
+.map-link--dashed { stroke-dasharray: 4 4; opacity: 0.4; }
+.map-root rect { fill: var(--ink); }
+.map-root text { fill: var(--paper); font: 600 17px var(--serif); }
+.map-head rect { fill: var(--b); }
+.map-head text { fill: var(--card); font: 600 13.5px var(--sans); }
+.map-node rect { fill: var(--card); stroke: var(--rule-2); stroke-width: 1; }
+.map-node .map-node__rule { fill: var(--b); stroke: none; }
+.map-node text { fill: var(--ink); font: 500 16px var(--serif); }
+.map-node:not(.map-node--empty) { cursor: pointer; }
+.map-node:not(.map-node--empty):hover rect:first-child { stroke: var(--b); stroke-width: 2; }
+.map-node--empty rect { fill: transparent; stroke: var(--b); stroke-dasharray: 4 4; opacity: 0.8; }
+.map-node--empty text { fill: var(--ink-2); font: italic 400 14px var(--sans); }
+.map-pop .map-pop__quote { display: block; margin-top: 4px; font: italic 400 14px/1.5 var(--serif); }
+.map-pop .map-pop__by, .map-pop .map-pop__hint { display: block; margin-top: 4px; font-size: 12px; opacity: 0.8; }
+
+.map-outline { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 22px; }
+.map-outline__branch { padding-left: 12px; border-left: 3px solid var(--b); }
+.map-outline__branch h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font: 600 13px/1.3 var(--sans); color: var(--ink); }
+.map-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--b); flex: none; }
+.map-outline__branch ol { margin: 0; padding-left: 18px; }
+.map-outline__node { display: inline; padding: 2px 0; border: 0; background: none; text-align: left; font: 400 14px/1.4 var(--serif); color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+.map-outline__node:hover:not(:disabled) { background: none; text-decoration-color: var(--b); }
+.map-outline__node:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.map-outline__none { margin: 0; font-style: italic; color: var(--ink-2); }
+
+.reader-mark--plain { border-bottom: 0; background: transparent; }
+.reader-mark--focus { scroll-margin: 30vh; }
+.reader-mark--focus.is-lit { background: color-mix(in srgb, var(--accent) 28%, transparent); outline: 2px solid var(--accent); outline-offset: 2px; animation: map-lit 2s ease-out both; }
+@keyframes map-lit { from { background: color-mix(in srgb, var(--accent) 55%, transparent); } to { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+
+@media (max-width: 760px) {
+  .map-canvas { display: none; } /* the stacked outline is the map on a narrow screen */
+  .map-outline { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-mark--focus.is-lit { animation: none; }
+  .map-building__bar { animation: none; }
+}

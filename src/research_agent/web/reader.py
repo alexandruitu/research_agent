@@ -8,9 +8,16 @@ import re
 
 from sqlalchemy import select
 
-from ..agents import READER_PROMPT_VERSION, Evaluator, EvidenceQuoteError, ReaderAnswerError
+from ..agents import (
+    PAPER_MAP_PROMPT_VERSION,
+    READER_PROMPT_VERSION,
+    Evaluator,
+    EvidenceQuoteError,
+    PaperMapError,
+    ReaderAnswerError,
+)
 from ..fulltext import FulltextUnavailable, assemble, pdf_sections
-from ..schemas import BackgroundAnswer, ReaderAnswer
+from ..schemas import BackgroundAnswer, PaperMap, ReaderAnswer
 from ..storage import Store
 from .callstore import CallStoreError, read_call, safe_folder
 from .db.models import EvidenceClaim, PanelReport, PaperFile, PaperReview, RedFlag
@@ -212,3 +219,66 @@ def reader_ask(tool, text, selection, question, store, *, mode="live", model=Non
 
 def reader_store(settings, run_id):
     return Store(settings.cache_dir / "reader" / str(run_id))
+
+
+MAP_TITLES = {
+    "task": "Clinical task",
+    "data": "Data",
+    "method": "Method",
+    "validation": "Validation",
+    "results": "Results",
+    "limitations": "Limitations",
+}
+DEMO_MODEL = "synthetic-demo-v1"
+
+
+def build_map(title, text, store, *, mode="live", model=None):
+    """The paper map of one paper (job `reader_map`): {mode, model, prompt_version, text_kind, branches}. Every
+    node quote is checked against the same text the Reader shows (the abstract when there is no full text);
+    a failure is retried, then fails closed with a clear error."""
+    if mode == "live" and not model:
+        raise ReaderFailed("No model is set for the Reader: choose one in Settings → AI models")
+    if not text["content"].strip():
+        raise ReaderFailed("This paper has no text to map: no abstract and no full text")
+    evaluator = Evaluator(
+        store, mode, {"paper_map": model} if mode == "live" else {}, prompt_version=PAPER_MAP_PROMPT_VERSION
+    )
+    try:
+        result = evaluator.ask("paper_map", PaperMap, {"title": title or "", "paper_text": text["content"]})
+    except (EvidenceQuoteError, PaperMapError, ValueError) as exc:
+        if isinstance(exc, ReaderFailed):
+            raise
+        raise ReaderFailed(
+            "The map's quotes or branches did not check out against the paper's text after 3 attempts, so "
+            "nothing was kept. Try again."
+        ) from None
+    return {
+        "mode": mode,
+        "model": evaluator.model_for("paper_map"),
+        "prompt_version": PAPER_MAP_PROMPT_VERSION,
+        "text_kind": text["kind"],
+        "branches": result.model_dump()["branches"],
+    }
+
+
+def map_red_flags(db, run, paper):
+    """The "Reviewer red flags" branch: the run's red-flag quotes, added by code (no AI)."""
+    return [
+        {"label": h["label"], "quote": h["quote"], "by": h["by"]}
+        for h in highlights(db, run, paper)
+        if h["kind"] == "red_flag"
+    ]
+
+
+def current_map_model(db, env, run):
+    """The model a map built now would use; None when it cannot be known here (no model set)."""
+    return DEMO_MODEL if run_mode(run) == "demo" else reader_model(db, env)
+
+
+def map_staleness(row, current_model):
+    """Why a stored map is out of date (None: it is current): the map prompt or the Reader's model changed."""
+    if row.prompt_version != PAPER_MAP_PROMPT_VERSION:
+        return "prompt_version"
+    if current_model and row.model != current_model:
+        return "model"
+    return None

@@ -1125,6 +1125,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/papers/{paper_id}/reader/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Map
+         * @description The paper's stored map in this run (viewers read it), whether it is stale (the map prompt or the Reader's
+         *     model changed since), and the latest map job while it works or when it failed after the stored map.
+         */
+        get: operations["get_map_api_v1_runs__run_id__papers__paper_id__reader_map_get"];
+        put?: never;
+        /**
+         * Build Map
+         * @description Queue building (or rebuilding) the paper map: one AI call, every node quote checked against the text the
+         *     Reader shows. While a map job of this paper is still working, that job is returned instead of a new one.
+         */
+        post: operations["build_map_api_v1_runs__run_id__papers__paper_id__reader_map_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/papers/{paper_id}/notes": {
         parameters: {
             query?: never;
@@ -2829,6 +2855,36 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MapBranchOut */
+        MapBranchOut: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "task" | "data" | "method" | "validation" | "results" | "limitations";
+            /** Title */
+            title: string;
+            /** Not Reported */
+            not_reported: boolean;
+            /** Nodes */
+            nodes: components["schemas"]["MapNodeOut"][];
+        };
+        /** MapFlagOut */
+        MapFlagOut: {
+            /** Label */
+            label: string;
+            /** Quote */
+            quote: string;
+            /** By */
+            by: string;
+        };
+        /** MapNodeOut */
+        MapNodeOut: {
+            /** Label */
+            label: string;
+            /** Quote */
+            quote: string;
+        };
         /** MissingCell */
         MissingCell: {
             /**
@@ -2969,6 +3025,57 @@ export interface components {
             count: number;
             /** Rule */
             rule: string;
+        };
+        /** PaperMapOut */
+        PaperMapOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Model */
+            model: string;
+            /** Mode */
+            mode: string;
+            /**
+             * Text Kind
+             * @enum {string}
+             */
+            text_kind: "full_text" | "abstract";
+            /** Branches */
+            branches: components["schemas"]["MapBranchOut"][];
+            /** Red Flags */
+            red_flags: components["schemas"]["MapFlagOut"][];
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Built At
+             * Format: date-time
+             */
+            built_at: string;
+        };
+        /** PaperMapStateOut */
+        PaperMapStateOut: {
+            map: components["schemas"]["PaperMapOut"] | null;
+            /** Stale */
+            stale: boolean;
+            /** Stale Reason */
+            stale_reason: ("prompt_version" | "model") | null;
+            /** Prompt Version */
+            prompt_version: string;
+            job: components["schemas"]["JobOut"] | null;
         };
         /** PaperPage */
         PaperPage: {
@@ -6722,6 +6829,70 @@ export interface operations {
                 "application/json": components["schemas"]["ReaderRelatedIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_map_api_v1_runs__run_id__papers__paper_id__reader_map_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperMapStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    build_map_api_v1_runs__run_id__papers__paper_id__reader_map_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             202: {

@@ -471,6 +471,32 @@ class ReaderAnswer(Model):
     not_in_paper: bool = False
 
 
+MAP_BRANCHES = ("task", "data", "method", "validation", "results", "limitations")
+MAP_MAX_NODES = 5
+MAP_LABEL_WORDS = 12
+
+
+class MapNode(Model):
+    """One node of a paper map: a short plain-language label and the exact passage of the paper it rests on."""
+
+    label: str = Field(min_length=1, max_length=120)
+    quote: str = Field(min_length=1, max_length=1500)
+
+
+class MapBranch(Model):
+    """One branch of the fixed paper-map schema; no nodes means the paper does not report it."""
+
+    key: Literal["task", "data", "method", "validation", "results", "limitations"]
+    nodes: list[MapNode] = Field(default_factory=list, max_length=MAP_MAX_NODES)
+    not_reported: bool = False
+
+
+class PaperMap(Model):
+    """The paper map: each of the six branches exactly once (checked by code), every node quoted."""
+
+    branches: list[MapBranch] = Field(min_length=6, max_length=6)
+
+
 class BackgroundAnswer(Model):
     """Reader Background: general knowledge, not from the paper (labelled as such in the UI)."""
 

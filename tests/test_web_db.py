@@ -47,6 +47,7 @@ TABLES = {
     "digests",
     "digest_reads",
     "reader_notes",
+    "paper_maps",
 }
 
 

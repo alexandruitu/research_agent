@@ -4,7 +4,8 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import type { ReaderNoteOut, ReaderOut, ReaderResult, RelatedPaper, RelatedResult } from "../api/types";
+import type { PaperMapOut, PaperMapStateOut, ReaderNoteOut, ReaderOut, ReaderResult, RelatedPaper, RelatedResult } from "../api/types";
+import { layout, toMarkdown, wrap } from "../features/reader/mapLayout";
 import { drawerOut, JOB_ID, jobOut, PAPER_ID, RUN_ID, session } from "../test/fixtures";
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
@@ -273,5 +274,106 @@ describe("ReaderPage", () => {
     const cards = within(screen.getByRole("region", { name: /^Answers/ })).getAllByRole("listitem").filter((li) => li.classList.contains("answer-card"));
     expect(cards.map((c) => within(c).getByRole("heading").textContent)).toEqual(["Background explanation", "Explain"]);
     expect(screen.getAllByRole("button", { name: "Save as note" })).toHaveLength(2);
+  });
+});
+
+const KEYS = ["task", "data", "method", "validation", "results", "limitations"] as const;
+const TITLES = ["Clinical task", "Data", "Method", "Validation", "Results", "Limitations"];
+const paperMap = (over: Partial<PaperMapOut> = {}): PaperMapOut => ({
+  id: "edededed-eded-4ded-8ded-edededededed", run_id: RUN_ID, paper_id: PAPER_ID, prompt_version: "paper-map-1", model: "synthetic-demo-v1", mode: "demo", text_kind: "full_text",
+  branches: KEYS.map((key, i) => ({
+    key, title: TITLES[i]!, not_reported: key !== "validation",
+    nodes: key === "validation" ? [{ label: "Split by patient", quote: "The test set was external to the training hospitals." }] : [],
+  })),
+  red_flags: [{ label: "No external validation", quote: "split at patient level", by: "Reviewer statistician, item s3" }],
+  created_by_name: "Member", built_at: "2026-10-11T10:00:00Z", ...over,
+});
+const mapState = (over: Partial<PaperMapStateOut> = {}): PaperMapStateOut => ({ map: null, stale: false, stale_reason: null, prompt_version: "paper-map-1", job: null, ...over });
+
+describe("Paper map", () => {
+  it("offers members to build the map, then shows progress", async () => {
+    let built = false;
+    const api = setup("member", reader(), {
+      "GET /api/v1/runs/:id/papers/:id/reader/map": () => ({ body: built ? mapState({ job: jobOut({ kind: "reader_map", run_id: null, status: "running" }) }) : mapState() }),
+      "POST /api/v1/runs/:id/papers/:id/reader/map": () => { built = true; return { status: 202, body: jobOut({ kind: "reader_map", run_id: null }) }; },
+    });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    expect(screen.getByText(/Costs one AI call/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Build the paper map" }));
+    expect(await screen.findByText(/Building the map…/)).toBeInTheDocument();
+    expect(api.calls.some((c) => c.method === "POST" && c.path.endsWith("/reader/map"))).toBe(true);
+  });
+
+  it("tells viewers there is no map yet, without a build button", async () => {
+    setup("viewer", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState() } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    expect(await screen.findByText("No map of this paper yet. A member can build one.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Build the paper map" })).not.toBeInTheDocument();
+  });
+
+  it("shows a failed build with Retry, and a stale map with Rebuild", async () => {
+    setup("member", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState({ job: jobOut({ kind: "reader_map", run_id: null, status: "failed", error: "The map's quotes did not check out" }) }) } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The map could not be built: The map's quotes did not check out");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("marks a stale map and offers Rebuild", async () => {
+    setup("member", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState({ map: paperMap({ text_kind: "abstract" }), stale: true, stale_reason: "prompt_version" }) } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    expect(await screen.findByText(/Out of date: the map's instructions changed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rebuild" })).toBeInTheDocument();
+    expect(screen.getByText("From the abstract only")).toBeInTheDocument();
+  });
+
+  it("is an outline for keyboard and screen readers, with the drawing as role=img and every branch titled", async () => {
+    setup("viewer", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState({ map: paperMap() }) } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    const outline = await screen.findByRole("list", { name: "Paper map outline" });
+    for (const title of [...TITLES, "Reviewer red flags"]) expect(within(outline).getByRole("heading", { name: title })).toBeInTheDocument();
+    expect(within(outline).getAllByText("Not reported")).toHaveLength(5);
+    const node = within(outline).getByRole("button", { name: "Split by patient" });
+    expect(node).toHaveAccessibleDescription(/Quote: The test set was external to the training hospitals\./);
+    expect(screen.getByRole("img", { name: /Paper map of “CT-FFR at scale”: Clinical task, not reported;.*Validation, 1 node/ })).toBeInTheDocument();
+    fireEvent.focus(node);
+    expect(document.querySelector(".map-pop")).toHaveTextContent("The test set was external to the training hospitals.");
+  });
+
+  it("jumps from a node to its quote in the text, highlighted", async () => {
+    setup("viewer", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState({ map: paperMap() }) } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Split by patient" }));
+    expect(screen.getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+    const mark = document.getElementById("map-focus")!;
+    expect(mark).toHaveTextContent("The test set was external to the training hospitals.");
+    expect(mark).toHaveClass("reader-mark--focus", "is-lit");
+    expect(mark).toHaveFocus();
+  });
+
+  it("copies the outline as Markdown", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    setup("viewer", reader(), { "GET /api/v1/runs/:id/papers/:id/reader/map": { body: mapState({ map: paperMap() }) } });
+    await userEvent.click(await screen.findByRole("tab", { name: "Map" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy as outline (Markdown)" }));
+    expect(await screen.findByText("Outline copied as Markdown.")).toBeInTheDocument();
+    expect(writeText.mock.calls[0]![0]).toBe(toMarkdown(paperMap(), "CT-FFR at scale"));
+  });
+});
+
+describe("map layout", () => {
+  it("wraps labels, cuts long ones with an ellipsis, and keeps both columns clear of the root", () => {
+    expect(wrap("one two three four", 9, 5)).toEqual(["one two", "three", "four"]);
+    expect(wrap("one two three four", 9, 2)).toEqual(["one two", "three…"]);
+    const drawn = layout(paperMap(), "A title");
+    expect(drawn.branches.map((b) => b.key)).toEqual(expect.arrayContaining([...KEYS, "red_flags"]));
+    for (const b of drawn.branches) {
+      const inner = b.side === "left" ? b.header.x + b.header.w : b.header.x;
+      expect(b.side === "left" ? inner < drawn.root.x : inner > drawn.root.x + drawn.root.w).toBe(true);
+    }
+    const md = toMarkdown(paperMap({ text_kind: "abstract" }), "A title");
+    expect(md).toContain("_From the abstract only._");
+    expect(md).toContain("## Validation\n- Split by patient\n  > The test set was external to the training hospitals.");
+    expect(md).toContain("## Reviewer red flags\n- No external validation (Reviewer statistician, item s3)");
   });
 });

@@ -346,6 +346,7 @@ STAGE_OF_ROLE = {
     "reader_explain": "reader",
     "reader_ask": "reader",
     "reader_background": "reader",
+    "paper_map": "reader",
 }
 
 

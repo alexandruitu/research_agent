@@ -92,6 +92,11 @@ export type ReaderSection = S["ReaderSection"];
 export type ReaderAskIn = S["ReaderAskIn"];
 export type ReaderNoteOut = S["ReaderNoteOut"];
 export type ReaderTool = ReaderAskIn["tool"];
+export type PaperMapOut = S["PaperMapOut"];
+export type PaperMapStateOut = S["PaperMapStateOut"];
+export type MapBranchOut = S["MapBranchOut"];
+export type MapNodeOut = S["MapNodeOut"];
+export type MapFlagOut = S["MapFlagOut"];
 /** A reader_ask job's `progress.result`. */
 export type ReaderResult = {
   tool: ReaderTool; mode: string; model: string; prompt_version: string; answer: string;

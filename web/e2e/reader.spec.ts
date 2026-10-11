@@ -42,6 +42,34 @@ test.describe("member", () => {
     await expect(panel.locator(".reader-note-list")).toContainText(sentence);
   });
 
+  test("builds the paper map (demo) and jumps from a node to its quote in the text", async ({ page }) => {
+    test.setTimeout(60_000);
+    const runs = await (await page.request.get("/api/v1/runs")).json();
+    const run = runs.find((r: { kind: string; status: string }) => r.kind === "research" && r.status === "done");
+    const papers = await (await page.request.get(`/api/v1/runs/${run.id}/papers`, { params: { page_size: 50, decision: "include" } })).json();
+    const paper = papers.items.find((row: { paper: { abstract?: string } }) => row.paper.abstract) ?? papers.items[0];
+    await page.goto(`/read/${run.id}/${paper.paper.id}`);
+    await page.getByRole("tab", { name: "Map" }).click();
+    const map = page.getByRole("tabpanel", { name: "Map" });
+    const build = map.getByRole("button", { name: /^(Build the paper map|Rebuild)$/ });
+    const outline = map.getByRole("list", { name: "Paper map outline" });
+    await expect(build.or(outline).first()).toBeVisible();
+    if (await build.isVisible()) await build.click(); // a map kept from an earlier run of this test is reused
+    await expect(outline).toBeVisible({ timeout: 30_000 });
+    await expect(map.getByRole("img", { name: /^Paper map of/ })).toBeVisible();
+    await expect(map.getByText("From the abstract only")).toBeVisible();
+    const node = outline.locator("button.map-outline__node").first();
+    const quote = ((await node.getAttribute("aria-describedby")) ?? "");
+    const said = (await page.locator(`[id="${quote}"]`).textContent()) ?? "";
+    await node.click();
+    await expect(page.getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+    const mark = page.locator("#map-focus");
+    await expect(mark).toBeFocused();
+    await expect(mark).toHaveClass(/is-lit/);
+    expect(said).toContain((await mark.textContent())!.replace(/^(Red flag|Claim|Map) quote: /, "").slice(0, 30));
+    await expect(mark).not.toHaveClass(/is-lit/, { timeout: 5_000 }); // the highlight fades after 2 s
+  });
+
   test("finds related work for a selected sentence (demo sources, no network)", async ({ page }) => {
     test.setTimeout(60_000);
     const runs = await (await page.request.get("/api/v1/runs")).json();

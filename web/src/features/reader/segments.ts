@@ -1,6 +1,6 @@
 import type { ReaderHighlight } from "../../api/types";
 
-export type Segment = { text: string; marks: ReaderHighlight[] };
+export type Segment<H extends { quote: string } = ReaderHighlight> = { text: string; marks: H[] };
 
 /** Every place a quote occurs in `text` (exact, non-overlapping occurrences of the same quote). */
 function occurrences(text: string, quote: string): [number, number][] {
@@ -14,11 +14,11 @@ function occurrences(text: string, quote: string): [number, number][] {
  * The text cut into plain and marked pieces. A piece covered by several quotes carries all of them (a red flag
  * and a claim on the same words both show). Quotes that do not occur in this text are simply not marked here.
  */
-export function segments(text: string, highlights: ReaderHighlight[]): Segment[] {
+export function segments<H extends { quote: string }>(text: string, highlights: H[]): Segment<H>[] {
   const ranges = highlights.flatMap((h) => occurrences(text, h.quote).map(([start, end]) => ({ start, end, h })));
   if (ranges.length === 0) return text ? [{ text, marks: [] }] : [];
   const cuts = [...new Set([0, text.length, ...ranges.flatMap((r) => [r.start, r.end])])].sort((a, b) => a - b);
-  const out: Segment[] = [];
+  const out: Segment<H>[] = [];
   for (let i = 0; i < cuts.length - 1; i++) {
     const [from, to] = [cuts[i]!, cuts[i + 1]!];
     if (from === to) continue;

@@ -680,3 +680,25 @@ class ReaderNote(Base):
     model: Mapped[str] = mapped_column(String(200), default="", server_default="")
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = created()
+
+
+class PaperMap(Base):
+    """A paper map built in the Reader: the six fixed branches (every node quoted from the paper's text and
+    checked by code) and the run's red flags (added by code). One row per run, paper, prompt version and model;
+    a rebuild with the same key replaces the row."""
+
+    __tablename__ = "paper_maps"
+    __table_args__ = (UniqueConstraint("run_id", "paper_id", "prompt_version", "model"),)
+    id: Mapped[uuid.UUID] = pk()
+    run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id", ondelete="CASCADE"), index=True)
+    prompt_version: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(200))
+    mode: Mapped[str] = mapped_column(String(16), default="live", server_default="live")  # live | demo
+    text_kind: Mapped[str] = mapped_column(String(16))  # full_text | abstract
+    branches: Mapped[list] = mapped_column(
+        JSONB, default=list
+    )  # [{key, nodes: [{label, quote}], not_reported}]
+    red_flags: Mapped[list] = mapped_column(JSONB, default=list)  # [{label, quote, by}] from the run, by code
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    built_at: Mapped[datetime] = created()

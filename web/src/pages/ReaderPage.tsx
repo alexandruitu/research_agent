@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
@@ -12,45 +12,59 @@ import { QualityCell } from "../features/papers/cells";
 import { drawerWhy } from "../features/papers/why";
 import { useSaveFlow } from "../features/library/saveFlow";
 import { readOrigin } from "../features/reader/origin";
+import { PaperMapView } from "../features/reader/PaperMap";
 import { ReaderNotes } from "../features/reader/ReaderNotes";
 import { ReaderTools } from "../features/reader/ReaderTools";
 import { segments, selectionIn, unplaced } from "../features/reader/segments";
 
-const KIND_WORD: Record<string, string> = { red_flag: "Red flag", claim: "Claim" };
+const KIND_WORD: Record<string, string> = { red_flag: "Red flag", claim: "Claim", map: "From the paper map" };
 const hlId = (index: number) => `hl-${index}`;
+/** A quote marked in the text: one of the run's, or the one a paper-map node jumped to. */
+type Mark = ReaderHighlight | { kind: "map"; quote: string; label: string; by: string };
+type Jump = { quote: string; lit: boolean; seq: number };
 
-function describe(h: ReaderHighlight) {
-  return `${KIND_WORD[h.kind] ?? h.kind}: ${h.label} (${h.by})`;
+function describe(h: Mark) {
+  return h.kind === "map" ? `${KIND_WORD.map}: ${h.label}` : `${KIND_WORD[h.kind] ?? h.kind}: ${h.label} (${h.by})`;
 }
 
-/** The paper's text by sections, the run's quotes marked in place. */
-function PaperText({ data, onActive }: { data: ReaderOut; onActive: (h: ReaderHighlight[] | null, anchor?: HTMLElement) => void }) {
+function markClass(marks: Mark[], lit: boolean) {
+  const base = marks.some((m) => m.kind === "red_flag") ? "reader-mark--flag" : marks.some((m) => m.kind === "claim") ? "reader-mark--claim" : "reader-mark--plain";
+  return `reader-mark ${base}${marks.some((m) => m.kind === "map") ? ` reader-mark--focus${lit ? " is-lit" : ""}` : ""}`;
+}
+
+/** The paper's text by sections, the run's quotes marked in place (and the quote a map node jumped to). */
+function PaperText({ data, jump, onActive }: { data: ReaderOut; jump: Jump | null; onActive: (h: Mark[] | null, anchor?: HTMLElement) => void }) {
   const index = new Map(data.highlights.map((h, i) => [h, i]));
+  const marks: Mark[] = jump ? [...data.highlights, { kind: "map", quote: jump.quote, label: "the passage you opened from the map", by: "" }] : data.highlights;
+  let placed = false;
   return (
     <>
       {data.text.sections.map((section, s) => (
         <section key={s} className="reader-section" aria-labelledby={section.title ? `sec-${s}` : undefined}>
           {section.title && <h2 id={`sec-${s}`}>{section.title}</h2>}
           <p className="reader-paragraph">
-            {segments(section.text, data.highlights).map((piece, p) =>
-              piece.marks.length === 0 ? (
+            {segments(section.text, marks).map((piece, p) => {
+              const focus = !placed && piece.marks.some((m) => m.kind === "map");
+              if (focus) placed = true;
+              return piece.marks.length === 0 ? (
                 <span key={p}>{piece.text}</span>
               ) : (
                 <mark
                   key={p}
+                  id={focus ? "map-focus" : undefined}
                   tabIndex={0}
-                  className={`reader-mark ${piece.marks.some((m) => m.kind === "red_flag") ? "reader-mark--flag" : "reader-mark--claim"}`}
-                  aria-describedby={piece.marks.map((m) => hlId(index.get(m) ?? 0)).join(" ")}
+                  className={markClass(piece.marks, !!jump?.lit)}
+                  aria-describedby={piece.marks.filter((m) => m.kind !== "map").map((m) => hlId(index.get(m as ReaderHighlight) ?? 0)).join(" ") || undefined}
                   onMouseEnter={(e) => onActive(piece.marks, e.currentTarget)}
                   onMouseLeave={() => onActive(null)}
                   onFocus={(e) => onActive(piece.marks, e.currentTarget)}
                   onBlur={() => onActive(null)}
                 >
-                  <span className="sr-only">{piece.marks.some((m) => m.kind === "red_flag") ? "Red flag quote: " : "Claim quote: "}</span>
+                  <span className="sr-only">{piece.marks.some((m) => m.kind === "red_flag") ? "Red flag quote: " : piece.marks.some((m) => m.kind === "claim") ? "Claim quote: " : "Map quote: "}</span>
                   {piece.text}
                 </mark>
-              ),
-            )}
+              );
+            })}
           </p>
         </section>
       ))}
@@ -69,8 +83,38 @@ export function ReaderPage() {
   const article = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [selection, setSelection] = useState("");
-  const [active, setActiveState] = useState<{ marks: ReaderHighlight[]; anchor: HTMLElement | null } | null>(null);
-  const setActive = useCallback((marks: ReaderHighlight[] | null, anchor: HTMLElement | null = null) => setActiveState(marks ? { marks, anchor } : null), []);
+  const [active, setActiveState] = useState<{ marks: Mark[]; anchor: HTMLElement | null } | null>(null);
+  const setActive = useCallback((marks: Mark[] | null, anchor: HTMLElement | null = null) => setActiveState(marks ? { marks, anchor } : null), []);
+  const [tab, setTab] = useState<"text" | "map">("text");
+  const [jump, setJump] = useState<Jump | null>(null);
+  const [jumpNote, setJumpNote] = useState("");
+  const onJump = useCallback((quote: string) => {
+    setActiveState(null);
+    setTab("text");
+    setJump((j) => ({ quote, lit: true, seq: (j?.seq ?? 0) + 1 }));
+  }, []);
+  // A map node opened: scroll to its quote, focus it, light it for 2 s (no smooth scroll with reduced motion)
+  useEffect(() => {
+    if (!jump?.lit || tab !== "text") return;
+    const node = document.getElementById("map-focus");
+    if (node) {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      node.scrollIntoView?.({ block: "center", behavior: reduced ? "auto" : "smooth" });
+      node.focus({ preventScroll: true });
+      setJumpNote("Showing the map's quote in the text.");
+    } else {
+      setJumpNote("This quote could not be placed in the text shown (it may span two sections).");
+    }
+    const timer = window.setTimeout(() => setJump((j) => (j ? { ...j, lit: false } : j)), 2000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per jump
+  }, [jump?.seq, tab]);
+  const onTabKey = (e: KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const next = tab === "text" ? "map" : "text";
+    setTab(next);
+    document.getElementById(`reader-tab-${next}`)?.focus();
+  };
   const pop = useRef<HTMLDivElement>(null);
   // The source card sits next to the hovered passage (below it, or above when there is no room), never over it;
   // positioned through the CSSOM, which the CSP allows.
@@ -154,6 +198,21 @@ export function ReaderPage() {
         </div>
       </details>
       <div className="reader-layout">
+        <div className="reader-main">
+        <div role="tablist" aria-label="View" className="reader-tabs" onKeyDown={onTabKey}>
+          {(["text", "map"] as const).map((t) => (
+            <button key={t} type="button" role="tab" id={`reader-tab-${t}`} aria-selected={tab === t} aria-controls={`reader-panel-${t}`} tabIndex={tab === t ? 0 : -1} className="reader-tab" onClick={() => setTab(t)}>
+              {t === "text" ? "Text" : "Map"}
+            </button>
+          ))}
+        </div>
+        <p className="sr-only" aria-live="polite">{jumpNote}</p>
+        {tab === "map" ? (
+          <div role="tabpanel" id="reader-panel-map" aria-labelledby="reader-tab-map" className="reader-map-panel">
+            <PaperMapView runId={runId} paperId={paperId} title={data.paper.title} member={member} onJump={onJump} />
+          </div>
+        ) : (
+        <div role="tabpanel" id="reader-panel-text" aria-labelledby="reader-tab-text">
         <article ref={article} className="reader-text" aria-label="Paper text" onMouseUp={readSelection} onKeyUp={readSelection} onTouchEnd={readSelection}>
           {data.text.kind === "abstract" ? (
             <p className="banner banner--warn" role="note">Abstract only — upload the PDF to read and ask about the full paper.</p>
@@ -169,11 +228,14 @@ export function ReaderPage() {
           <div className="sr-only" aria-live="polite">{active && active.marks.map((h, i) => <p key={i}>{describe(h)}</p>)}</div>
           {active?.anchor && (
             <div ref={pop} className="reader-pop" aria-hidden="true">
-              {active.marks.map((h, i) => <p key={i} className={h.kind === "red_flag" ? "reader-pop__flag" : "reader-pop__claim"}>{describe(h)}</p>)}
+              {active.marks.map((h, i) => <p key={i} className={h.kind === "red_flag" ? "reader-pop__flag" : h.kind === "claim" ? "reader-pop__claim" : undefined}>{describe(h)}</p>)}
             </div>
           )}
-          {data.text.sections.length === 0 ? <p>No text: this paper has no abstract and no full text.</p> : <PaperText data={data} onActive={setActive} />}
+          {data.text.sections.length === 0 ? <p>No text: this paper has no abstract and no full text.</p> : <PaperText data={data} jump={jump} onActive={setActive} />}
         </article>
+        </div>
+        )}
+        </div>
         <aside className="reader-panel" aria-label="Reading tools">
           <p className={`reader-selection ${selection ? "has-selection" : ""}`} aria-live="polite">
             {selection ? <>Selected: “{selection.length > 160 ? `${selection.slice(0, 159)}…` : selection}” ({selection.length.toLocaleString()} characters) <button type="button" className="linklike" onClick={() => { window.getSelection()?.removeAllRanges(); setSelection(""); }}>Clear</button></> : "Nothing selected: the tools use the whole paper. Select a passage in the text to ask about it."}

@@ -1,5 +1,6 @@
 """The Reader: a paper's text with the run's quotes, AI help on it (worker job `reader_ask`) and saved notes."""
 
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, Request
@@ -7,12 +8,20 @@ from sqlalchemy import select
 
 from ... import reader as svc
 from ... import related
-from ...db.models import Job, LibraryItem, Paper, ReaderNote, Run, Screening, User
+from ...db.models import Job, LibraryItem, Paper, PaperMap, ReaderNote, Run, Screening, User
 from ...jobs import enqueue
 from ...papers import PaperQuery, _filtered
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
-from ..schemas import JobOut, ReaderAskIn, ReaderNoteIn, ReaderNoteOut, ReaderOut, ReaderRelatedIn
+from ..schemas import (
+    JobOut,
+    PaperMapStateOut,
+    ReaderAskIn,
+    ReaderNoteIn,
+    ReaderNoteOut,
+    ReaderOut,
+    ReaderRelatedIn,
+)
 from .runs import check_active_cap, job_out
 
 router = APIRouter(tags=["reader"])
@@ -120,6 +129,95 @@ def find_related(
         "search_mode": svc.run_mode(run),
     }
     job, _ = enqueue(db, "reader_related", payload, user.id)
+    db.commit()
+    return job_out(job)
+
+
+def _map_out(db, row):
+    author = db.get(User, row.created_by) if row.created_by else None
+    by_key = {b.get("key"): b for b in row.branches or []}
+    branches = []
+    for key, title in svc.MAP_TITLES.items():
+        nodes = (by_key.get(key) or {}).get("nodes") or []
+        branches.append({"key": key, "title": title, "not_reported": not nodes, "nodes": nodes})
+    return {
+        "id": row.id,
+        "run_id": row.run_id,
+        "paper_id": row.paper_id,
+        "prompt_version": row.prompt_version,
+        "model": row.model,
+        "mode": row.mode,
+        "text_kind": row.text_kind,
+        "branches": branches,
+        "red_flags": row.red_flags or [],
+        "created_by_name": author.name if author else None,
+        "built_at": row.built_at,
+    }
+
+
+def _latest_map_job(db, run, paper):
+    return db.scalar(
+        select(Job)
+        .where(
+            Job.kind == "reader_map",
+            Job.payload["reader_run_id"].astext == str(run.id),
+            Job.payload["paper_id"].astext == str(paper.id),
+        )
+        .order_by(Job.created_at.desc(), Job.id.desc())
+        .limit(1)
+    )
+
+
+@router.get("/runs/{run_id}/papers/{paper_id}/reader/map", response_model=PaperMapStateOut)
+def get_map(
+    run_id: uuid.UUID,
+    paper_id: uuid.UUID,
+    user=Depends(require_role("viewer")),
+    db=Depends(get_db),
+):
+    """The paper's stored map in this run (viewers read it), whether it is stale (the map prompt or the Reader's
+    model changed since), and the latest map job while it works or when it failed after the stored map."""
+    run, paper = _run_paper(db, run_id, paper_id)
+    row = db.scalar(
+        select(PaperMap)
+        .where(PaperMap.run_id == run.id, PaperMap.paper_id == paper.id)
+        .order_by(PaperMap.built_at.desc(), PaperMap.id)
+        .limit(1)
+    )
+    reason = svc.map_staleness(row, svc.current_map_model(db, os.environ, run)) if row else None
+    job = _latest_map_job(db, run, paper)
+    if job is not None and not (
+        job.status in ("queued", "running")
+        or (job.status == "failed" and (row is None or job.created_at >= row.built_at))
+    ):
+        job = None
+    return {
+        "map": _map_out(db, row) if row else None,
+        "stale": reason is not None,
+        "stale_reason": reason,
+        "prompt_version": svc.PAPER_MAP_PROMPT_VERSION,
+        "job": job_out(job) if job else None,
+    }
+
+
+@router.post("/runs/{run_id}/papers/{paper_id}/reader/map", response_model=JobOut, status_code=202)
+def build_map(
+    run_id: uuid.UUID,
+    paper_id: uuid.UUID,
+    user=Depends(require_role("member")),
+    db=Depends(get_db),
+    settings=Depends(get_settings),
+):
+    """Queue building (or rebuilding) the paper map: one AI call, every node quote checked against the text the
+    Reader shows. While a map job of this paper is still working, that job is returned instead of a new one."""
+    run, paper = _run_paper(db, run_id, paper_id)
+    working = _latest_map_job(db, run, paper)
+    if working is not None and working.status in ("queued", "running"):
+        return job_out(working)
+    check_active_cap(db, user, settings)
+    # The run id is under `reader_run_id`, never `run_id`: a failed Reader job must not fail the run.
+    payload = {"reader_run_id": str(run.id), "paper_id": str(paper.id), "mode": svc.run_mode(run)}
+    job, _ = enqueue(db, "reader_map", payload, user.id)
     db.commit()
     return job_out(job)
 

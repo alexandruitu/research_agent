@@ -1663,6 +1663,46 @@ class ReaderOut(Model):
     max_selection: int
 
 
+class MapNodeOut(Model):
+    label: str
+    quote: str  # an exact span of the text the map was built from, checked by code
+
+
+class MapBranchOut(Model):
+    key: Literal["task", "data", "method", "validation", "results", "limitations"]
+    title: str
+    not_reported: bool  # no nodes: the paper does not report it (information, not a gap)
+    nodes: list[MapNodeOut]
+
+
+class MapFlagOut(Model):
+    label: str
+    quote: str
+    by: str  # "Reviewer statistician, item s1"
+
+
+class PaperMapOut(Model):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    paper_id: uuid.UUID
+    prompt_version: str
+    model: str
+    mode: str  # live | demo
+    text_kind: Literal["full_text", "abstract"]  # abstract: "From the abstract only"
+    branches: list[MapBranchOut]  # the six fixed branches, in order
+    red_flags: list[MapFlagOut]  # the run's red flags, added by code (no AI)
+    created_by_name: str | None
+    built_at: datetime
+
+
+class PaperMapStateOut(Model):
+    map: PaperMapOut | None  # the latest stored map of this paper in this run
+    stale: bool
+    stale_reason: Literal["prompt_version", "model"] | None
+    prompt_version: str  # the current map prompt version
+    job: JobOut | None  # the latest map job when it is still working, or failed after the stored map
+
+
 class ReaderAskIn(Model):
     tool: Literal["explain", "ask", "background"]
     selection: str = Field(default="", max_length=4000)

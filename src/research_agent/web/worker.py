@@ -219,6 +219,8 @@ class Worker:
                     return self._reader_ask(db, job)
                 if job.kind == "reader_related":
                     return self._reader_related(db, job)
+                if job.kind == "reader_map":
+                    return self._reader_map(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -577,6 +579,57 @@ class Worker:
                 return True
         result["text_kind"] = text["kind"]
         return self._finish(db, job, result)
+
+    def _reader_map(self, db, job):
+        """Build (or rebuild) the paper map of a paper of a run and store it. The worker reads the paper's text
+        itself; red flags come from the run (code, no AI). Fails closed with a clear error; never fails the run."""
+        from sqlalchemy import select
+
+        from .db.models import PaperMap
+        from .reader import ReaderFailed, build_map, map_red_flags, paper_text, reader_model, reader_store
+
+        payload = job.payload or {}
+        run = db.get(Run, uuid.UUID(payload["reader_run_id"]))
+        paper = db.get(Paper, uuid.UUID(payload["paper_id"]))
+        if run is None or paper is None:
+            raise ReaderFailed("The run or the paper no longer exists")
+        mode = payload.get("mode", "live")
+        text = paper_text(db, self.settings, run, paper)
+        model = reader_model(db, os.environ) if mode == "live" else None
+        with self._heartbeat_while(job.id):
+            try:
+                result = build_map(
+                    paper.title, text, reader_store(self.settings, run.id), mode=mode, model=model
+                )
+            except ReaderFailed as exc:
+                self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
+                return True
+        flags = map_red_flags(db, run, paper)
+        row = db.scalar(
+            select(PaperMap).where(
+                PaperMap.run_id == run.id,
+                PaperMap.paper_id == paper.id,
+                PaperMap.prompt_version == result["prompt_version"],
+                PaperMap.model == result["model"],
+            )
+        )
+        if row is None:
+            row = PaperMap(
+                run_id=run.id,
+                paper_id=paper.id,
+                prompt_version=result["prompt_version"],
+                model=result["model"],
+            )
+            db.add(row)
+        row.mode, row.text_kind, row.branches, row.red_flags = (
+            mode,
+            result["text_kind"],
+            result["branches"],
+            flags,
+        )
+        row.created_by, row.built_at = job.created_by, datetime.now(UTC)
+        db.flush()
+        return self._finish(db, job, {**result, "map_id": str(row.id), "red_flags": flags})
 
     def _reader_related(self, db, job):
         """Find related / earlier work for a passage: the enabled sources (partial failure → warnings) plus the

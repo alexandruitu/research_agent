@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
+  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -65,6 +65,7 @@ export const keys = {
   reviewerVersion: (key: string, version: number) => ["reviewer", key, "version", version] as const,
   reader: (runId: string, paperId: string) => ["reader", runId, paperId] as const,
   paperNotes: (paperId: string) => ["paper-notes", paperId] as const,
+  paperMap: (runId: string, paperId: string) => ["paper-map", runId, paperId] as const,
 };
 
 export type LibraryParams = {
@@ -558,6 +559,22 @@ export const useReaderAsk = (runId: string, paperId: string) =>
   useMutation({ mutationFn: (body: ReaderAskIn) => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/ask`, { body }) });
 export const useReaderRelated = (runId: string, paperId: string) =>
   useMutation({ mutationFn: (body: ReaderRelatedIn) => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/related`, { body }) });
+/** The paper's stored map; polled while a map job of this paper is working (anyone's: viewers see it too). */
+export const usePaperMap = (runId: string, paperId: string, enabled = true) =>
+  useQuery({
+    queryKey: keys.paperMap(runId, paperId),
+    enabled,
+    retry: false,
+    queryFn: () => api.get<PaperMapStateOut>(`/runs/${runId}/papers/${paperId}/reader/map`),
+    refetchInterval: (query) => (["queued", "running"].includes(query.state.data?.job?.status ?? "") ? 1000 : false),
+  });
+export function useBuildMap(runId: string, paperId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/map`),
+    onSuccess: () => void client.invalidateQueries({ queryKey: keys.paperMap(runId, paperId) }),
+  });
+}
 export const usePaperNotes = (paperId: string | null) =>
   useQuery({ queryKey: keys.paperNotes(paperId ?? ""), enabled: !!paperId, queryFn: () => api.get<ReaderNoteOut[]>(`/papers/${paperId}/notes`) });
 export function useSaveNote(runId: string, paperId: string) {
