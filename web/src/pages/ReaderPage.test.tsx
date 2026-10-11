@@ -96,7 +96,7 @@ describe("ReaderPage", () => {
     const mark = screen.getByText("split at patient level", { selector: "mark" });
     expect(mark).toHaveTextContent("Red flag quote:");
     fireEvent.focus(mark);
-    expect(screen.getByText("Red flag: No external validation (Reviewer statistician, item s3)", { selector: ".reader-active p" })).toBeInTheDocument();
+    expect(screen.getByText("Red flag: No external validation (Reviewer statistician, item s3)", { selector: ".reader-pop p" })).toBeInTheDocument();
     expect(mark.getAttribute("aria-describedby")).toBe("hl-0");
     expect(screen.getByText(/Viewers can read the paper/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Explain (from the paper)" })).not.toBeInTheDocument();

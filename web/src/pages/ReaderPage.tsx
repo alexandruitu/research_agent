@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
@@ -24,7 +24,7 @@ function describe(h: ReaderHighlight) {
 }
 
 /** The paper's text by sections, the run's quotes marked in place. */
-function PaperText({ data, onActive }: { data: ReaderOut; onActive: (h: ReaderHighlight[] | null) => void }) {
+function PaperText({ data, onActive }: { data: ReaderOut; onActive: (h: ReaderHighlight[] | null, anchor?: HTMLElement) => void }) {
   const index = new Map(data.highlights.map((h, i) => [h, i]));
   return (
     <>
@@ -41,9 +41,9 @@ function PaperText({ data, onActive }: { data: ReaderOut; onActive: (h: ReaderHi
                   tabIndex={0}
                   className={`reader-mark ${piece.marks.some((m) => m.kind === "red_flag") ? "reader-mark--flag" : "reader-mark--claim"}`}
                   aria-describedby={piece.marks.map((m) => hlId(index.get(m) ?? 0)).join(" ")}
-                  onMouseEnter={() => onActive(piece.marks)}
+                  onMouseEnter={(e) => onActive(piece.marks, e.currentTarget)}
                   onMouseLeave={() => onActive(null)}
-                  onFocus={() => onActive(piece.marks)}
+                  onFocus={(e) => onActive(piece.marks, e.currentTarget)}
                   onBlur={() => onActive(null)}
                 >
                   <span className="sr-only">{piece.marks.some((m) => m.kind === "red_flag") ? "Red flag quote: " : "Claim quote: "}</span>
@@ -69,7 +69,22 @@ export function ReaderPage() {
   const article = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [selection, setSelection] = useState("");
-  const [active, setActive] = useState<ReaderHighlight[] | null>(null);
+  const [active, setActiveState] = useState<{ marks: ReaderHighlight[]; anchor: HTMLElement | null } | null>(null);
+  const setActive = useCallback((marks: ReaderHighlight[] | null, anchor: HTMLElement | null = null) => setActiveState(marks ? { marks, anchor } : null), []);
+  const pop = useRef<HTMLDivElement>(null);
+  // The source card sits next to the hovered passage (below it, or above when there is no room), never over it;
+  // positioned through the CSSOM, which the CSP allows.
+  useLayoutEffect(() => {
+    const node = pop.current;
+    const rect = active?.anchor?.getBoundingClientRect();
+    if (!node || !rect) return;
+    const width = node.offsetWidth;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const below = rect.bottom + 8;
+    const top = below + node.offsetHeight > window.innerHeight - 8 ? Math.max(8, rect.top - node.offsetHeight - 8) : below;
+    node.style.left = `${left}px`;
+    node.style.top = `${top}px`;
+  }, [active]);
   const readSelection = useCallback(() => setSelection(selectionIn(article.current)), []);
   useEffect(() => {
     heading.current?.focus();
@@ -151,7 +166,12 @@ export function ReaderPage() {
               Hover or focus a marked passage to see where it came from.
             </p>
           )}
-          <div className="reader-active" aria-live="polite">{active && active.map((h, i) => <p key={i}>{describe(h)}</p>)}</div>
+          <div className="sr-only" aria-live="polite">{active && active.marks.map((h, i) => <p key={i}>{describe(h)}</p>)}</div>
+          {active?.anchor && (
+            <div ref={pop} className="reader-pop" aria-hidden="true">
+              {active.marks.map((h, i) => <p key={i} className={h.kind === "red_flag" ? "reader-pop__flag" : "reader-pop__claim"}>{describe(h)}</p>)}
+            </div>
+          )}
           {data.text.sections.length === 0 ? <p>No text: this paper has no abstract and no full text.</p> : <PaperText data={data} onActive={setActive} />}
         </article>
         <aside className="reader-panel" aria-label="Reading tools">

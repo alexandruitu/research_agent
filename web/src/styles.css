@@ -1192,3 +1192,15 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
   .tool-tile:has(.tool-button:hover:not(:disabled)) { transform: none; }
 }
 @media (max-width: 760px) { .topbar { flex-wrap: wrap; row-gap: var(--s1); } .topbar nav { order: 3; flex-basis: 100%; } }
+
+/* Reader: where a highlighted quote came from, shown beside the passage (never over it) */
+.reader-pop {
+  position: fixed; z-index: 60; max-width: min(420px, calc(100vw - 16px)); padding: 10px 14px;
+  background: var(--ink); color: var(--paper); border-radius: var(--r2); box-shadow: var(--shadow-lift);
+  font: 400 13px/1.5 var(--sans); pointer-events: none;
+}
+.reader-pop p { margin: 0; padding-left: 10px; border-left: 3px solid var(--accent); }
+.reader-pop p + p { margin-top: 6px; }
+.reader-pop .reader-pop__flag { border-left-color: var(--warn-line); }
+.reader-pop .reader-pop__flag::before { content: "⚑ "; }
+.reader-pop .reader-pop__claim::before { content: "❝ "; }
