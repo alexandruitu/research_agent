@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
-  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
+  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, ReaderAskIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
 } from "./types";
@@ -63,6 +63,8 @@ export const keys = {
   digestList: (scope: "following" | "all") => ["digests", "list", scope] as const,
   digestUnread: ["digests", "unread"] as const,
   reviewerVersion: (key: string, version: number) => ["reviewer", key, "version", version] as const,
+  reader: (runId: string, paperId: string) => ["reader", runId, paperId] as const,
+  paperNotes: (paperId: string) => ["paper-notes", paperId] as const,
 };
 
 export type LibraryParams = {
@@ -547,5 +549,19 @@ export function useMarkDigestRead() {
   return useMutation({
     mutationFn: (id: string) => api.post<DigestOut>(`/digests/${id}/read`),
     onSuccess: () => void client.invalidateQueries({ queryKey: keys.digests }),
+  });
+}
+
+export const useReader = (runId: string, paperId: string) =>
+  useQuery({ queryKey: keys.reader(runId, paperId), retry: false, queryFn: () => api.get<ReaderOut>(`/runs/${runId}/papers/${paperId}/reader`) });
+export const useReaderAsk = (runId: string, paperId: string) =>
+  useMutation({ mutationFn: (body: ReaderAskIn) => api.post<JobOut>(`/runs/${runId}/papers/${paperId}/reader/ask`, { body }) });
+export const usePaperNotes = (paperId: string | null) =>
+  useQuery({ queryKey: keys.paperNotes(paperId ?? ""), enabled: !!paperId, queryFn: () => api.get<ReaderNoteOut[]>(`/papers/${paperId}/notes`) });
+export function useSaveNote(runId: string, paperId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => api.post<ReaderNoteOut>(`/runs/${runId}/papers/${paperId}/notes`, { body: { job_id: jobId } }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: keys.paperNotes(paperId) }),
   });
 }

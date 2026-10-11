@@ -17,7 +17,13 @@ def test_everyone_reads_the_current_settings_and_defaults(sign_in):
     data = viewer.get(f"{API}/settings/review").json()
     current = data["current"]
     assert current["version"] == 1 and current["note"] == "default" and current["imported"] is False
-    assert current["models"] == {"plan": None, "screen": None, "screen_criteria": None, "extract": None}
+    assert current["models"] == {
+        "plan": None,
+        "screen": None,
+        "screen_criteria": None,
+        "extract": None,
+        "reader": None,
+    }
     assert current["screening"] == Thresholds().model_dump()
     assert current["fulltext"] == {
         "sources": ["pmc_oa", "upload"],

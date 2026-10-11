@@ -20,6 +20,7 @@ from .db.models import ReviewerProfile, ReviewerVersion, SettingsVersion, Worker
 UPLOAD_MAX_MB = 30  # hard cap; settings may lower it
 KEY = re.compile(r"^[a-z][a-z0-9_]{1,29}$")
 ROLE_MODELS = ("plan", "screen", "screen_criteria", "extract")
+APP_MODELS = ("reader",)  # roles of the app, not of a run: kept out of review.json and run comparisons
 IMPORTED = "imported"
 
 
@@ -201,7 +202,7 @@ def default_reviewer(key):
 
 def default_settings_content(contact=None):
     return {
-        "models": dict.fromkeys(ROLE_MODELS),
+        "models": dict.fromkeys(ROLE_MODELS + APP_MODELS),
         "screening": Thresholds().model_dump(),
         "fulltext": {**default_review(contact)["fulltext"], "upload_max_mb": UPLOAD_MAX_MB},
         "default_panel": [r["key"] for r in DEFAULT_PANEL],
@@ -257,7 +258,7 @@ def review_dict(content, reviewers):
         "schema": 1,
         "panel": [reviewer_entry(profile.key, version) for profile, version in reviewers],
         "editor": content["editor"],
-        "models": content["models"],
+        "models": run_models(content["models"]),
         "screening": content["screening"],
         "fulltext": fulltext,
     }
@@ -289,9 +290,13 @@ def review_for_run(db):
 # --- importer linking ----------------------------------------------------------------------------------------
 
 
+def run_models(models):
+    return {k: v for k, v in (models or {}).items() if k not in APP_MODELS}
+
+
 def _comparable(content):
     fulltext = {k: v for k, v in content["fulltext"].items() if k != "upload_max_mb"}
-    return {**content, "fulltext": fulltext}
+    return {**content, "fulltext": fulltext, "models": run_models(content["models"])}
 
 
 def settings_from_review(review):

@@ -343,6 +343,9 @@ STAGE_OF_ROLE = {
     "review_b": "review",
     "adjudicate": "review",
     "editor": "review",
+    "reader_explain": "reader",
+    "reader_ask": "reader",
+    "reader_background": "reader",
 }
 
 
@@ -368,21 +371,31 @@ def calls_summary(settings, run):
     from .callstore import CallStoreError, connect_readonly
     from .evals import price
 
+    def grouped(directory):
+        connection = connect_readonly(directory)
+        try:
+            return connection.execute(
+                "select role, model, count(*), coalesce(sum(length(input)), 0), "
+                "coalesce(sum(length(output)), 0) from calls group by role, model order by role, model"
+            ).fetchall()
+        finally:
+            connection.close()
+
     folder = folder_of(settings, run)
     rows, recorded = [], False
     if folder is not None:
         try:
-            connection = connect_readonly(folder)
-            try:
-                found = connection.execute(
-                    "select role, model, count(*), coalesce(sum(length(input)), 0), "
-                    "coalesce(sum(length(output)), 0) from calls group by role, model order by role, model"
-                ).fetchall()
-                recorded = True
-            finally:
-                connection.close()
+            found = grouped(folder)
+            recorded = True
         except (CallStoreError, sqlite3.Error):
             found = []
+        # Reader calls on this run's papers (worker cache, one row per distinct call: repeats are free).
+        reader_dir = settings.cache_dir / "reader" / str(run.id)
+        if (reader_dir / "research.sqlite").is_file():
+            try:
+                found = found + grouped(reader_dir)
+            except (CallStoreError, sqlite3.Error):
+                pass
         for role, model, count, input_chars, output_chars in found:
             stage = STAGE_OF_ROLE.get(role) or ("review" if str(role).startswith("review:") else role)
             cost = None if str(model).startswith("jev") else price(model, input_chars, output_chars / 4)

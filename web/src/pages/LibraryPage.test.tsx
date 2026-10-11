@@ -92,6 +92,25 @@ describe("LibraryPage", () => {
     expect(within(pane).getByText("Admin changed the status from to read to read.")).toBeInTheDocument();
   });
 
+  it("shows the paper's Reader notes and links to the Reader", async () => {
+    const detail = libraryDetail();
+    setup("viewer", {
+      "GET /api/v1/papers/:id/notes": {
+        body: [{
+          id: "abababab-abab-4bab-8bab-abababababab", paper_id: detail.paper.id, run_id: detail.run_id, library_item_id: detail.id,
+          selection: "tested at the same hospital", tool: "ask", question: "Was the test external?", answer: "No: it was the same hospital.",
+          not_in_paper: false, general: false, quotes: [{ text: "Same hospital", quote: "tested at the same hospital" }],
+          model: "synthetic-demo-v1", created_by_name: "Member", created_at: "2026-10-11T10:00:00Z",
+        }],
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    const pane = await screen.findByRole("complementary", { name: "Reading pane" });
+    expect(await within(pane).findByText("No: it was the same hospital.")).toBeInTheDocument();
+    expect(within(pane).getByRole("heading", { name: "Reader notes" })).toBeInTheDocument();
+    if (detail.run_id) expect(within(pane).getByRole("link", { name: "Read the paper" })).toHaveAttribute("href", `/read/${detail.run_id}/${detail.paper.id}`);
+  });
+
   it("changes the status at once, and Undo puts it back", async () => {
     let status = "to_read";
     const { calls } = setup("member", {

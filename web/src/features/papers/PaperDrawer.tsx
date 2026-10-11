@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { ApiError } from "../../api/client";
 import { usePaper } from "../../api/hooks";
@@ -143,6 +144,7 @@ export function PaperDrawer({ runId, paperId, onClose, detailsOpen = true }: { r
           <button type="button" onClick={onClose} aria-label="Close paper details">×</button>
         </div>
         {paper.data && <DrawerLibrary runId={runId} drawer={paper.data} />}
+        {paper.data && <p className="drawer-read"><Link to={`/read/${runId}/${paper.data.paper.id}`}>Read the paper <span aria-hidden="true">→</span></Link></p>}
       </div>
       {paper.isError && <p role="alert" className="form-error">{paper.error instanceof ApiError ? `${paper.error.message} (request ${paper.error.requestId})` : "Could not load this paper."}</p>}
       {paper.data && (

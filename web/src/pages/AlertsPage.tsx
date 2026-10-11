@@ -73,6 +73,7 @@ function DigestCard({ digest, member }: { digest: DigestOut; member: boolean }) 
               {digest.run_id && (
                 <div className="actions">
                   <Link to={`/?run=${digest.run_id}&paper=${item.paper_id}`} aria-label={`Open ${item.title}`}>Open</Link>
+                  <Link to={`/read/${digest.run_id}/${item.paper_id}`} aria-label={`Read ${item.title}`}>Read</Link>
                   {member && <button type="button" disabled={pending} aria-label={`Save to library: ${item.title}`} onClick={() => void save(digest.run_id!, [item.paper_id], { status: "to_read", note: "" })}>Save to library</button>}
                 </div>
               )}

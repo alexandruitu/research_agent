@@ -1071,3 +1071,32 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .hiw-items { border-collapse: collapse; margin: 8px 0; width: 100%; }
 .hiw-items caption { text-align: left; font-weight: 600; padding: 4px 0; }
 .hiw-items th, .hiw-items td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+
+/* Reader: the paper on the left, the tools on the right */
+.reader { padding: 8px 0 24px; }
+.reader-head h1 { margin: 4px 0; font-size: 1.5rem; }
+.reader-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .reader-layout { grid-template-columns: 1fr; } }
+.reader-text { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; line-height: 1.65; max-width: 75ch; }
+.reader-section h2 { font-size: 1.1rem; margin: 16px 0 4px; }
+.reader-paragraph { white-space: pre-line; margin: 0 0 8px; }
+.reader-mark { background: var(--accent-wash); color: inherit; border-bottom: 2px dotted var(--accent); padding: 0 1px; }
+.reader-mark--flag { background: var(--warn-bg); border-bottom: 2px solid var(--warn-line); }
+.reader-mark--flag::before { content: "⚑ "; font-size: 0.8em; }
+.reader-mark--claim::before { content: "❝ "; font-size: 0.8em; }
+.reader-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.reader-active { min-height: 1.5em; font-size: 0.9rem; position: sticky; top: 0; background: var(--card); }
+.reader-active p { margin: 0; }
+.reader-panel { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 16px); overflow-y: auto; }
+.reader-panel h2 { font-size: 1.05rem; margin: 0 0 4px; }
+.reader-context, .reader-tools, .reader-notes, .reader-quotes { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.reader-selection { margin: 0; font-size: 0.9rem; }
+.reader-ask { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.reader-statements { padding-left: 18px; }
+.reader-quote { display: block; font-style: italic; color: var(--ink-soft, inherit); }
+.reader-general { display: inline-block; }
+.reader-later { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.reader-note-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.reader-note { border-top: 1px solid var(--line); padding-top: 6px; }
+.reader-note-selection { margin: 4px 0; font-style: italic; }
+.drawer-read { margin: 4px 0 0; }

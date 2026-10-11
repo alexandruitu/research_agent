@@ -37,6 +37,7 @@ def environment(database_url, base):
         "RESEARCH_EVALS_DIR": str(Path(base) / "evals"),
         "RESEARCH_GOLD_DIR": str(Path(base) / "gold"),
         "RESEARCH_UPLOADS_DIR": str(Path(base) / "uploads"),
+        "RESEARCH_CACHE_DIR": str(Path(base) / "cache"),  # assist and Reader call caches stay in the sandbox
         "RESEARCH_WEB_COOKIE_SECURE": "false",
         "RESEARCH_WEB_ALLOW_DEMO": "true",
         "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.2",

@@ -46,6 +46,7 @@ TABLES = {
     "alert_subscriptions",
     "digests",
     "digest_reads",
+    "reader_notes",
 }
 
 

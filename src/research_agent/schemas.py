@@ -454,3 +454,24 @@ class EditorDecision(Model):
     verdict: Literal["include", "exclude", "uncertain"]
     reason: str
     disagreements: list[Disagreement] = Field(default_factory=list, max_length=20)
+
+
+class ReaderStatement(Model):
+    """One statement of a Reader answer and the exact passage of the paper it rests on."""
+
+    text: str = Field(min_length=1, max_length=1000)
+    quote: str = Field(min_length=1, max_length=2000)
+
+
+class ReaderAnswer(Model):
+    """Reader Explain / Ask: grounded in the paper's text only. `not_in_paper`: the paper does not say."""
+
+    answer: str = Field(min_length=1, max_length=4000)
+    statements: list[ReaderStatement] = Field(default_factory=list, max_length=8)
+    not_in_paper: bool = False
+
+
+class BackgroundAnswer(Model):
+    """Reader Background: general knowledge, not from the paper (labelled as such in the UI)."""
+
+    answer: str = Field(min_length=1, max_length=4000)

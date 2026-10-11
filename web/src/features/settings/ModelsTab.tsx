@@ -12,13 +12,14 @@ import { errorText, useSettingsSave } from "./useSettingsSave";
 
 const ROLE_LABEL: Record<string, string> = {
   plan: "Plan", screen: "Screen", screen_criteria: "Screen (per criterion)", extract: "Extract",
-  review_a: "Reviewer A", review_b: "Reviewer B", adjudicate: "Adjudicator", jev: "Jev",
+  reader: "Reader", review_a: "Reviewer A", review_b: "Reviewer B", adjudicate: "Adjudicator", jev: "Jev",
 };
 const PIPELINE_ROLES: { key: keyof RoleModelsIO; label: string; does: string }[] = [
   { key: "plan", label: "Plan", does: "Turns the topic into search queries." },
   { key: "screen", label: "Screen", does: "Decides the papers Jev is unsure about (legacy topic match)." },
   { key: "screen_criteria", label: "Screen (per criterion)", does: "Answers each field criterion for the papers Jev is unsure about." },
   { key: "extract", label: "Extract", does: "Pulls claims with exact quotes from each kept paper." },
+  { key: "reader", label: "Reader", does: "Explains and answers questions in the Reader, with exact quotes. Empty: the Screen model." },
 ];
 
 function ModelSelect({ label, value, models, onChange }: { label: string; value: string | null; models: AvailableModelOut[]; onChange: (value: string | null) => void }) {

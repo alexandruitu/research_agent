@@ -658,3 +658,25 @@ class DigestRead(Base):
     read_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ReaderNote(Base):
+    """A Reader answer saved on a paper: the selection, tool, question, answer and its checked quotes."""
+
+    __tablename__ = "reader_notes"
+    id: Mapped[uuid.UUID] = pk()
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    library_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("library_items.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    selection: Mapped[str] = mapped_column(Text, default="", server_default="")
+    tool: Mapped[str] = mapped_column(String(16))  # explain | ask | background
+    question: Mapped[str] = mapped_column(Text, default="", server_default="")
+    answer: Mapped[dict] = mapped_column(JSONB, default=dict)  # {answer, not_in_paper, general}
+    quotes: Mapped[list] = mapped_column(JSONB, default=list)  # [{text, quote}]
+    model: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = created()

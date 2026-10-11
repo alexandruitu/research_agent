@@ -13,6 +13,7 @@ import { TagInput } from "../fieldflow/TagInput";
 import { shortDate } from "../fields/labels";
 import { CollectionsEditor } from "./CollectionsEditor";
 import { useStatusChange } from "./optimistic";
+import { ReaderNotes } from "../reader/ReaderNotes";
 import { SnapshotView } from "./SnapshotView";
 import { StatusControl } from "./StatusControl";
 
@@ -143,7 +144,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             {[data.paper.year, data.paper.source_id, data.paper.doi && `doi ${data.paper.doi}`].filter(Boolean).join(" · ")}
             <br />
             Saved by {data.added_by_name ?? "unknown"} on {shortDate(data.added_at)}{data.field ? ` from ${data.field.name}${data.field.version ? ` v${data.field.version}` : ""}` : ""}
-            {data.run_id && <> · <Link to={`/?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link></>}
+            {data.run_id && <> · <Link to={`/?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
           </p>
           <div role="group" aria-label="Reading pane sections" className="sections">
             <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")}>Overview</button>
@@ -158,6 +159,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
                 <TagInput label="Tags" tags={data.tags} disabled={!canEdit} onChange={(tags) => void update({ tags }, "Tags updated")} placeholder={canEdit ? "Add a tag and press Enter" : undefined} />
               </div>
               <NoteEditor key={data.updated_at} item={data} canEdit={canEdit} />
+              <ReaderNotes paperId={data.paper.id} />
               <section aria-labelledby="files-title">
                 <h3 id="files-title">Files</h3>
                 {data.files.length === 0 ? <p className="sub">No PDF uploaded. Upload one from the paper in its run.</p> : (

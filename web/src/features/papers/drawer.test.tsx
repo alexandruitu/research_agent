@@ -55,6 +55,7 @@ describe("paper drawer", () => {
     setup();
     const drawer = await openDrawer();
     const why = within(drawer).getByText("Dropped: doesn't meet topic match (LLM).");
+    expect(within(drawer).getByRole("link", { name: "Read the paper" })).toHaveAttribute("href", `/read/${RUN_ID}/${drawerOut().paper.id}`);
     const details = drawer.querySelector("details.drawer-details")!;
     expect(why.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(details).not.toHaveAttribute("open");

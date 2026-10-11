@@ -1062,6 +1062,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/papers/{paper_id}/reader": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reader
+         * @description The paper's text by sections (full text when we have it, else the abstract) and the run's quotes.
+         */
+        get: operations["get_reader_api_v1_runs__run_id__papers__paper_id__reader_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/papers/{paper_id}/reader/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask
+         * @description Queue one Reader call. The worker reads the paper's text itself; the answer arrives in the job's
+         *     `progress.result`. Demo runs get deterministic demo answers (no model, no key).
+         */
+        post: operations["ask_api_v1_runs__run_id__papers__paper_id__reader_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/papers/{paper_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notes
+         * @description The team's Reader notes on a paper, newest first (shown in the Reader and the Library item).
+         */
+        get: operations["list_notes_api_v1_papers__paper_id__notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/papers/{paper_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Note
+         * @description Save a finished Reader answer of this user as a note on the paper (the answer as the worker checked it).
+         */
+        post: operations["save_note_api_v1_runs__run_id__papers__paper_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fields/{field_id}/alert": {
         parameters: {
             query?: never;
@@ -3165,6 +3246,134 @@ export interface components {
             /** N */
             n: number;
         };
+        /** ReaderAskIn */
+        ReaderAskIn: {
+            /**
+             * Tool
+             * @enum {string}
+             */
+            tool: "explain" | "ask" | "background";
+            /**
+             * Selection
+             * @default
+             */
+            selection: string;
+            /**
+             * Question
+             * @default
+             */
+            question: string;
+        };
+        /** ReaderHighlight */
+        ReaderHighlight: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "red_flag" | "claim";
+            /** Quote */
+            quote: string;
+            /** Label */
+            label: string;
+            /** By */
+            by: string;
+        };
+        /** ReaderNoteIn */
+        ReaderNoteIn: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+        };
+        /** ReaderNoteOut */
+        ReaderNoteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Library Item Id */
+            library_item_id: string | null;
+            /** Selection */
+            selection: string;
+            /** Tool */
+            tool: string;
+            /** Question */
+            question: string;
+            /** Answer */
+            answer: string;
+            /** Not In Paper */
+            not_in_paper: boolean;
+            /** General */
+            general: boolean;
+            /** Quotes */
+            quotes: components["schemas"]["ReaderQuote"][];
+            /** Model */
+            model: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ReaderOut */
+        ReaderOut: {
+            paper: components["schemas"]["PaperDetail"];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Run Name */
+            run_name: string | null;
+            /** Group */
+            group: string | null;
+            text: components["schemas"]["ReaderText"];
+            /** Highlights */
+            highlights: components["schemas"]["ReaderHighlight"][];
+            /** Max Selection */
+            max_selection: number;
+        };
+        /** ReaderQuote */
+        ReaderQuote: {
+            /** Text */
+            text: string;
+            /** Quote */
+            quote: string;
+        };
+        /** ReaderSection */
+        ReaderSection: {
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+        };
+        /** ReaderText */
+        ReaderText: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "full_text" | "abstract";
+            /** Source */
+            source: string;
+            /** Licence */
+            licence: string | null;
+            /** Truncated */
+            truncated: boolean;
+            /** Sections */
+            sections: components["schemas"]["ReaderSection"][];
+        };
         /** Recommended */
         Recommended: {
             /** Min Confidence */
@@ -3472,6 +3681,8 @@ export interface components {
             screen_criteria?: string | null;
             /** Extract */
             extract?: string | null;
+            /** Reader */
+            reader?: string | null;
         };
         /** RunCompareOut */
         RunCompareOut: {
@@ -6379,6 +6590,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryItemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reader_api_v1_runs__run_id__papers__paper_id__reader_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReaderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_api_v1_runs__run_id__papers__paper_id__reader_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReaderAskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notes_api_v1_papers__paper_id__notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReaderNoteOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_note_api_v1_runs__run_id__papers__paper_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReaderNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReaderNoteOut"];
                 };
             };
             /** @description Validation Error */

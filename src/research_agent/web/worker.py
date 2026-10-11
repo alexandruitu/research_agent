@@ -19,7 +19,7 @@ from ..storage import Store
 from .alerts import finish_alert_run, record_failure, schedule_due, write_seen_file
 from .assist import assist_model, field_assist
 from .checks import check_keys, check_source_keys, criteria_test, source_check
-from .db.models import Alert, Job, Run, SourceRow, WorkerStatus
+from .db.models import Alert, Job, Paper, Run, SourceRow, WorkerStatus
 from .db.session import make_engine, make_session_factory
 from .fields import settings_row
 from .importer.common import ImportFailed
@@ -215,6 +215,8 @@ class Worker:
                     return self._eval_run(db, job)
                 if job.kind == "gold_build":
                     return self._gold_build(db, job)
+                if job.kind == "reader_ask":
+                    return self._reader_ask(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -543,6 +545,36 @@ class Worker:
             return True
         db.commit()
         return True
+
+    def _reader_ask(self, db, job):
+        """One Reader call on a paper of a run; the worker reads the paper's text itself (never the client's).
+        Fails closed: a quote that does not match the text after the retries fails the job with a clear error."""
+        from .reader import ReaderFailed, paper_text, reader_ask, reader_model, reader_store
+
+        payload = job.payload or {}
+        run = db.get(Run, uuid.UUID(payload["reader_run_id"]))
+        paper = db.get(Paper, uuid.UUID(payload["paper_id"]))
+        if run is None or paper is None:
+            raise ReaderFailed("The run or the paper no longer exists")
+        mode = payload.get("mode", "live")
+        text = paper_text(db, self.settings, run, paper)
+        model = reader_model(db, os.environ) if mode == "live" else None
+        with self._heartbeat_while(job.id):
+            try:
+                result = reader_ask(
+                    payload["tool"],
+                    text,
+                    payload.get("selection", ""),
+                    payload.get("question", ""),
+                    reader_store(self.settings, run.id),
+                    mode=mode,
+                    model=model,
+                )
+            except ReaderFailed as exc:
+                self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
+                return True
+        result["text_kind"] = text["kind"]
+        return self._finish(db, job, result)
 
     def _gold_build(self, db, job):
         from .eval_jobs import build_gold_set

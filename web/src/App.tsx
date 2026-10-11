@@ -20,6 +20,7 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RatePage } from "./pages/RatePage";
 import { PapersPage } from "./pages/PapersPage";
+import { ReaderPage } from "./pages/ReaderPage";
 import { RunComparePage } from "./pages/RunComparePage";
 import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunsPage } from "./pages/RunsPage";
@@ -45,6 +46,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<PapersPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/read/:runId/:paperId" element={<ReaderPage />} />
             <Route path="/runs" element={<RunsPage />} />
             <Route path="/runs/compare" element={<RunComparePage />} />
             <Route path="/runs/:runId" element={<RunDetailPage />} />

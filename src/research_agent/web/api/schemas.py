@@ -1316,10 +1316,12 @@ class ReviewerOut(Model):
 
 
 class RoleModelsIO(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["reader"])
     plan: str | None = ModelId
     screen: str | None = ModelId
     screen_criteria: str | None = ModelId
     extract: str | None = ModelId
+    reader: str | None = ModelId  # the Reader's tools (null: the Screen model); not part of a run
 
 
 class ScreeningIO(Model):
@@ -1626,3 +1628,68 @@ class DigestOut(Model):
 class DigestListOut(Model):
     unread: int
     digests: list[DigestOut]
+
+
+# --- Reader -----------------------------------------------------------------------------------------------
+
+
+class ReaderSection(Model):
+    title: str
+    text: str
+
+
+class ReaderText(Model):
+    kind: Literal["full_text", "abstract"]
+    source: str  # the full-text resolver (pmc_oa, upload, ...) or abstract
+    licence: str | None
+    truncated: bool
+    sections: list[ReaderSection]
+
+
+class ReaderHighlight(Model):
+    kind: Literal["red_flag", "claim"]
+    quote: str
+    label: str  # the red flag's problem text, or the claim's statement
+    by: str  # who raised it: "Reviewer statistician, item s1" | "Extracted claim"
+
+
+class ReaderOut(Model):
+    paper: PaperDetail
+    run_id: uuid.UUID
+    run_name: str | None
+    group: str | None  # the paper's quality group in this run
+    text: ReaderText
+    highlights: list[ReaderHighlight]
+    max_selection: int
+
+
+class ReaderAskIn(Model):
+    tool: Literal["explain", "ask", "background"]
+    selection: str = Field(default="", max_length=4000)
+    question: str = Field(default="", max_length=1000)
+
+
+class ReaderQuote(Model):
+    text: str
+    quote: str
+
+
+class ReaderNoteIn(Model):
+    job_id: uuid.UUID  # a finished reader_ask job of this user: its checked answer is saved, not client text
+
+
+class ReaderNoteOut(Model):
+    id: uuid.UUID
+    paper_id: uuid.UUID
+    run_id: uuid.UUID | None
+    library_item_id: uuid.UUID | None
+    selection: str
+    tool: str
+    question: str
+    answer: str
+    not_in_paper: bool
+    general: bool
+    quotes: list[ReaderQuote]
+    model: str
+    created_by_name: str | None
+    created_at: datetime

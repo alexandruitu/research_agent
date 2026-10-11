@@ -49,6 +49,7 @@ describe("AlertsPage", () => {
     expect(screen.getByText("Read first")).toBeInTheDocument();
     expect(screen.getByText("External validation on 3 sites.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open CT-FFR at scale" })).toHaveAttribute("href", `/?run=${RUN_ID}&paper=${PAPER_ID}`);
+    expect(screen.getByRole("link", { name: "Read CT-FFR at scale" })).toHaveAttribute("href", `/read/${RUN_ID}/${PAPER_ID}`);
     expect(screen.getByRole("button", { name: "Save to library: CT-FFR at scale" })).toBeInTheDocument();
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.path.endsWith(`/digests/${DIGEST_ID}/read`))).toBe(true));
   });

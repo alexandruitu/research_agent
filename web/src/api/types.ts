@@ -86,6 +86,18 @@ export type QueryOverrideIO = S["QueryOverrideIO"];
 export type CollectionOut = S["CollectionOut"];
 export type CollectionRef = S["CollectionRef"];
 export type LibraryRef = S["LibraryRef"];
+export type ReaderOut = S["ReaderOut"];
+export type ReaderHighlight = S["ReaderHighlight"];
+export type ReaderSection = S["ReaderSection"];
+export type ReaderAskIn = S["ReaderAskIn"];
+export type ReaderNoteOut = S["ReaderNoteOut"];
+export type ReaderTool = ReaderAskIn["tool"];
+/** A reader_ask job's `progress.result`. */
+export type ReaderResult = {
+  tool: ReaderTool; mode: string; model: string; prompt_version: string; answer: string;
+  statements: { text: string; quote: string }[]; not_in_paper: boolean; general: boolean;
+  selection: string; question: string; text_kind?: string;
+};
 export type LibraryItemOut = S["LibraryItemOut"];
 export type LibraryItemDetail = S["LibraryItemDetail"];
 export type LibraryEventOut = S["LibraryEventOut"];
