@@ -11,7 +11,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function setup(result: { status?: number; body: unknown } = { body: compareOut() }) {
   const api = mockApi({ "GET /api/v1/auth/me": { body: session("viewer") }, "GET /api/v1/evals/compare": result });
-  renderWithProviders(<Routes><Route path="/evals/compare" element={<ComparePage />} /></Routes>, { route: `/evals/compare?ids=${PANEL_ID},${HUMAN_ID}` });
+  renderWithProviders(<Routes><Route path="/validation/evals/compare" element={<ComparePage />} /></Routes>, { route: `/validation/evals/compare?ids=${PANEL_ID},${HUMAN_ID}` });
   return api;
 }
 

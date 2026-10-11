@@ -10,13 +10,12 @@ import { StaleBanner } from "./StaleBanner";
 import { ToastProvider } from "./ui/Toast";
 
 const NAV = [
+  { to: "/fields", label: "Fields" },
   { to: "/", label: "Papers", end: true },
   { to: "/library", label: "Library" },
-  { to: "/runs", label: "Runs" },
-  { to: "/fields", label: "Fields" },
   { to: "/alerts", label: "Alerts" },
-  { to: "/evals", label: "Evals" },
-  { to: "/system", label: "System map" },
+  { to: "/runs", label: "Runs" },
+  { to: "/validation", label: "Validation" },
   { to: "/settings", label: "Settings" },
 ];
 

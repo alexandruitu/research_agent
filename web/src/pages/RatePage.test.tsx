@@ -67,7 +67,7 @@ describe("Rate view", () => {
     expect(within(reveal).getByRole("row", { name: /split by patient/ })).toHaveTextContent("not reported");
     await userEvent.click(screen.getByRole("button", { name: "Next paper" }));
     expect(await screen.findByText(/You have rated every paper/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /human reference report/ })).toHaveAttribute("href", `/evals/${HUMAN_ID}`);
+    expect(screen.getByRole("link", { name: /human reference report/ })).toHaveAttribute("href", `/validation/evals/${HUMAN_ID}`);
   });
 
   it("answers with the number keys on the focused item", async () => {

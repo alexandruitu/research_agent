@@ -16,7 +16,7 @@ export function StagePanel({ stage, onClose, showPapersLink = false }: { stage: 
       <h3>Known limits</h3>
       <p>{stage.limits}</p>
       <p className="links">
-        {stage.data_link === "evals" && <Link to="/evals">Open the eval report</Link>}
+        {stage.data_link === "evals" && <Link to="/validation/evals">Open the eval report</Link>}
         {stage.data_link === "papers" && showPapersLink && <Link to="/">See the screened papers</Link>}
       </p>
     </aside>

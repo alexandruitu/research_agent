@@ -77,7 +77,7 @@ export function RunDetailPage() {
         </dl>
         <p className="run-detail__links">
           <Link to={data.links?.papers ?? `/?run=${data.id}`}>See the papers</Link>
-          {(data.links?.evals ?? []).map((e) => <Link key={e.id} to={`/evals/${e.id}`}>{e.kind} evaluation of {new Date(e.created_at).toLocaleDateString()}</Link>)}
+          {(data.links?.evals ?? []).map((e) => <Link key={e.id} to={`/validation/evals/${e.id}`}>{e.kind} evaluation of {new Date(e.created_at).toLocaleDateString()}</Link>)}
           {(data.links?.library_count ?? 0) > 0 && <Link to="/library">{data.links!.library_count} saved to the library</Link>}
         </p>
       </section>

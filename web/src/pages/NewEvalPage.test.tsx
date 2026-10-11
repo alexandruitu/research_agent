@@ -26,7 +26,7 @@ function setup(extra: Record<string, MockHandler> = {}) {
     "GET /api/v1/jobs/:id": { body: jobOut({ kind: "eval_run", status: "done", progress: { status: "done", result: { eval_id: PANEL_ID } } }) },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/evals/new" element={<NewEvalPage />} /></Routes>, { route: "/evals/new" });
+  renderWithProviders(<Routes><Route path="/validation/evals/new" element={<NewEvalPage />} /></Routes>, { route: "/validation/evals/new" });
   return api;
 }
 
@@ -53,7 +53,7 @@ describe("New evaluation", () => {
     expect(sent).toMatchObject({ kind: "panel", mode: "live", gold_set_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", sample: 12, seed: 0 });
     await userEvent.click(screen.getByRole("button", { name: "Start evaluation" }));
     expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/evals")!.body).toEqual(sent);
-    expect(await screen.findByRole("link", { name: "Open report" })).toHaveAttribute("href", `/evals/${PANEL_ID}`);
+    expect(await screen.findByRole("link", { name: "Open report" })).toHaveAttribute("href", `/validation/evals/${PANEL_ID}`);
     expect(calls.some((c) => c.path === `/api/v1/jobs/${JOB_ID}`)).toBe(true);
   });
 

@@ -1054,3 +1054,20 @@ select.run-picker { max-width: min(34rem, 100%); text-overflow: ellipsis; }
 .digest-items { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
 .digest-item-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .digest-why { margin: 2px 0 4px; color: var(--muted); }
+
+/* Validation section and How it works */
+.validation-intro { margin: 0 0 var(--s2); color: var(--muted); font-size: 13px; }
+.trust-link { font-size: 13px; margin: 0 0 var(--s2); }
+.how-it-works { max-width: 860px; }
+.hiw-toc { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 var(--s2); font-size: 13px; }
+.hiw-flow, .hiw-anatomy { padding-left: 1.5em; }
+.hiw-flow > li, .hiw-anatomy > li { margin: 0 0 10px; }
+.hiw-flow p, .hiw-anatomy p { margin: 2px 0; }
+.hiw-step-head { display: flex; gap: 8px; align-items: baseline; }
+.hiw-parallel { margin: 4px 0 0; }
+.hiw-example { color: var(--ink-2); font-size: 13px; }
+.kind-tag { font-size: 11px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; }
+.kind-tag--ai { border-color: var(--accent); }
+.hiw-items { border-collapse: collapse; margin: 8px 0; width: 100%; }
+.hiw-items caption { text-align: left; font-weight: 600; padding: 4px 0; }
+.hiw-items th, .hiw-items td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }

@@ -26,7 +26,7 @@ export function EvalsHomePage() {
   const families = new Set(picked.map((id) => familyOf(byId.get(id)?.kind)));
   const compareProblem = picked.length < 2 ? "Pick 2 or 3 reports." : picked.length > 3 ? "At most 3 reports." : families.size > 1 ? "Pick reports of the same family: screening; review panel and human reference; or 1 / 2 / 3 reviewers." : null;
   const toggle = (id: string, on: boolean) => setPicked((list) => (on ? [...list, id] : list.filter((x) => x !== id)));
-  const newButton = canRun ? <Link to="/evals/new" className="button-link">New evaluation</Link> : null;
+  const newButton = canRun ? <Link to="/validation/evals/new" className="button-link">New evaluation</Link> : null;
 
   return (
     <section className="evals-home">
@@ -63,7 +63,7 @@ export function EvalsHomePage() {
       {picked.length > 0 && (
         <section aria-label="Compare" className="compare-bar">
           <p><strong>{picked.length} selected.</strong> {compareProblem ?? "Ready to compare side by side."}</p>
-          <button type="button" className="primary" disabled={!!compareProblem} onClick={() => navigate(`/evals/compare?ids=${picked.join(",")}`)}>Compare {picked.length}</button>
+          <button type="button" className="primary" disabled={!!compareProblem} onClick={() => navigate(`/validation/evals/compare?ids=${picked.join(",")}`)}>Compare {picked.length}</button>
           <button type="button" onClick={() => setPicked([])}>Clear</button>
         </section>
       )}

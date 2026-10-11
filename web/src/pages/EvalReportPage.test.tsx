@@ -21,7 +21,7 @@ function setup(detail = evalDetail(), role: "viewer" | "member" | "admin" = "vie
     "GET /api/v1/evals/:id": { body: detail },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/evals/${detail.id}` });
+  renderWithProviders(<Routes><Route path="/validation/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/validation/evals/${detail.id}` });
   return api;
 }
 
@@ -39,7 +39,7 @@ describe("Screening report", () => {
   it("names the kind in words and links back to all evaluations", async () => {
     setup();
     expect(await screen.findByRole("heading", { level: 1, name: /Screening/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "← All evaluations" })).toHaveAttribute("href", "/evals");
+    expect(screen.getByRole("link", { name: "← All evaluations" })).toHaveAttribute("href", "/validation/evals");
   });
 
   it("shows recall for the three strategies with intervals", async () => {
@@ -96,7 +96,7 @@ describe("Screening report", () => {
       "GET /api/v1/auth/me": { body: session("viewer") },
       "GET /api/v1/evals/:id": { status: 500, body: { code: "internal_error", message: "Unexpected error", request_id: "req-9" } },
     });
-    renderWithProviders(<Routes><Route path="/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/evals/${EVAL_ID}` });
+    renderWithProviders(<Routes><Route path="/validation/evals/:evalId" element={<EvalReportPage />} /></Routes>, { route: `/validation/evals/${EVAL_ID}` });
     expect(await screen.findByRole("alert")).toHaveTextContent("req-9");
   });
 });

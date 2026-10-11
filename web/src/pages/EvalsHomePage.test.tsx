@@ -21,7 +21,7 @@ function setup({ role = "member", reports = [panelSummary(), ablationSummary(), 
     "GET /api/v1/evals": ({ url }) => ({ body: url.searchParams.get("kind") ? reports.filter((r) => r.kind === url.searchParams.get("kind")) : reports }),
     "GET /api/v1/evals/jobs": { body: jobs },
   });
-  renderWithProviders(<Routes><Route path="/evals" element={<EvalsHomePage />} /><Route path="/evals/compare" element={<p>compare page</p>} /></Routes>, { route: "/evals" });
+  renderWithProviders(<Routes><Route path="/validation/evals" element={<EvalsHomePage />} /><Route path="/validation/evals/compare" element={<p>compare page</p>} /></Routes>, { route: "/validation/evals" });
   return api;
 }
 
@@ -35,10 +35,10 @@ describe("Evals home", () => {
     expect(panel).toHaveTextContent("moderate");
     expect(panel).toHaveTextContent("verdict agreement 73%");
     expect(panel).toHaveTextContent("n=10 seed 0");
-    expect(within(panel).getByRole("link", { name: /Open report/ })).toHaveAttribute("href", `/evals/${PANEL_ID}`);
+    expect(within(panel).getByRole("link", { name: /Open report/ })).toHaveAttribute("href", `/validation/evals/${PANEL_ID}`);
     const ablation = await card(/1 \/ 2 \/ 3 reviewers/);
     expect(ablation).toHaveTextContent("Going from 2 to 3 reviewers");
-    expect(within(ablation).getByRole("link", { name: /Based on/ })).toHaveAttribute("href", `/evals/${PANEL_ID}`);
+    expect(within(ablation).getByRole("link", { name: /Based on/ })).toHaveAttribute("href", `/validation/evals/${PANEL_ID}`);
     expect(await card(/Human reference/)).toHaveTextContent("75% of answers match");
     expect(await card(/Screening/)).toHaveTextContent("search recall 15 of 16");
   });
@@ -69,7 +69,7 @@ describe("Evals home", () => {
   it("teaches when there is nothing yet, with the way to start", async () => {
     setup({ reports: [], jobs: [] });
     expect(await screen.findByText("No evaluations yet")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "New evaluation" })[0]).toHaveAttribute("href", "/evals/new");
+    expect(screen.getAllByRole("link", { name: "New evaluation" })[0]).toHaveAttribute("href", "/validation/evals/new");
   });
 
   it("viewers can read but not start evaluations", async () => {

@@ -20,12 +20,12 @@ export function ReportCard({ report, parent, children, selected, onSelect }: Pro
       <Chips chips={report.chips} />
       {(report.parent_id || children.length > 0) && (
         <p className="eval-lineage">
-          {report.parent_id && <Link to={`/evals/${report.parent_id}`}>Based on {parent ? `${KIND_LABEL[kindOf(parent.kind)]} · ${reportTitle(parent)}` : "its panel report"}</Link>}
-          {children.map((c) => <Link key={c.id} to={`/evals/${c.id}`}>Follow-up: {KIND_LABEL[kindOf(c.kind)]}</Link>)}
+          {report.parent_id && <Link to={`/validation/evals/${report.parent_id}`}>Based on {parent ? `${KIND_LABEL[kindOf(parent.kind)]} · ${reportTitle(parent)}` : "its panel report"}</Link>}
+          {children.map((c) => <Link key={c.id} to={`/validation/evals/${c.id}`}>Follow-up: {KIND_LABEL[kindOf(c.kind)]}</Link>)}
         </p>
       )}
       <footer className="eval-card-foot">
-        <Link to={`/evals/${report.id}`} className="button-link button-link--quiet">Open report<span className="sr-only"> {name}</span></Link>
+        <Link to={`/validation/evals/${report.id}`} className="button-link button-link--quiet">Open report<span className="sr-only"> {name}</span></Link>
         <label className="check compare-pick"><input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} aria-label={`Select ${name} to compare`} /> Compare</label>
       </footer>
     </article>

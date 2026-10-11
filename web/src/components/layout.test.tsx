@@ -43,7 +43,7 @@ describe("routing and navigation", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     renderApp("/");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Papers", "Library", "Runs", "Fields", "Alerts", "Evals", "System map", "Settings"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Fields", "Papers", "Library", "Alerts", "Runs", "Validation", "Settings"]);
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     expect(screen.getByText("Member")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Literature Radar/ })).toHaveAttribute("href", "/");

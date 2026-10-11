@@ -16,9 +16,9 @@ afterEach(() => {
 
 const Location = () => <output aria-label="location">{useLocation().search}</output>;
 
-function setup(route = "/system", stages: unknown = STAGES) {
+function setup(route = "/validation/system", stages: unknown = STAGES) {
   const api = mockApi({ "GET /api/v1/auth/me": { body: session("viewer") }, "GET /api/v1/stages": typeof stages === "object" && stages && "status" in (stages as object) ? (stages as never) : { body: stages } });
-  renderWithProviders(<><Routes><Route path="/system" element={<SystemMapPage />} /></Routes><Location /></>, { route });
+  renderWithProviders(<><Routes><Route path="/validation/system" element={<SystemMapPage />} /></Routes><Location /></>, { route });
   return api;
 }
 
@@ -49,22 +49,22 @@ describe("SystemMapPage", () => {
   });
 
   it("opens straight to a stage from the URL and closes it again", async () => {
-    setup("/system?stage=reviewers");
+    setup("/validation/system?stage=reviewers");
     const panel = await screen.findByRole("complementary", { name: "About Review panel" });
-    expect(within(panel).getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/evals");
+    expect(within(panel).getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/validation/evals");
     await userEvent.click(within(panel).getByRole("button", { name: "Close stage details" }));
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     expect(screen.getByLabelText("location")).not.toHaveTextContent("stage=");
   });
 
   it("ignores an unknown stage id in the URL", async () => {
-    setup("/system?stage=nope");
+    setup("/validation/system?stage=nope");
     await screen.findByRole("list", { name: "Pipeline" });
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 
   it("says why when the catalog cannot be loaded", async () => {
-    setup("/system", { status: 500, body: { code: "internal_error", message: "Unexpected error", request_id: "req-3" } });
+    setup("/validation/system", { status: 500, body: { code: "internal_error", message: "Unexpected error", request_id: "req-3" } });
     expect(await screen.findByRole("alert")).toHaveTextContent("req-3");
   });
 });

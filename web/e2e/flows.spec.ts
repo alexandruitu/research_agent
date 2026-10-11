@@ -66,7 +66,7 @@ test.describe("viewer", () => {
   });
 
   test("System map: a stage is measured only with a measurement", async ({ page }) => {
-    await page.goto("/system");
+    await page.goto("/validation/system");
     await expect(page.getByRole("button", { name: /^Search/ })).toHaveAttribute("data-status", "measured");
     await expect(page.getByRole("button", { name: /^Rank/ })).toHaveAttribute("data-status", "unmeasured");
     await page.getByRole("button", { name: /^Rank/ }).click();
@@ -75,7 +75,7 @@ test.describe("viewer", () => {
   });
 
   test("Evals: the threshold grid outlines the shipped default", async ({ page }) => {
-    await page.goto("/evals");
+    await page.goto("/validation/evals");
     await page.getByRole("article", { name: /^Screening/ }).first().getByRole("link", { name: /Open report/ }).click();
     await expect(page.getByRole("region", { name: "Summary" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Threshold grid" })).toBeVisible();

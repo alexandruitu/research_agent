@@ -50,8 +50,8 @@ function Follow({ jobId }: { jobId: string }) {
       </p>
       {progress.total ? <progress max={progress.total} value={progress.done ?? 0} aria-label="Papers done" /> : null}
       {job.data?.error && <p className="form-error">{job.data.error}</p>}
-      {evalId && <Link className="button-link" to={`/evals/${evalId}`}>Open report</Link>}
-      <p className="hint">You can leave this page: the evaluation keeps running and shows under “In progress” on <Link to="/evals">Evals</Link>.</p>
+      {evalId && <Link className="button-link" to={`/validation/evals/${evalId}`}>Open report</Link>}
+      <p className="hint">You can leave this page: the evaluation keeps running and shows under “In progress” on <Link to="/validation/evals">Evals</Link>.</p>
     </section>
   );
 }
@@ -92,7 +92,7 @@ export function NewEvalPage() {
 
   return (
     <section className="wizard">
-      <nav aria-label="Breadcrumb" className="crumbs"><Link to="/evals">← All evaluations</Link></nav>
+      <nav aria-label="Breadcrumb" className="crumbs"><Link to="/validation/evals">← All evaluations</Link></nav>
       <h1>New evaluation</h1>
       <ol className="wizard-steps">
         <li className="wizard-step">
@@ -116,7 +116,7 @@ export function NewEvalPage() {
             {kind === "human" ? (
               <div className="banner">
                 <p>Human reference reports are recomputed each time someone submits ratings, so there is nothing to start here.</p>
-                <p>To begin: open a <Link to="/evals">review panel report</Link>, create a rating sample (admins), then rate papers blind. Each submission produces a new human reference report.</p>
+                <p>To begin: open a <Link to="/validation/evals">review panel report</Link>, create a rating sample (admins), then rate papers blind. Each submission produces a new human reference report.</p>
               </div>
             ) : (
               <div className="wizard-inputs">

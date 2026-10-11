@@ -81,7 +81,8 @@ describe("PapersPage", () => {
     const table = await screen.findByRole("table");
     expect(within(table).queryByText(/recall 15\/16/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Search/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Pipeline measured on CT-FFR reviews → System map" })).toHaveAttribute("href", "/system");
+    expect(screen.getByRole("link", { name: "Pipeline measured on CT-FFR reviews → System map" })).toHaveAttribute("href", "/validation/system");
+    expect(screen.getByRole("link", { name: "How do we know this is right?" })).toHaveAttribute("href", "/validation");
   });
 
   it("shows not-applicable and missing differently, and the SR label in words", async () => {

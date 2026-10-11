@@ -232,8 +232,9 @@ export function PapersPage() {
           <button type="button" className="linklike" onClick={() => setSearch(clearPaperFilters(search))}>Clear all</button>
         </div>
       )}
+      <p className="trust-link"><Link to="/validation">How do we know this is right? <span aria-hidden="true">→</span></Link></p>
       <p className="pipeline-note">
-        <Link to="/system">Pipeline measured on CT-FFR reviews → System map</Link> <span>(how well each step works in general, not a measure of this run)</span>
+        <Link to="/validation/system">Pipeline measured on CT-FFR reviews → System map</Link> <span>(how well each step works in general, not a measure of this run)</span>
       </p>
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">

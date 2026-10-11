@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 import { AuthProvider } from "./auth/AuthProvider";
@@ -25,7 +25,16 @@ import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SystemMapPage } from "./pages/SystemMapPage";
+import { HowItWorksPage } from "./pages/HowItWorksPage";
+import { ValidationPage } from "./pages/ValidationPage";
 import { UsersPage } from "./pages/UsersPage";
+
+/** Old top-level URL → its place under Validation, keeping the rest of the path, the query and the hash. */
+function MovedTo({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  const rest = useParams()["*"];
+  return <Navigate to={`${to}${rest ? `/${rest}` : ""}${search}${hash}`} replace />;
+}
 
 export function App() {
   return (
@@ -43,14 +52,22 @@ export function App() {
             <Route path="/alerts" element={<AlertsPage />} />
             <Route element={<RequireRole role="member" />}>
               <Route path="/fields/new" element={<FieldEditorPage />} />
-              <Route path="/evals/new" element={<NewEvalPage />} />
               <Route path="/rate/:sampleId" element={<RatePage />} />
             </Route>
             <Route path="/fields/:fieldId" element={<FieldEditorPage />} />
-            <Route path="/evals" element={<EvalsHomePage />} />
-            <Route path="/evals/compare" element={<ComparePage />} />
-            <Route path="/evals/:evalId" element={<EvalReportPage />} />
-            <Route path="/system" element={<SystemMapPage />} />
+            <Route path="/validation" element={<ValidationPage />}>
+              <Route index element={<Navigate to="evals" replace />} />
+              <Route path="evals" element={<EvalsHomePage />} />
+              <Route element={<RequireRole role="member" />}>
+                <Route path="evals/new" element={<NewEvalPage />} />
+              </Route>
+              <Route path="evals/compare" element={<ComparePage />} />
+              <Route path="evals/:evalId" element={<EvalReportPage />} />
+              <Route path="system" element={<SystemMapPage />} />
+              <Route path="how-it-works" element={<HowItWorksPage />} />
+            </Route>
+            <Route path="/evals/*" element={<MovedTo to="/validation/evals" />} />
+            <Route path="/system/*" element={<MovedTo to="/validation/system" />} />
             <Route path="/settings" element={<SettingsPage />}>
               <Route index element={<Navigate to="sources" replace />} />
               <Route path="sources" element={<SourcesTab />} />

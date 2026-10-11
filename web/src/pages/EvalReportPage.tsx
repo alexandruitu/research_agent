@@ -27,11 +27,11 @@ function Body({ detail }: { detail: EvalDetailOut }) {
 export function EvalReportPage() {
   const { evalId } = useParams();
   const detail = useEval(evalId ?? null);
-  if (detail.isLoading) return <section><Link to="/evals">← All evaluations</Link><Skeleton label="the report" rows={6} /></section>;
+  if (detail.isLoading) return <section><Link to="/validation/evals">← All evaluations</Link><Skeleton label="the report" rows={6} /></section>;
   if (detail.isError || !detail.data) {
     return (
       <section>
-        <Link to="/evals">← All evaluations</Link>
+        <Link to="/validation/evals">← All evaluations</Link>
         <p role="alert" className="form-error">{detail.error instanceof ApiError ? `${detail.error.message} (request ${detail.error.requestId})` : "Could not load this report."}</p>
       </section>
     );
@@ -40,7 +40,7 @@ export function EvalReportPage() {
   const kind = kindOf(d.kind);
   return (
     <section className={`eval-report eval-report--${kind}`}>
-      <nav aria-label="Breadcrumb" className="crumbs"><Link to="/evals">← All evaluations</Link></nav>
+      <nav aria-label="Breadcrumb" className="crumbs"><Link to="/validation/evals">← All evaluations</Link></nav>
       <header className="report-head">
         <KindBadge kind={kind} />
         <h1>{KIND_LABEL[kind]} <span className="report-of">· {reportTitle(d)}</span></h1>
@@ -49,8 +49,8 @@ export function EvalReportPage() {
         <Chips chips={d.chips} />
         {(d.parent_id || (d.children ?? []).length > 0) && (
           <p className="eval-lineage">
-            {d.parent_id && <Link to={`/evals/${d.parent_id}`}>Based on the panel report</Link>}
-            {(d.children ?? []).map((c) => <Link key={c.id} to={`/evals/${c.id}`}>Follow-up: {KIND_LABEL[kindOf(c.kind)]} ({dateText(c.created_at)})</Link>)}
+            {d.parent_id && <Link to={`/validation/evals/${d.parent_id}`}>Based on the panel report</Link>}
+            {(d.children ?? []).map((c) => <Link key={c.id} to={`/validation/evals/${c.id}`}>Follow-up: {KIND_LABEL[kindOf(c.kind)]} ({dateText(c.created_at)})</Link>)}
           </p>
         )}
       </header>

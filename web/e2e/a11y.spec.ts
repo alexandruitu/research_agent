@@ -38,24 +38,38 @@ test.describe("viewer", () => {
   });
 
   test("stage panel open", async ({ page }) => {
-    await page.goto("/system"); // the pipeline strip moved from Papers to the System map
+    await page.goto("/validation/system"); // the pipeline strip moved from Papers to the System map
     await page.getByRole("button", { name: /^Screen/ }).click();
     await expect(page.getByRole("complementary", { name: "About Screen" })).toBeVisible();
     await audit(page);
   });
 
   test("evals", async ({ page }) => {
-    await page.goto("/evals");
+    await page.goto("/validation/evals");
     await page.getByRole("article", { name: /^Screening/ }).first().getByRole("link", { name: /Open report/ }).click();
     await expect(page.getByRole("table", { name: "Threshold grid" })).toBeVisible();
-    await page.goto("/evals");
+    await page.goto("/validation/evals");
     await audit(page);
     await page.goBack();
     await audit(page);
   });
 
+  for (const tab of ["evals", "system", "how-it-works"]) {
+    test(`validation ${tab}`, async ({ page }) => {
+      await page.goto(`/validation/${tab}`);
+      await expect(page.getByRole("navigation", { name: "Validation sections" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await audit(page);
+    });
+  }
+
+  test("old evals URL redirects into Validation", async ({ page }) => {
+    await page.goto("/evals");
+    await expect(page).toHaveURL(/\/validation\/evals$/);
+  });
+
   test("system map with a panel", async ({ page }) => {
-    await page.goto("/system?stage=reviewers");
+    await page.goto("/validation/system?stage=reviewers");
     await expect(page.getByRole("complementary", { name: "About Review panel" })).toBeVisible();
     await audit(page);
   });

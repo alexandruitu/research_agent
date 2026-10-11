@@ -136,7 +136,7 @@ export function RatePage() {
     setRevealed(null);
     void client.invalidateQueries({ queryKey: keys.ratingNext(sampleId) });
   };
-  const back = <nav aria-label="Breadcrumb" className="crumbs"><Link to={sample.data ? `/evals/${sample.data.eval_id}` : "/evals"}>← Panel report</Link></nav>;
+  const back = <nav aria-label="Breadcrumb" className="crumbs"><Link to={sample.data ? `/validation/evals/${sample.data.eval_id}` : "/validation/evals"}>← Panel report</Link></nav>;
 
   let body;
   if (next.isLoading) body = <Skeleton label="the next paper" rows={6} />;
@@ -152,7 +152,7 @@ export function RatePage() {
     body = (
       <div className="empty-state">
         <p className="empty-title">You have rated every paper in this sample. Thank you.</p>
-        {sample.data?.latest_human_eval_id && <p><Link to={`/evals/${sample.data.latest_human_eval_id}`}>Open the latest human reference report</Link></p>}
+        {sample.data?.latest_human_eval_id && <p><Link to={`/validation/evals/${sample.data.latest_human_eval_id}`}>Open the latest human reference report</Link></p>}
       </div>
     );
   } else {

@@ -16,7 +16,7 @@ function SampleRow({ id }: { id: string }) {
     <li className="sample-row">
       <span><strong>{s.papers.length} papers</strong> · created {dateText(s.created_at)} · {s.complete_papers} of {s.papers.length} papers have {s.raters_needed} raters · you rated {s.my_rated}</span>
       {left > 0 ? <Link className="button-link" to={`/rate/${s.id}`}>Rate papers<span className="sr-only"> in this sample</span> ({left} left for you)</Link> : <span>✓ you rated every paper</span>}
-      {s.latest_human_eval_id && <Link to={`/evals/${s.latest_human_eval_id}`}>Latest human reference report</Link>}
+      {s.latest_human_eval_id && <Link to={`/validation/evals/${s.latest_human_eval_id}`}>Latest human reference report</Link>}
     </li>
   );
 }

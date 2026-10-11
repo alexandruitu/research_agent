@@ -175,7 +175,7 @@ describe("stage panel", () => {
     expect(screen.getByRole("heading", { name: "Review panel" })).toBeInTheDocument();
     expect(screen.getByText("caveat: one model family")).toBeInTheDocument();
     expect(screen.getByText(/limits\./)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/evals");
+    expect(screen.getByRole("link", { name: "Open the eval report" })).toHaveAttribute("href", "/validation/evals");
   });
 
   it("still opens from an old ?stage= link and closes with its close button", async () => {
