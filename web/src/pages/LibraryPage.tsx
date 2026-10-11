@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { exportUrl, useCollections, useFields, useLibrary } from "../api/hooks";
@@ -15,11 +15,14 @@ import { clearFilters, LIBRARY_PAGE_SIZE, parseLibraryView, patchLibraryView, ty
 import { LibraryList } from "../features/library/LibraryList";
 import { useStatusChange } from "../features/library/optimistic";
 import { ReadingPane } from "../features/library/ReadingPane";
+import { readerState } from "../features/reader/origin";
+import type { LibraryItemOut } from "../api/types";
 
 const SORT_LABEL: Record<string, string> = { added_at: "Date saved", title: "Title", year: "Year", score: "Score", status: "Status" };
 export const LIBRARY_SHORTCUTS = [
   { keys: ["j", "k"], what: "Next / previous paper" },
-  { keys: ["o"], what: "Open the paper under the cursor (or Enter on it)" },
+  { keys: ["o"], what: "Read the paper under the cursor (or Enter on it)" },
+  { keys: ["d"], what: "Details of the paper under the cursor: note, tags, evidence, history" },
   { keys: ["1", "2", "3", "4"], what: "Status: to read, read, useful, rejected" },
   { keys: ["/"], what: "Search" },
   { keys: ["Esc"], what: "Close the reading pane" },
@@ -31,6 +34,8 @@ export function LibraryPage() {
   const member = hasRole(user, "member");
   const admin = hasRole(user, "admin");
   const [search, setSearch] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const view = parseLibraryView(search);
   const { params } = view;
   const library = useLibrary(params);
@@ -53,6 +58,12 @@ export function LibraryPage() {
     change({ item: id });
     if (id) setCursor(id);
   };
+  // Reading is the default: a paper with its run opens in the Reader; one without (no run kept) shows its details.
+  const read = (item: LibraryItemOut) => {
+    setCursor(item.id);
+    if (!item.run_id) return open(item.id);
+    navigate(`/read/${item.run_id}/${item.paper.id}`, { state: readerState("library", `${location.pathname}${location.search}`) });
+  };
   const move = (delta: number) => {
     if (!items.length) return;
     const next = items[Math.min(items.length - 1, Math.max(0, cursorIndex + delta))]!;
@@ -71,20 +82,21 @@ export function LibraryPage() {
   };
   useShortcuts({
     j: () => move(1), k: () => move(-1),
-    o: () => target && open(target.id),
+    o: () => target && read(target),
+    d: () => target && open(target.id),
     "1": () => setStatus(0), "2": () => setStatus(1), "3": () => setStatus(2), "4": () => setStatus(3),
     "/": () => searchBox.current?.focus(), "?": () => setHelp(true), Escape: () => (help ? setHelp(false) : view.itemId && close()),
   });
 
   const collectionName = (id: string) => collections.data?.find((c) => c.id === id)?.name ?? "a collection";
-  const fieldName = (id: string) => fields.data?.find((f) => f.id === id)?.name ?? "a field";
+  const fieldName = (id: string) => fields.data?.find((f) => f.id === id)?.name ?? "a topic";
   type Chip = { label: string; clear: LibraryChange };
   const chips = ([
     params.q ? { label: `Words: “${params.q}”`, clear: { q: null } } : null,
     params.collection_id ? { label: `Collection: ${collectionName(params.collection_id)}`, clear: { collection: null } } : null,
     params.status ? { label: `Status: ${statusMeta(params.status).word}`, clear: { status: null } } : null,
     params.tag ? { label: `Tag: #${params.tag}`, clear: { tag: null } } : null,
-    params.field_id ? { label: `Field: ${fieldName(params.field_id)}`, clear: { field: null } } : null,
+    params.field_id ? { label: `Topic: ${fieldName(params.field_id)}`, clear: { field: null } } : null,
     params.min_score != null ? { label: `Score ≥ ${params.min_score}`, clear: { min: null } } : null,
     params.has_red_flags ? { label: "Has red flags", clear: { flags: null } } : null,
   ] as (Chip | null)[]).filter((c): c is Chip => c !== null);
@@ -141,7 +153,7 @@ export function LibraryPage() {
             {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
           </select>
         </label>
-        <label>Field
+        <label>Topic
           <select value={params.field_id ?? ""} onChange={(e) => change({ field: e.target.value || null })}>
             <option value="">any</option>
             {(fields.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -175,14 +187,14 @@ export function LibraryPage() {
                 Try fewer filters or other words.
               </EmptyState>
             ) : (
-              <EmptyState title="The library is empty" action={<Link className="button-link" to="/">Go to Papers</Link>}>
-                <p>Open a run in Papers, tick the papers worth keeping and press <strong>Save to library</strong>.</p>
+              <EmptyState title="The library is empty" action={<Link className="button-link" to="/results">Go to Results</Link>}>
+                <p>Open a run in Results, tick the papers worth keeping and press <strong>Save to library</strong>.</p>
                 <p>They arrive here with their screening and review evidence, ready for the team to read, tag and rate.</p>
               </EmptyState>
             )
           ) : (
             <>
-              <LibraryList items={items} openId={view.itemId} cursorId={cursor} onOpen={open} />
+              <LibraryList items={items} openId={view.itemId} cursorId={cursor} onOpen={read} onDetails={open} />
               {pages > 1 && (
                 <nav className="pager" aria-label="Pages">
                   <button type="button" disabled={(params.page ?? 1) <= 1} onClick={() => change({ page: (params.page ?? 1) - 1 })}>Previous page</button>
@@ -190,7 +202,7 @@ export function LibraryPage() {
                   <button type="button" disabled={(params.page ?? 1) >= pages} onClick={() => change({ page: (params.page ?? 1) + 1 })}>Next page</button>
                 </nav>
               )}
-              <p className="kbd-hint">Tip: <kbd>j</kbd> <kbd>k</kbd> to move, <kbd>o</kbd> to open, <kbd>1</kbd>–<kbd>4</kbd> to set the status, <kbd>?</kbd> for all shortcuts.</p>
+              <p className="kbd-hint">Tip: <kbd>j</kbd> <kbd>k</kbd> to move, <kbd>o</kbd> to read, <kbd>d</kbd> for details, <kbd>1</kbd>–<kbd>4</kbd> to set the status, <kbd>?</kbd> for all shortcuts.</p>
             </>
           )}
         </div>

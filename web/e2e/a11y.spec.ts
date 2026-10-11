@@ -171,7 +171,7 @@ test.describe("library and saving", () => {
     await page.goto("/library");
     await expect(page.getByRole("list", { name: "Saved papers" })).toBeVisible();
     await audit(page);
-    await page.getByRole("list", { name: "Saved papers" }).getByRole("button").first().click();
+    await page.getByRole("list", { name: "Saved papers" }).getByRole("button", { name: "Details" }).first().click();
     const pane = page.getByRole("complementary", { name: "Reading pane" });
     await expect(pane.getByRole("radio").first()).toBeVisible();
     await audit(page);
@@ -184,6 +184,19 @@ test.describe("library and saving", () => {
     await audit(page);
     await page.keyboard.press("?");
     await expect(page.getByRole("dialog", { name: "Library shortcuts" })).toBeVisible();
+    await audit(page);
+    await page.keyboard.press("Escape");
+
+    // the Reader, opened from the library: tiles, the run context strip open and closed, light and dark
+    await page.locator(".library-card").first().click();
+    await expect(page.getByRole("article", { name: "Paper text" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Library" })).toBeVisible();
+    await audit(page);
+    await page.locator(".reader-strip > summary").click();
+    await expect(page.getByRole("heading", { name: "Why it is here" })).toBeVisible();
+    await audit(page);
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.waitForTimeout(300); // let the 120ms colour transitions finish: axe reads the colours as they are mid-way
     await audit(page);
   });
 });

@@ -1,10 +1,11 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setCsrfToken } from "../api/client";
-import { COLLECTION_ID, collectionOut, fieldDetail, ITEM_ID, ITEM_ID_2, libraryDetail, libraryItem, runOut, session } from "../test/fixtures";
+import { COLLECTION_ID, collectionOut, fieldDetail, ITEM_ID, ITEM_ID_2, libraryDetail, libraryItem, RUN_ID, runOut, session } from "../test/fixtures";
+import { readOrigin } from "../features/reader/origin";
 import { mockApi, type MockHandler } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { eventSentence } from "../features/library/ReadingPane";
@@ -17,6 +18,13 @@ afterEach(() => {
 
 const page = (items = [libraryItem(), libraryItem({ id: ITEM_ID_2, status: "relevant", tags: [], collections: [], red_flag_count: 0, paper: { ...libraryItem().paper, id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", title: "Plaque radiomics on CCTA" } })]) => ({ items, total: items.length, page: 1, page_size: 25 });
 
+/** Stands in for the Reader: shows where it was opened and the origin it was handed. */
+function ReaderProbe() {
+  const { runId, paperId } = useParams();
+  const origin = readOrigin(useLocation().state);
+  return <p>reader {runId}/{paperId} from {origin?.from} back {origin?.back}</p>;
+}
+
 function setup(role: "viewer" | "member" | "admin" = "member", extra: Record<string, MockHandler> = {}, route = "/library") {
   const api = mockApi({
     "GET /api/v1/auth/me": { body: session(role) },
@@ -27,7 +35,13 @@ function setup(role: "viewer" | "member" | "admin" = "member", extra: Record<str
     "GET /api/v1/runs": { body: [runOut({ status: "done" })] },
     ...extra,
   });
-  renderWithProviders(<Routes><Route path="/library" element={<LibraryPage />} /></Routes>, { route });
+  renderWithProviders(
+    <Routes>
+      <Route path="/library" element={<LibraryPage />} />
+      <Route path="/read/:runId/:paperId" element={<ReaderProbe />} />
+    </Routes>,
+    { route },
+  );
   return api;
 }
 
@@ -80,7 +94,7 @@ describe("LibraryPage", () => {
 
   it("opens a paper in the reading pane: abstract, evidence and history", async () => {
     setup();
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     expect(await within(pane).findByText(/We trained a CNN/)).toBeInTheDocument();
     await userEvent.click(within(pane).getByRole("button", { name: "Evidence" }));
@@ -104,7 +118,7 @@ describe("LibraryPage", () => {
         }],
       },
     });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     expect(await within(pane).findByText("No: it was the same hospital.")).toBeInTheDocument();
     expect(within(pane).getByRole("heading", { name: "Reader notes" })).toBeInTheDocument();
@@ -120,7 +134,7 @@ describe("LibraryPage", () => {
         return { body: libraryDetail({ status }) };
       },
     });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     await userEvent.click(await within(pane).findByRole("radio", { name: /Useful/ }));
     expect(within(pane).getByRole("radio", { name: /Useful/ })).toBeChecked();
@@ -131,7 +145,7 @@ describe("LibraryPage", () => {
 
   it("rolls the status back when the server refuses", async () => {
     setup("member", { "PATCH /api/v1/library/:id": { status: 500, body: { code: "internal_error", message: "Unexpected error", request_id: "r" } } });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     await userEvent.click(await within(pane).findByRole("radio", { name: /Rejected/ }));
     expect(await screen.findByText("Unexpected error")).toBeInTheDocument();
@@ -140,7 +154,7 @@ describe("LibraryPage", () => {
 
   it("edits tags, the note and collections", async () => {
     const { calls } = setup("member", { "PATCH /api/v1/library/:id": { body: libraryDetail() } });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     await userEvent.type(await within(pane).findByLabelText("Tags"), "must-read{Enter}");
     await userEvent.type(within(pane).getByLabelText("Note"), "Check the cohort.");
@@ -155,7 +169,7 @@ describe("LibraryPage", () => {
     const confirm = vi.fn(() => true);
     vi.stubGlobal("confirm", confirm);
     const { calls } = setup("member", { "DELETE /api/v1/library/:id": { status: 204 } });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Remove from library" }));
     expect(confirm).toHaveBeenCalled();
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.path.endsWith(ITEM_ID))).toBe(true));
@@ -167,37 +181,52 @@ describe("LibraryPage", () => {
       "GET /api/v1/runs": { body: [runOut({ status: "done" }), runOut({ id: NEWER, status: "done", created_at: "2026-09-30T12:00:00Z" })] },
       "POST /api/v1/library/:id/snapshot": { body: libraryDetail() },
     });
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     await userEvent.click(await within(pane).findByRole("button", { name: "Evidence" }));
     await userEvent.click(await within(pane).findByRole("button", { name: "Update evidence from the newer run" }));
     await waitFor(() => expect(calls.find((c) => c.path.endsWith("/snapshot"))?.body).toEqual({ run_id: NEWER }));
   });
 
-  it("keyboard: j moves, o opens, 3 marks relevant, ? lists the shortcuts", async () => {
+  it("opens a saved paper straight in the Reader, handing it the way back to this library view", async () => {
+    setup("member", {}, "/library?q=ffr");
+    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    expect(await screen.findByText(`reader ${RUN_ID}/${libraryItem().paper.id} from library back /library?q=ffr`)).toBeInTheDocument();
+  });
+
+  it("shows the details of a paper saved without its run instead of the Reader", async () => {
+    setup("member", { "GET /api/v1/library": { body: page([libraryItem({ run_id: null })]) } });
+    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    expect(await screen.findByRole("complementary", { name: "Reading pane" })).toBeInTheDocument();
+  });
+
+  it("keyboard: j moves, d shows details, 3 marks relevant, o reads, ? lists the shortcuts", async () => {
     const { calls } = setup("member", { "PATCH /api/v1/library/:id": { body: libraryDetail({ status: "relevant" }) } });
     await screen.findByRole("list", { name: "Saved papers" });
     await userEvent.keyboard("j");
     expect(screen.getByRole("button", { name: /Plaque radiomics/ })).toHaveFocus();
     await userEvent.keyboard("k");
-    await userEvent.keyboard("o");
+    await userEvent.keyboard("d");
     expect(await screen.findByRole("complementary", { name: "Reading pane" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: /Diagnostic accuracy/ })).toHaveFocus());
     await userEvent.keyboard("3");
     await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ status: "relevant" }));
     await userEvent.keyboard("?");
     expect(screen.getByRole("dialog", { name: "Library shortcuts" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.keyboard("o");
+    expect(await screen.findByText(/^reader .* from library/)).toBeInTheDocument();
   });
 
   it("an empty library says how to fill it", async () => {
     setup("member", { "GET /api/v1/library": { body: page([]) } });
     expect(await screen.findByText("The library is empty")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to Papers" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Go to Results" })).toHaveAttribute("href", "/results");
   });
 
   it("viewers read but cannot change anything", async () => {
     setup("viewer");
-    await userEvent.click(await screen.findByRole("button", { name: /Diagnostic accuracy/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     expect(await within(pane).findByRole("radio", { name: /To read/ })).toBeDisabled();
     expect(within(pane).getByLabelText("Note")).toBeDisabled();

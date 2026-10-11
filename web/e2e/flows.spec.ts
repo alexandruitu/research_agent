@@ -167,7 +167,7 @@ test.describe("member", () => {
     for (const title of titles) await expect(list).toContainText(title.trim());
     await page.getByRole("group", { name: "Status" }).getByRole("button", { name: /Useful/ }).click();
     await expect(list.getByRole("listitem")).toHaveCount(1);
-    await list.getByRole("button").first().click();
+    await list.getByRole("button", { name: "Details" }).first().click();
     const pane = page.getByRole("complementary", { name: "Reading pane" });
     await expect(pane.getByRole("radio", { name: /Useful/ })).toBeChecked();
     await pane.getByRole("button", { name: /History/ }).click();
@@ -180,6 +180,13 @@ test.describe("member", () => {
     expect(response.headers()["content-type"]).toContain("text/csv");
     expect(await response.text()).toContain(titles[0]!.trim().slice(0, 20));
 
+    // a library item opens straight in the Reader, and Back returns to the same filtered view
+    const libraryUrl = page.url();
+    await list.locator(".library-card").first().click();
+    await expect(page).toHaveURL(/\/read\//);
+    await expect(page.getByRole("article", { name: "Paper text" })).toBeVisible();
+    await page.getByRole("link", { name: "Back to Library" }).click();
+    await expect(page).toHaveURL(libraryUrl);
   });
 
   test("keyboard shortcuts on Papers and Library", async ({ page }) => {
@@ -204,7 +211,7 @@ test.describe("member", () => {
     if (await list.count()) {
       await page.locator("h1").click();
       await page.keyboard.press("j");
-      await page.keyboard.press("o");
+      await page.keyboard.press("d");
       await expect(page.getByRole("complementary", { name: "Reading pane" })).toBeVisible();
     }
     await page.keyboard.press("/");
