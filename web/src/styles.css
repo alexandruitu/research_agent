@@ -1310,3 +1310,11 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
 .researcher-group { margin-top: 12px; display: grid; gap: 8px; }
 .matched-by { display: block; font-size: 12px; margin-top: 2px; }
 .match-chip { margin-left: 0; margin-right: 4px; }
+
+/* Topic editor step 1: what kind of search */
+.search-kind { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s3); margin: 0 0 var(--s4); }
+.search-kind__option { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: var(--s3) var(--s4); border: 1px solid var(--rule-2); border-radius: var(--r2); background: var(--card); color: var(--ink); cursor: pointer; }
+.search-kind__option span { font-size: 13px; color: var(--ink-2); font-weight: 400; }
+.search-kind__option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.search-kind__option[aria-pressed="true"] strong::before { content: "✓ "; }
+.search-kind__option:hover { border-color: var(--accent); }

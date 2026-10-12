@@ -198,6 +198,14 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
               {step === 1 && (
                 <section className="step-panel" aria-labelledby="step-1-heading">
                   <h2 id="step-1-heading" tabIndex={-1}>1 · Describe the topic</h2>
+                  <div className="search-kind" role="group" aria-label="What do you want to find?">
+                    <button type="button" className="search-kind__option" aria-pressed={searchTab === "keywords"} onClick={() => setSearchTab("keywords")}>
+                      <strong>Papers on a topic</strong><span>Describe the subject; we suggest keywords and criteria.</span>
+                    </button>
+                    <button type="button" className="search-kind__option" aria-pressed={searchTab === "researcher"} onClick={() => { setSearchTab("researcher"); if (!form.name.trim()) update({ name: "Researcher search" }); goTo(2); }}>
+                      <strong>A researcher and their group{researcher ? " (on)" : ""}</strong><span>Pick a person; we find their papers and their co-authors'.</span>
+                    </button>
+                  </div>
                   <p className="lede">Say what you are looking for as you would to a colleague. We suggest keywords and criteria from it; you choose what to keep.</p>
                   <label className="block">Name<input value={form.name} onChange={(e) => update({ name: e.target.value })} placeholder="e.g. AI plaque on coronary CT" /></label>
                   <label className="block">Description
