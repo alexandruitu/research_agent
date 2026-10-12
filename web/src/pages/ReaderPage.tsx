@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
+import { AuthorDetails } from "../features/authors/AuthorList";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
@@ -162,6 +163,7 @@ export function ReaderPage() {
       <header className="reader-head">
         <p className="reader-back"><Link to={back.to}><span aria-hidden="true">←</span> {back.word}</Link>{data.run_name ? <span className="sub"> · {data.run_name}</span> : null}</p>
         <h1 ref={heading} tabIndex={-1}>{data.paper.title}</h1>
+        <AuthorDetails authors={data.authors} />
         <p className="sub">{data.paper.year ?? ""}{data.paper.doi ? ` · ${data.paper.doi}` : ""} · {data.paper.source_id} · <Link to="/validation">How do we know this is right?</Link></p>
       </header>
       <details className="reader-strip">

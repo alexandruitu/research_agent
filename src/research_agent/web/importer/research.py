@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ...scoring import default_flag_text, flag_problem_text
+from ..authors import store_paper_authors
 from ..callstore import CallIndex, CallStoreError
 from ..db.models import (
     CriterionScore,
@@ -116,6 +117,8 @@ def _import(db, folder, digest, run, state, manifest, created_by):
         for p in state["papers"]
     }
     found_by = {p["id"]: sorted(p.get("sources") or []) for p in state["papers"]}
+    for p in state["papers"]:  # runs from before authors were stored carry none: kept as they are
+        store_paper_authors(db, papers[p["id"]], p.get("authors") or [])
 
     for pid, screen in state["screens"].items():
         if pid not in papers:

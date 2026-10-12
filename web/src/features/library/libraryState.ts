@@ -28,11 +28,15 @@ export function parseLibraryView(search: URLSearchParams): LibraryView {
   const min = Number(search.get("min"));
   if (search.get("min") && Number.isFinite(min) && min >= 0 && min <= 100) params.min_score = min;
   if (search.get("flags") === "true") params.has_red_flags = true;
+  const author = search.get("author");
+  if (author && UUID.test(author)) params.author_id = author;
+  const aname = search.get("aname")?.trim();
+  if (aname) params.author_name = aname.slice(0, 200);
   const item = search.get("item");
   return { itemId: item && UUID.test(item) ? item : null, params };
 }
 
-export type LibraryChange = Partial<Record<"q" | "collection" | "status" | "tag" | "field" | "min" | "flags" | "sort" | "dir" | "page" | "item", string | number | boolean | null>>;
+export type LibraryChange = Partial<Record<"q" | "collection" | "status" | "tag" | "field" | "min" | "flags" | "author" | "aname" | "sort" | "dir" | "page" | "item", string | number | boolean | null>>;
 
 /** New search params; any filter change goes back to page 1 and keeps the open item. */
 export function patchLibraryView(search: URLSearchParams, changes: LibraryChange): URLSearchParams {
@@ -45,6 +49,6 @@ export function patchLibraryView(search: URLSearchParams, changes: LibraryChange
   return next;
 }
 
-export const FILTER_KEYS = ["q", "collection", "status", "tag", "field", "min", "flags"] as const;
+export const FILTER_KEYS = ["q", "collection", "status", "tag", "field", "min", "flags", "author", "aname"] as const;
 
 export const clearFilters = (search: URLSearchParams) => patchLibraryView(search, Object.fromEntries(FILTER_KEYS.map((k) => [k, null])));

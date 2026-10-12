@@ -1103,6 +1103,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/authors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Authors
+         * @description Stored authors whose name contains every typed word: identified ones first, then by paper count.
+         */
+        get: operations["suggest_authors_api_v1_authors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authors/backfill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backfill Status
+         * @description How many papers still lack authors (with a DOI), and the latest backfill job with its summary.
+         */
+        get: operations["backfill_status_api_v1_authors_backfill_get"];
+        put?: never;
+        /**
+         * Start Backfill
+         * @description Queue the backfill (one at a time: an active one is returned instead of a second).
+         */
+        post: operations["start_backfill_api_v1_authors_backfill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authors/{author_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Author */
+        get: operations["get_author_api_v1_authors__author_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runs/{run_id}/papers/{paper_id}/reader": {
         parameters: {
             query?: never;
@@ -1651,6 +1712,48 @@ export interface components {
              */
             mode: "live" | "demo";
         };
+        /**
+         * AuthorOut
+         * @description A paper's author. Identified when it has an ORCID or an OpenAlex id; otherwise a name only (a filter
+         *     on it is a name match, which can include other people with the same name).
+         */
+        AuthorOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Orcid */
+            orcid: string | null;
+            /** Openalex Id */
+            openalex_id: string | null;
+            /** Position */
+            position?: number | null;
+            /** Affiliations */
+            affiliations?: string[];
+        };
+        /** AuthorSuggestionOut */
+        AuthorSuggestionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Orcid */
+            orcid: string | null;
+            /** Openalex Id */
+            openalex_id: string | null;
+            /** Position */
+            position?: number | null;
+            /** Affiliations */
+            affiliations?: string[];
+            /** Paper Count */
+            paper_count: number;
+        };
         /** AvailableModelOut */
         AvailableModelOut: {
             /** Id */
@@ -1663,6 +1766,12 @@ export interface components {
             roles: string[];
             /** In Settings */
             in_settings: boolean;
+        };
+        /** BackfillStatusOut */
+        BackfillStatusOut: {
+            /** Candidates */
+            candidates: number;
+            job: components["schemas"]["JobOut"] | null;
         };
         /** BulkDeleteOut */
         BulkDeleteOut: {
@@ -2089,6 +2198,8 @@ export interface components {
             /** Files */
             files?: components["schemas"]["PaperFileOut"][];
             library?: components["schemas"]["LibraryRef"] | null;
+            /** Authors */
+            authors?: components["schemas"]["AuthorOut"][];
         };
         /** EditorIO */
         EditorIO: {
@@ -2747,6 +2858,10 @@ export interface components {
             updated_at: string;
             /** Can Delete */
             can_delete: boolean;
+            /** Authors */
+            authors?: components["schemas"]["AuthorOut"][];
+            /** Author Count */
+            author_count?: number;
             /** Abstract */
             abstract: string;
             /** Snapshot */
@@ -2799,6 +2914,10 @@ export interface components {
             updated_at: string;
             /** Can Delete */
             can_delete: boolean;
+            /** Authors */
+            authors?: components["schemas"]["AuthorOut"][];
+            /** Author Count */
+            author_count?: number;
         };
         /** LibraryPage */
         LibraryPage: {
@@ -3181,6 +3300,10 @@ export interface components {
             library?: components["schemas"]["LibraryRef"] | null;
             /** Group */
             group?: string | null;
+            /** Authors */
+            authors?: components["schemas"]["AuthorOut"][];
+            /** Author Count */
+            author_count?: number;
         };
         /**
          * PreviewRequest
@@ -3513,6 +3636,8 @@ export interface components {
             highlights: components["schemas"]["ReaderHighlight"][];
             /** Max Selection */
             max_selection: number;
+            /** Authors */
+            authors?: components["schemas"]["AuthorOut"][];
         };
         /** ReaderQuote */
         ReaderQuote: {
@@ -6061,6 +6186,10 @@ export interface operations {
                 provisional?: boolean | null;
                 group_by?: "quality" | "source" | "year" | "decided_by" | "library";
                 group?: string | null;
+                /** @description papers by this stored author */
+                author_id?: string | null;
+                /** @description name match: any author with this normalized name */
+                author_name?: string | null;
             };
             header?: never;
             path: {
@@ -6111,6 +6240,10 @@ export interface operations {
                 provisional?: boolean | null;
                 group_by?: "quality" | "source" | "year" | "decided_by" | "library";
                 group?: string | null;
+                /** @description papers by this stored author */
+                author_id?: string | null;
+                /** @description name match: any author with this normalized name */
+                author_name?: string | null;
             };
             header?: never;
             path: {
@@ -6681,6 +6814,10 @@ export interface operations {
                 field_id?: string | null;
                 min_score?: number | null;
                 has_red_flags?: boolean | null;
+                /** @description items whose paper has this stored author */
+                author_id?: string | null;
+                /** @description name match: any author with this normalized name */
+                author_name?: string | null;
                 sort?: "added_at" | "title" | "year" | "score" | "status";
                 direction?: "asc" | "desc";
                 page?: number;
@@ -6757,6 +6894,10 @@ export interface operations {
                 field_id?: string | null;
                 min_score?: number | null;
                 has_red_flags?: boolean | null;
+                /** @description items whose paper has this stored author */
+                author_id?: string | null;
+                /** @description name match: any author with this normalized name */
+                author_name?: string | null;
                 sort?: "added_at" | "title" | "year" | "score" | "status";
                 direction?: "asc" | "desc";
                 page?: number;
@@ -6906,6 +7047,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryItemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_authors_api_v1_authors_get: {
+        parameters: {
+            query: {
+                /** @description words of the author's name */
+                q: string;
+                /** @description count (and list) only papers of this run */
+                run_id?: string | null;
+                /** @description count (and list) only papers in the team library */
+                library?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorSuggestionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backfill_status_api_v1_authors_backfill_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackfillStatusOut"];
+                };
+            };
+        };
+    };
+    start_backfill_api_v1_authors_backfill_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+        };
+    };
+    get_author_api_v1_authors__author_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                author_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorSuggestionOut"];
                 };
             };
             /** @description Validation Error */

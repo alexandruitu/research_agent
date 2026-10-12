@@ -8,6 +8,7 @@ const SORT = /^(title|year|score|criterion:[a-z0-9_]+)$/;
 const DECISIONS = ["include", "exclude", "uncertain"];
 const TIERS = ["jev", "llm", "rule"];
 const CRITERION_KEY = /^[a-z0-9_]{1,100}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const PAPER_SOURCES: string[] = [...SOURCE_NAMES, "demo"];
 
 /** `groupBy` "none" is the flat list (one pager); any other value shows collapsible groups that page on their own. */
@@ -46,6 +47,10 @@ export function parseView(search: URLSearchParams): PapersView {
   if (provisional !== undefined) params.provisional = provisional;
   const src = search.get("src");
   if (src && PAPER_SOURCES.includes(src)) params.source = src;
+  const author = search.get("author");
+  if (author && UUID.test(author)) params.author_id = author;
+  const aname = search.get("aname")?.trim();
+  if (aname) params.author_name = aname.slice(0, 200);
   let pMin = number(search.get("pmin"), 0, 1);
   let pMax = number(search.get("pmax"), 0, 1);
   if (pMin !== undefined && pMax !== undefined && pMin > pMax) pMin = pMax = undefined; // an inverted range is a 422
@@ -59,6 +64,7 @@ type Changes = Partial<{
   run: string | null; page: number | null; sort: string | null; dir: "asc" | "desc" | null; decision: string | null; tier: string | null;
   escalated: boolean | null; in_sr: boolean | null; pmin: number | null; pmax: number | null; paper: string | null; stage: string | null;
   by: string | null; src: string | null; flags: boolean | null; prov: boolean | null; group: GroupBy | null;
+  author: string | null; aname: string | null;
 }>;
 
 /** Returns new search parameters. Any change other than `page`, `paper` or `stage` goes back to page 1; changing the run closes the panels and drops the criterion filter. */

@@ -8,8 +8,8 @@ export type FilterChip = { label: string; clear: Clear };
 const DECISION: Record<string, string> = { include: "Included", exclude: "Dropped", uncertain: "Unsure" };
 const TIER: Record<string, string> = { jev: "Decided by Jev", llm: "Decided by the LLM", rule: "Not screened" };
 
-/** Each active filter as a removable chip, in words. */
-export function activeFilterChips(view: PapersView, criteria: CriterionOption[]): FilterChip[] {
+/** Each active filter as a removable chip, in words. `authorLabel` names the filtered author (by id). */
+export function activeFilterChips(view: PapersView, criteria: CriterionOption[], authorLabel?: string): FilterChip[] {
   const p = view.params;
   const chips: FilterChip[] = [];
   if (p.decision) chips.push({ label: DECISION[p.decision] ?? p.decision, clear: { decision: null } });
@@ -23,9 +23,11 @@ export function activeFilterChips(view: PapersView, criteria: CriterionOption[])
     chips.push({ label: `Decided by ${criterionLabel(p.decided_by)}${text ? `: ${text.length > 40 ? `${text.slice(0, 40)}…` : text}` : ""}`, clear: { by: null } });
   }
   if (p.source) chips.push({ label: `Source: ${sourceLabel(p.source)}`, clear: { src: null } });
+  if (p.author_id) chips.push({ label: `Author: ${authorLabel ?? "selected author"}`, clear: { author: null } });
+  if (p.author_name) chips.push({ label: `Author named “${p.author_name}” (name match)`, clear: { aname: null } });
   if (p.p_min !== undefined || p.p_max !== undefined) chips.push({ label: `Topic match ${p.p_min ?? 0}–${p.p_max ?? 1}`, clear: { pmin: null, pmax: null } });
   return chips;
 }
 
 export const clearPaperFilters = (search: URLSearchParams) =>
-  patchView(search, { decision: null, tier: null, escalated: null, flags: null, prov: null, in_sr: null, by: null, src: null, pmin: null, pmax: null });
+  patchView(search, { decision: null, tier: null, escalated: null, flags: null, prov: null, in_sr: null, by: null, src: null, pmin: null, pmax: null, author: null, aname: null });

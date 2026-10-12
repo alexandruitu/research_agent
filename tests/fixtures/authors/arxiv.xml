@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+ <opensearch:totalResults>1</opensearch:totalResults>
+ <entry>
+  <id>http://arxiv.org/abs/2401.00001v2</id>
+  <published>2024-01-01T00:00:00Z</published>
+  <title>An arXiv paper</title>
+  <summary>Text.</summary>
+  <author><name>Ana Popescu</name><arxiv:affiliation>Carol Davila University</arxiv:affiliation></author>
+  <author><name>Jon Smith</name></author>
+ </entry>
+</feed>

@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import and_, exists, func, or_, select
 
+from .authors import SHOWN, author_condition, authors_of
 from .db.models import (
     Collection,
     Field,
@@ -51,6 +52,8 @@ class LibraryQuery:
     field_id: object = None
     min_score: float | None = None
     has_red_flags: bool | None = None
+    author_id: object = None  # an author row id
+    author_name: str | None = None  # name match: every author with this normalized name
     sort: str = "added_at"
     direction: str = "desc"
     page: int = 1
@@ -391,6 +394,9 @@ def _filtered(q):
         stmt = stmt.where(LibraryItem.red_flag_count > 0)
     elif q.has_red_flags is False:
         stmt = stmt.where(or_(LibraryItem.red_flag_count.is_(None), LibraryItem.red_flag_count == 0))
+    by_author = author_condition(LibraryItem.paper_id, q.author_id, q.author_name)
+    if by_author is not None:
+        stmt = stmt.where(by_author)
     return stmt
 
 
@@ -424,6 +430,7 @@ def item_dicts(db, rows, user):
     """API shape of library items (LibraryItemOut) for [(item, paper)]."""
     ids = [item.id for item, _ in rows]
     tags, collections = tags_of(db, ids), collections_of(db, ids)
+    people = authors_of(db, [paper.id for _, paper in rows], limit=SHOWN)
     names = {}
     out = []
     for item, paper in rows:
@@ -457,6 +464,8 @@ def item_dicts(db, rows, user):
                 "added_at": item.added_at,
                 "updated_at": item.updated_at,
                 "can_delete": user.role == "admin" or item.added_by == user.id,
+                "authors": people[paper.id]["authors"],
+                "author_count": people[paper.id]["count"],
             }
         )
     return out

@@ -36,6 +36,10 @@ def paper_filters(
     provisional: bool | None = None,
     group_by: GroupBy = "quality",
     group: str | None = Query(None, pattern=r"^[a-z0-9_]+$", max_length=100),
+    author_id: uuid.UUID | None = Query(None, description="papers by this stored author"),
+    author_name: str | None = Query(
+        None, min_length=1, max_length=200, description="name match: any author with this normalized name"
+    ),
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
     settings=Depends(get_settings),
@@ -70,6 +74,8 @@ def paper_filters(
         group_by,
         group,
         provisional,
+        author_id,
+        (author_name or "").strip() or None,
     )
     return run, query
 

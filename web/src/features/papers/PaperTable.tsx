@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { AuthorLine } from "../authors/AuthorList";
 
 import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
@@ -88,6 +89,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                   <button type="button" className="linklike title-clamp" title={row.paper.title} data-open-paper={row.paper.id} onClick={(event) => { event.stopPropagation(); onOpen(row.paper.id); }}>
                     {row.paper.title}
                   </button>
+                  <AuthorLine authors={row.authors} count={row.author_count} />
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
                 </td>
                 <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>

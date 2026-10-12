@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -14,7 +15,7 @@ from typing import NamedTuple, Protocol
 import httpx
 
 from . import ratelimit
-from .schemas import Paper, Source
+from .schemas import Author, Paper, Source
 
 
 def canonical_json(value):
@@ -31,6 +32,100 @@ def plain(value):
 
 def normalize_doi(value):
     return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value.strip(), flags=re.IGNORECASE).lower()
+
+
+ORCID = re.compile(r"(\d{4}-\d{4}-\d{4}-\d{3}[\dX])", re.IGNORECASE)
+
+
+def normalize_orcid(value):
+    """The bare ORCID iD (0000-0002-1825-0097) from a URL or a bare id; "" when there is none."""
+    found = ORCID.search(value or "")
+    return found.group(1).upper() if found else ""
+
+
+def openalex_author_id(value):
+    """`A5023888391` from `https://openalex.org/A5023888391` (or the bare id); "" when it is not one."""
+    tail = (value or "").rstrip("/").rsplit("/", 1)[-1]
+    return tail.upper() if re.fullmatch(r"[Aa]\d+", tail) else ""
+
+
+def normalize_name(value):
+    """A name for matching by name only: accents removed, case folded, punctuation dropped, spaces collapsed.
+    Two people can share it; it never identifies a person."""
+    text = unicodedata.normalize("NFKD", value or "")
+    text = "".join(c for c in text if not unicodedata.combining(c)).casefold()
+    return " ".join(re.sub(r"[^\w\s]", " ", text).replace("_", " ").split())
+
+
+def make_authors(rows):
+    """[Author] from [{name, orcid?, openalex_id?, s2_id?, affiliations?}] in author order; rows without a
+    name are skipped, affiliations deduplicated in order."""
+    out = []
+    for row in rows:
+        name = " ".join(plain(row.get("name")).split())
+        if not name:
+            continue
+        affiliations = []
+        for text in row.get("affiliations") or []:
+            text = " ".join(plain(text).split())
+            if text and text not in affiliations:
+                affiliations.append(text)
+        out.append(
+            Author(
+                name=name,
+                orcid=normalize_orcid(row.get("orcid")),
+                openalex_id=openalex_author_id(row.get("openalex_id")),
+                s2_id=str(row.get("s2_id") or ""),
+                affiliations=affiliations,
+                position=len(out) + 1,
+            )
+        )
+    return out
+
+
+def _richness(authors):
+    identified = sum(1 for a in authors if a.orcid or a.openalex_id)
+    return (identified, len(authors), sum(len(a.affiliations) for a in authors))
+
+
+def merge_authors(lists):
+    """One author list for duplicate records of one work: the richest list (most identified authors, then
+    most authors, then most affiliations) is kept in its order; each of its authors takes identifiers and
+    affiliations it lacks from the same author in another list. "The same author" is the same ORCID or
+    OpenAlex id, else the same normalized full name in the same work; an identifier is never added when it
+    conflicts with one already there."""
+    lists = [authors for authors in lists if authors]
+    if not lists:
+        return []
+    base = max(lists, key=_richness)
+    merged = [a.model_copy(deep=True) for a in base]
+    for other in lists:
+        if other is base:
+            continue
+        for extra in other:
+            match = next(
+                (
+                    a
+                    for a in merged
+                    if (extra.orcid and a.orcid == extra.orcid)
+                    or (extra.openalex_id and a.openalex_id == extra.openalex_id)
+                ),
+                None,
+            ) or next((a for a in merged if normalize_name(a.name) == normalize_name(extra.name)), None)
+            if match is None or any(
+                getattr(match, k) and getattr(extra, k) and getattr(match, k) != getattr(extra, k)
+                for k in ("orcid", "openalex_id")
+            ):
+                continue  # not the same person (or no counterpart in the richer list)
+            for key in ("orcid", "openalex_id", "s2_id"):
+                if not getattr(match, key) and getattr(extra, key):
+                    taken = any(getattr(a, key) == getattr(extra, key) for a in merged)
+                    if not taken:
+                        setattr(match, key, getattr(extra, key))
+            for text in extra.affiliations:
+                if text not in match.affiliations:
+                    match.affiliations.append(text)
+    return merged
 
 
 RETRYABLE = (429, 500, 502, 503, 504)
@@ -224,6 +319,7 @@ class EuropePMC:
             year=str(row.get("pubYear", "")),
             doi=normalize_doi(row.get("doi", "")),
             pmcid=row.get("pmcid") or (rid if source == "PMC" else ""),
+            authors=europepmc_authors(row),
             sources=[self.name],
             provenance=[
                 Source(
@@ -238,6 +334,45 @@ class EuropePMC:
         )
 
 
+def europepmc_authors(row):
+    """Europe PMC `authorList.author` (resultType core): full name, ORCID when present, affiliations."""
+    people = ((row.get("authorList") or {}).get("author")) or []
+    rows = []
+    for person in people:
+        ident = person.get("authorId") or {}
+        details = (person.get("authorAffiliationDetailsList") or {}).get("authorAffiliation") or []
+        rows.append(
+            {
+                "name": " ".join(x for x in (person.get("firstName"), person.get("lastName")) if x)
+                or person.get("fullName")
+                or person.get("collectiveName"),
+                "orcid": ident.get("value") if (ident.get("type") or "").upper() == "ORCID" else "",
+                "affiliations": [d.get("affiliation") for d in details if d.get("affiliation")]
+                or ([person["affiliation"]] if person.get("affiliation") else []),
+            }
+        )
+    return make_authors(rows)
+
+
+def openalex_authors(row):
+    """OpenAlex `authorships`: author id, display name, ORCID, institutions (else raw affiliation strings)."""
+    rows = []
+    for authorship in row.get("authorships") or []:
+        author = authorship.get("author") or {}
+        institutions = [
+            i.get("display_name") for i in authorship.get("institutions") or [] if i.get("display_name")
+        ]
+        rows.append(
+            {
+                "name": author.get("display_name") or authorship.get("raw_author_name"),
+                "orcid": author.get("orcid") or "",
+                "openalex_id": author.get("id") or "",
+                "affiliations": institutions or authorship.get("raw_affiliation_strings") or [],
+            }
+        )
+    return make_authors(rows)
+
+
 def rebuild_abstract(index):
     """OpenAlex ships abstracts as {word: [positions]}; put every word back at its position."""
     if not index:
@@ -250,7 +385,7 @@ def rebuild_abstract(index):
 class OpenAlex:
     name = "openalex"
     endpoint = "https://api.openalex.org/works"
-    select = "id,doi,title,publication_year,abstract_inverted_index"
+    select = "id,doi,title,publication_year,abstract_inverted_index,authorships"
 
     def __init__(self, store, client=None, years=None, contact=None):
         self.store = store
@@ -306,6 +441,7 @@ class OpenAlex:
             abstract=rebuild_abstract(row.get("abstract_inverted_index")),
             year=str(row.get("publication_year") or ""),
             doi=normalize_doi(row.get("doi") or ""),
+            authors=openalex_authors(row),
             sources=[self.name],
             provenance=[
                 Source(
@@ -388,6 +524,13 @@ class ArXiv:
             abstract=" ".join(entry.findtext("a:summary", default="", namespaces=ATOM).split()),
             year=entry.findtext("a:published", default="", namespaces=ATOM)[:4],
             doi=normalize_doi(entry.findtext("arxiv:doi", default="", namespaces=ATOM)),
+            authors=make_authors(
+                {
+                    "name": node.findtext("a:name", default="", namespaces=ATOM),
+                    "affiliations": [a.text or "" for a in node.findall("arxiv:affiliation", ATOM)],
+                }
+                for node in entry.findall("a:author", ATOM)
+            ),
             sources=[self.name],
             provenance=[
                 Source(
@@ -610,6 +753,7 @@ def deduplicate(papers):
         primary.doi = next((p.doi for p in group if p.doi), "")
         for kind in CROSS_IDS:
             setattr(primary, kind, next((getattr(p, kind) for p in group if getattr(p, kind)), ""))
+        primary.authors = merge_authors([p.authors for p in sorted(group, key=lambda p: p.id)])
         primary.sources = sorted({s for p in group for s in p.sources})
         sources = {canonical_json(s.model_dump()): s for p in group for s in p.provenance}
         primary.provenance = [sources[k] for k in sorted(sources)]

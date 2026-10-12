@@ -48,11 +48,12 @@ def environment(database_url, base):
 
 
 def build_dataset(base):
-    """A demo research run and a toy eval set (paper MED:3 is in the SR and dropped by Jev)."""
-    from web_fixtures import make_demo_run, make_eval_run
+    """A demo research run (synthetic authors on demo:1-3) and a toy eval set (paper MED:3 is in the SR and
+    dropped by Jev)."""
+    from web_fixtures import add_authors, make_demo_run, make_eval_run
 
     base = Path(base)
-    make_demo_run(base / "runs" / "demo")
+    add_authors(make_demo_run(base / "runs" / "demo"))  # synthetic authors on demo:1-3
     make_eval_run(base)  # writes base/evals/toy and base/gold/toy.json
 
 

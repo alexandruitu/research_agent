@@ -1,0 +1,9 @@
+{"hitCount": 1, "resultList": {"result": [
+ {"source": "MED", "id": "123", "pmid": "123", "title": "A study", "pubYear": "2023", "doi": "10.1000/e1", "abstractText": "Abstract.",
+  "authorList": {"author": [
+   {"fullName": "Popescu A", "firstName": "Ana", "lastName": "Popescu", "authorId": {"type": "ORCID", "value": "0000-0002-1825-0097"},
+    "authorAffiliationDetailsList": {"authorAffiliation": [{"affiliation": "Carol Davila University, Bucharest"}]}},
+   {"fullName": "Smith J", "firstName": "Jon", "lastName": "Smith"},
+   {"collectiveName": "CT-FFR Consortium"}
+  ]}}
+]}}

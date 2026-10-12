@@ -567,12 +567,12 @@ def _fold(text):
     return "".join(folded), starts, ends
 
 
-HIDDEN = ("sources", "pmcid")
+HIDDEN = ("sources", "pmcid", "authors")
 
 
 def without_sources(payload):
-    """Which connectors found a paper, and its PMC id, are provenance, not evidence: they never reach a
-    model or a cache key (so adding them left existing caches valid)."""
+    """Which connectors found a paper, its PMC id and its authors are provenance, not evidence: they never
+    reach a model or a cache key (so adding them left existing caches valid)."""
     paper = payload.get("paper") if isinstance(payload, dict) else None
     if isinstance(paper, dict) and any(k in paper for k in HIDDEN):
         return {**payload, "paper": {k: v for k, v in paper.items() if k not in HIDDEN}}

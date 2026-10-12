@@ -3,6 +3,9 @@ import type { components } from "./schema";
 type S = components["schemas"];
 
 export type UserOut = S["UserOut"];
+export type AuthorOut = S["AuthorOut"];
+export type AuthorSuggestionOut = S["AuthorSuggestionOut"];
+export type BackfillStatusOut = S["BackfillStatusOut"];
 export type UserReferencesOut = S["UserReferencesOut"];
 export type UserDeleteOut = S["UserDeleteOut"];
 export type SessionOut = S["SessionOut"];

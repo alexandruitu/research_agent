@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AuthorDetails } from "../authors/AuthorList";
 import { Link, useLocation } from "react-router-dom";
 import { readerState } from "../reader/origin";
 
@@ -153,6 +154,7 @@ export function PaperDrawer({ runId, paperId, onClose, detailsOpen = true }: { r
         <>
           <p className="drawer-why"><span className="sr-only">Why: </span>{drawerWhy(paper.data)}</p>
           <p className="sub">{paper.data.paper.year ?? ""} · {paper.data.paper.source_id}{paper.data.paper.doi ? ` · ${paper.data.paper.doi}` : ""}</p>
+          <AuthorDetails authors={paper.data.authors} />
           <div role="group" aria-label="Drawer sections" className="sections">
             <button type="button" aria-pressed={section === "overview"} onClick={() => setSection("overview")}>Overview</button>
             <button type="button" aria-pressed={section === "abstract"} onClick={() => setSection("abstract")}>Abstract</button>

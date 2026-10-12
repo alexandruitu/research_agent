@@ -145,7 +145,7 @@ def test_openalex_request_parameters(tmp_path):
     assert with_all["search"] == "ct ffr" and with_all["per-page"] == "200"
     assert with_all["filter"] == "from_publication_date:2018-01-01,to_publication_date:2024-12-31"
     assert with_all["mailto"] == "team@example.org"
-    assert with_all["select"] == "id,doi,title,publication_year,abstract_inverted_index"
+    assert with_all["select"] == "id,doi,title,publication_year,abstract_inverted_index,authorships"
     assert (
         "filter" not in plain_request and "mailto" not in plain_request and plain_request["per-page"] == "20"
     )

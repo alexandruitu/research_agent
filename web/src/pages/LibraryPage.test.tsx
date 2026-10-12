@@ -274,3 +274,20 @@ describe("history sentences", () => {
     expect(eventSentence({ id: "3", kind: "snapshot", detail: {}, user_name: "Ada", created_at: at })).toBe("Ada updated the evidence from a newer run.");
   });
 });
+
+describe("Library author filter", () => {
+  it("a name filter from the URL is sent as author_name, shown as a name-match chip with its note, and cleared", async () => {
+    const { calls } = setup("member", {}, "/library?aname=Jon%20Smith");
+    expect(await screen.findByRole("note")).toHaveTextContent("Author “Jon Smith”: name match — may include other people with this name.");
+    await waitFor(() => expect(lastSearch(calls).get("author_name")).toBe("Jon Smith"));
+    await userEvent.click(screen.getByRole("button", { name: /Author named “Jon Smith” \(name match\)/ }));
+    await waitFor(() => expect(lastSearch(calls).get("author_name")).toBeNull());
+  });
+
+  it("the typeahead counts papers in the library only", async () => {
+    const { calls } = setup("member", { "GET /api/v1/authors": { body: [] } });
+    await userEvent.type(await screen.findByRole("combobox", { name: "Author" }), "jon");
+    await waitFor(() => expect(calls.some((c) => c.path === "/api/v1/authors" && new URLSearchParams(c.search).get("library") === "true")).toBe(true));
+  });
+});
+

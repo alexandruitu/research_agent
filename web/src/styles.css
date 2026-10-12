@@ -1282,3 +1282,23 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
   .reader-mark--focus.is-lit { animation: none; }
   .map-building__bar { animation: none; }
 }
+
+/* Authors: a line on rows and cards, the full list in the drawer / Reader / library pane, the filter typeahead. */
+.author-line { display: block; color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
+.author-details { list-style: none; margin: var(--s2) 0; padding: 0; font-size: 13px; display: flex; flex-wrap: wrap; gap: 2px var(--s3); }
+.author-details li { display: inline; }
+.author-details .sub { display: inline; }
+.author-id { font-size: 11px; color: var(--accent); }
+.authors-missing { margin: var(--s2) 0; }
+.author-filter { position: relative; display: inline-flex; flex-direction: column; gap: 2px; }
+.author-filter input { min-width: 14rem; }
+.author-suggestions { position: absolute; top: 100%; left: 0; z-index: 20; min-width: 22rem; max-height: 18rem; overflow: auto; margin: 2px 0 0; padding: var(--s1) 0; list-style: none; background: var(--card); border: 1px solid var(--rule-2); border-radius: var(--r2); box-shadow: var(--shadow-lift); }
+.author-suggestions li { padding: var(--s1) var(--s3); cursor: pointer; font-size: 13px; }
+.author-suggestions li.is-active, .author-suggestions li:hover { background: var(--accent-wash); }
+.author-suggestions .sub { display: inline; }
+.author-by-name { border-top: 1px solid var(--rule); }
+.author-badge { font-size: 11px; padding: 0 var(--s1); border-radius: var(--r1); border: 1px solid var(--rule-2); }
+.author-badge--id { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-line); }
+.author-badge--name { background: var(--neutral-bg); color: var(--neutral-fg); }
+.author-note { max-width: 32rem; }
+.authors-backfill { margin-top: var(--s5); }

@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from ... import reader as svc
 from ... import related
+from ...authors import authors_of
 from ...db.models import Job, LibraryItem, Paper, PaperMap, ReaderNote, Run, Screening, User
 from ...jobs import enqueue
 from ...papers import PaperQuery, _filtered
@@ -63,6 +64,7 @@ def get_reader(
         "text": {k: text[k] for k in ("kind", "source", "licence", "truncated", "sections")},
         "highlights": svc.highlights(db, run, paper),
         "max_selection": svc.MAX_SELECTION,
+        "authors": authors_of(db, [paper.id])[paper.id]["authors"],
     }
 
 

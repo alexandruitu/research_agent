@@ -1,5 +1,6 @@
 import type { LibraryItemOut } from "../../api/types";
 import { StatusMark } from "../../components/ui/StatusMark";
+import { AuthorLine } from "../authors/AuthorList";
 
 type Props = { items: LibraryItemOut[]; openId: string | null; cursorId: string | null; onOpen: (item: LibraryItemOut) => void; onDetails: (id: string) => void };
 
@@ -16,6 +17,7 @@ export function LibraryList({ items, openId, cursorId, onOpen, onDetails }: Prop
               {item.red_flag_count ? <span className="flag-word"><span aria-hidden="true">⚑</span> {item.red_flag_count} red flag{item.red_flag_count === 1 ? "" : "s"}</span> : null}
             </span>
             <span className="card-title" id={`card-title-${item.id}`}>{item.paper.title}</span>
+            <AuthorLine authors={item.authors} count={item.author_count} />
             <span className="card-meta">
               {[item.paper.year, item.field?.name, item.added_by_name && `saved by ${item.added_by_name}`].filter(Boolean).join(" · ")}
             </span>

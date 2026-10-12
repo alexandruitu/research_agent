@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { AuthorDetails } from "../authors/AuthorList";
 import { Link } from "react-router-dom";
 
 import { ApiError } from "../../api/client";
@@ -146,6 +147,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             Saved by {data.added_by_name ?? "unknown"} on {shortDate(data.added_at)}{data.field ? ` from ${data.field.name}${data.field.version ? ` v${data.field.version}` : ""}` : ""}
             {data.run_id && <> · <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
           </p>
+          <AuthorDetails authors={data.authors} />
           <div role="group" aria-label="Reading pane sections" className="sections">
             <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")}>Overview</button>
             <button type="button" aria-pressed={tab === "evidence"} onClick={() => setTab("evidence")}>Evidence</button>

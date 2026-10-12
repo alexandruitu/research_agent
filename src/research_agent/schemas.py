@@ -360,6 +360,27 @@ class Source(Model):
     raw_sha256: str
 
 
+class Author(Model):
+    """One author of a paper, as a source gave it. Identity is only by identifier (ORCID, OpenAlex id); a name
+    alone never identifies a person. `position` is 1-based author order; `s2_id` (Semantic Scholar) is kept for
+    later author search, not for identity. Empty identifiers are left out of dumps."""
+
+    name: str
+    orcid: str = ""
+    openalex_id: str = ""
+    s2_id: str = ""
+    affiliations: list[str] = Field(default_factory=list)
+    position: int = Field(ge=1)
+
+    @model_serializer(mode="wrap")
+    def _without_empty(self, handler):
+        data = handler(self)
+        for key in ("orcid", "openalex_id", "s2_id"):
+            if not data.get(key):
+                data.pop(key, None)
+        return data
+
+
 class Paper(Model):
     id: str
     title: str
@@ -373,6 +394,9 @@ class Paper(Model):
     pmid: str = ""
     arxiv: str = ""
     s2: str = ""
+    # Authors (empty when the source gave none). Left out of dumps when empty, and never sent to a model
+    # (agents.HIDDEN), so cache keys of existing and new runs are unchanged.
+    authors: list[Author] = Field(default_factory=list)
 
     @model_serializer(mode="wrap")
     def _without_empty_ids(self, handler):
@@ -383,7 +407,7 @@ class Paper(Model):
         return data
 
 
-PAPER_OPTIONAL_IDS = ("pmid", "arxiv", "s2")
+PAPER_OPTIONAL_IDS = ("pmid", "arxiv", "s2", "authors")
 
 
 class Screen(Model):

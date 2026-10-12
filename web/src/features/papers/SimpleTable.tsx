@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { AuthorLine } from "../authors/AuthorList";
 
 import type { PaperRow } from "../../api/types";
 import { QualityCell } from "./cells";
@@ -61,6 +62,7 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
                   <button type="button" id={`title-${row.paper.id}`} className="linklike title-clamp" title={row.paper.title} data-open-paper={row.paper.id} onClick={(event) => { event.stopPropagation(); onOpen(row.paper.id); }}>
                     {row.paper.title}
                   </button>
+                  <AuthorLine authors={row.authors} count={row.author_count} />
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
                 </td>
                 <td className="col-group"><QualityCell group={group} /></td>

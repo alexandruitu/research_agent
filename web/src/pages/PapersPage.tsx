@@ -4,7 +4,7 @@ import { FlowStepper } from "../components/FlowStepper";
 
 import { ApiError } from "../api/client";
 import type { PaperRow } from "../api/types";
-import { useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
+import { useAuthor, useFieldVersion, usePapers, useRun, useRuns, useStages } from "../api/hooks";
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -33,6 +33,8 @@ import { PartialSearchBanner } from "../features/runs/SearchWarnings";
 import { useSaveFlow } from "../features/library/saveFlow";
 import { newestFirst, runOption } from "../features/runs/runWords";
 import { Term } from "../components/ui/Term";
+import { AuthorFilter } from "../features/authors/AuthorFilter";
+import { identityWords } from "../features/authors/authors";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
 
@@ -87,6 +89,7 @@ export function PapersPage() {
     ? groupOrder.keys.filter((key) => !groupOrder.collapsed.has(key)).flatMap((key) => groupRows[key] ?? [])
     : (papers.data?.items ?? []);
   const stages = useStages();
+  const author = useAuthor(view.params.author_id);
   const version = useFieldVersion(selected?.field_id ?? null, selected?.field_version ?? null);
   // A run's criteria come from its field version; without one, from the keys the rows carry.
   const criteria: CriterionOption[] = version.data
@@ -168,7 +171,7 @@ export function PapersPage() {
       cursorId={cursor}
     />
   );
-  const chips = activeFilterChips(view, criteria);
+  const chips = activeFilterChips(view, criteria, author.data ? `${author.data.name} (${identityWords(author.data)})` : undefined);
 
   const counts = run.data?.counts;
   const total = papers.data?.total ?? 0;
@@ -224,7 +227,9 @@ export function PapersPage() {
       )}
       {saving && <SaveDialog count={Math.max(1, selectedIds.size)} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
       {help && <ShortcutsHelp title="Results shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
-      <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)} />
+      <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)}>
+        <AuthorFilter authorId={view.params.author_id} authorName={view.params.author_name} scope={{ run_id: runId }} onChange={(next) => change(next)} />
+      </FilterBar>
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">
           {chips.map((chip) => (

@@ -28,6 +28,7 @@ function setup(role: "viewer" | "member" | "admin", route: string, extra: Parame
     "GET /api/v1/reviewers": { body: reviewerRows() },
     "GET /api/v1/models/available": { body: modelsAvailable() },
     "GET /api/v1/evals": { body: [evalSummary()] },
+    "GET /api/v1/authors/backfill": { body: { candidates: 0, job: null } },
     ...extra,
   });
   renderWithProviders(
@@ -334,3 +335,30 @@ describe("Settings → AI models (choices)", () => {
     expect(await screen.findByRole("combobox", { name: "Model for Plan" })).toBeDisabled();
   });
 });
+
+describe("Authors backfill (Settings → Sources)", () => {
+  it("admins start the OpenAlex lookup and see its progress and summary in words", async () => {
+    let polls = 0;
+    const { calls } = setup("admin", "/settings/sources", {
+      "GET /api/v1/authors/backfill": { body: { candidates: 12, job: null } },
+      "POST /api/v1/authors/backfill": { status: 202, body: jobOut({ kind: "authors_backfill", status: "queued" }) },
+      "GET /api/v1/jobs/:id": () => {
+        polls += 1;
+        return { body: jobOut({ kind: "authors_backfill", status: "done", progress: { status: "done", result: { total: 12, done: 12, updated: 9, not_found: 2, no_authors: 1, failed: 0 } } }) };
+      },
+    });
+    expect(await screen.findByText("12 papers with a DOI have no authors stored.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Look up missing authors" }));
+    expect(calls.some((c) => c.method === "POST" && c.path === "/api/v1/authors/backfill")).toBe(true);
+    expect(await screen.findByText("Done: 12 of 12 looked up · 9 updated · 2 not in OpenAlex · 1 without authors there · 0 failed")).toBeInTheDocument();
+    expect(polls).toBeGreaterThan(0);
+  });
+
+  it("is not shown to non-admins", async () => {
+    const { calls } = setup("viewer", "/settings/sources");
+    await screen.findByRole("heading", { name: "Sources" });
+    expect(screen.queryByRole("heading", { name: "Authors" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.path === "/api/v1/authors/backfill")).toBe(false);
+  });
+});
+

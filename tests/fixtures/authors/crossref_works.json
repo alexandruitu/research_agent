@@ -1,0 +1,9 @@
+{"status": "ok", "message": {"total-results": 1, "items": [
+ {"DOI": "10.1000/C1", "title": ["Crossref paper"], "issued": {"date-parts": [[2021, 5]]}, "type": "journal-article",
+  "author": [
+   {"given": "Ana", "family": "Popescu", "sequence": "first", "ORCID": "http://orcid.org/0000-0002-1825-0097", "authenticated-orcid": false,
+    "affiliation": [{"name": "Carol Davila University"}]},
+   {"given": "Jon", "family": "Smith", "sequence": "additional", "affiliation": []},
+   {"name": "The CT-FFR Group", "sequence": "additional", "affiliation": []}
+  ]}
+]}}

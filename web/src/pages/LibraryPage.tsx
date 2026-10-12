@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
-import { exportUrl, useCollections, useFields, useLibrary } from "../api/hooks";
+import { exportUrl, useAuthor, useCollections, useFields, useLibrary } from "../api/hooks";
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -17,6 +17,8 @@ import { useStatusChange } from "../features/library/optimistic";
 import { ReadingPane } from "../features/library/ReadingPane";
 import { readerState } from "../features/reader/origin";
 import type { LibraryItemOut } from "../api/types";
+import { AuthorFilter } from "../features/authors/AuthorFilter";
+import { identityWords } from "../features/authors/authors";
 
 const SORT_LABEL: Record<string, string> = { added_at: "Date saved", title: "Title", year: "Year", score: "Score", status: "Status" };
 export const LIBRARY_SHORTCUTS = [
@@ -42,6 +44,7 @@ export function LibraryPage() {
   const collections = useCollections();
   const fields = useFields();
   const status = useStatusChange();
+  const author = useAuthor(params.author_id);
   const [cursor, setCursor] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
   const [manage, setManage] = useState(false);
@@ -99,6 +102,8 @@ export function LibraryPage() {
     params.field_id ? { label: `Topic: ${fieldName(params.field_id)}`, clear: { field: null } } : null,
     params.min_score != null ? { label: `Score ≥ ${params.min_score}`, clear: { min: null } } : null,
     params.has_red_flags ? { label: "Has red flags", clear: { flags: null } } : null,
+    params.author_id ? { label: `Author: ${author.data ? `${author.data.name} (${identityWords(author.data)})` : "selected author"}`, clear: { author: null } } : null,
+    params.author_name ? { label: `Author named “${params.author_name}” (name match)`, clear: { aname: null } } : null,
   ] as (Chip | null)[]).filter((c): c is Chip => c !== null);
   const tags = [...new Set(items.flatMap((i) => i.tags))].sort();
   if (params.tag && !tags.includes(params.tag)) tags.unshift(params.tag);
@@ -163,6 +168,7 @@ export function LibraryPage() {
           <input type="number" min={0} max={100} step={5} value={params.min_score ?? ""} onChange={(e) => change({ min: e.target.value === "" ? null : Number(e.target.value) })} />
         </label>
         <button type="button" aria-pressed={!!params.has_red_flags} onClick={() => change({ flags: params.has_red_flags ? null : true })}><span aria-hidden="true">⚑</span> Has red flags</button>
+        <AuthorFilter authorId={params.author_id} authorName={params.author_name} scope={{ library: true }} onChange={(next) => change(next)} />
       </div>
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">

@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<PubmedArticleSet>
+<PubmedArticle>
+ <MedlineCitation Status="MEDLINE" Owner="NLM">
+  <PMID Version="1">999</PMID>
+  <Article PubModel="Print">
+   <Journal><JournalIssue><PubDate><Year>2020</Year></PubDate></JournalIssue></Journal>
+   <ArticleTitle>PubMed paper</ArticleTitle>
+   <Abstract><AbstractText>Text.</AbstractText></Abstract>
+   <AuthorList CompleteYN="Y">
+    <Author ValidYN="Y"><LastName>Popescu</LastName><ForeName>Ana</ForeName><Initials>A</Initials>
+     <Identifier Source="ORCID">0000-0002-1825-0097</Identifier>
+     <AffiliationInfo><Affiliation>Carol Davila University, Bucharest, Romania.</Affiliation></AffiliationInfo>
+    </Author>
+    <Author ValidYN="Y"><LastName>Smith</LastName><ForeName>Jon</ForeName><Initials>J</Initials></Author>
+    <Author ValidYN="Y"><CollectiveName>CT-FFR Consortium</CollectiveName></Author>
+   </AuthorList>
+  </Article>
+ </MedlineCitation>
+ <PubmedData><ArticleIdList><ArticleId IdType="pubmed">999</ArticleId><ArticleId IdType="doi">10.1000/p1</ArticleId></ArticleIdList></PubmedData>
+</PubmedArticle>
+</PubmedArticleSet>

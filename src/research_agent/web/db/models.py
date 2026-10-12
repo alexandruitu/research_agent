@@ -117,6 +117,32 @@ class Paper(Base):
     created_at: Mapped[datetime] = created()
 
 
+class Author(Base):
+    """A person as the sources name them. Identity is by identifier only: one row per ORCID and per OpenAlex
+    author id. A name-only author (no identifier) is one row per normalized name, never merged into an
+    identified author: filtering by it is a "name match" that can include other people with that name."""
+
+    __tablename__ = "authors"
+    id: Mapped[uuid.UUID] = pk()
+    name: Mapped[str] = mapped_column(String(300))
+    normalized_name: Mapped[str] = mapped_column(String(300), index=True)
+    orcid: Mapped[str | None] = mapped_column(String(19), unique=True, nullable=True)
+    openalex_id: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True)
+    created_at: Mapped[datetime] = created()
+
+
+class PaperAuthor(Base):
+    """A paper's author at one position (1-based), with the affiliations given for this paper."""
+
+    __tablename__ = "paper_authors"
+    paper_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("papers.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    author_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authors.id"), index=True)
+    affiliations: Mapped[list] = mapped_column(JSONB, default=list)
+
+
 class GoldSet(Base):
     __tablename__ = "gold_sets"
     id: Mapped[uuid.UUID] = pk()

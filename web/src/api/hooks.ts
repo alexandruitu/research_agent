@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, uploadFile } from "./client";
 import type {
+  AuthorSuggestionOut, BackfillStatusOut,
   AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserDeleteOut, UserOut, UserReferencesOut, WorkerStatusOut,
@@ -11,6 +12,8 @@ export type PaperParams = {
   page: number; page_size: number; sort: string; direction: "asc" | "desc";
   decision?: string; tier?: string; escalated?: boolean; in_sr?: boolean; criterion?: string; p_min?: number; p_max?: number;
   decided_by?: string; source?: string; has_red_flags?: boolean; provisional?: boolean;
+  /** A stored author (identified person or one name-only row), or a name match on any author with that name. */
+  author_id?: string; author_name?: string;
   /** One group of one dimension (rows of that group only). */
   group_by?: GroupDimension; group?: string;
 };
@@ -66,10 +69,17 @@ export const keys = {
   reader: (runId: string, paperId: string) => ["reader", runId, paperId] as const,
   paperNotes: (paperId: string) => ["paper-notes", paperId] as const,
   paperMap: (runId: string, paperId: string) => ["paper-map", runId, paperId] as const,
+  authorSuggestions: (q: string, scope: AuthorScope) => ["authors", "suggest", q, scope] as const,
+  author: (id: string) => ["authors", "one", id] as const,
+  authorsBackfill: ["authors", "backfill"] as const,
 };
+
+/** Where the typeahead counts papers: one run (Results), the team library, or everything stored. */
+export type AuthorScope = { run_id?: string; library?: boolean };
 
 export type LibraryParams = {
   q?: string; collection_id?: string; status?: string; tag?: string; field_id?: string; min_score?: number; has_red_flags?: boolean;
+  author_id?: string; author_name?: string;
   sort?: string; direction?: "asc" | "desc"; page?: number; page_size?: number;
 };
 
@@ -601,3 +611,17 @@ export function useSaveNote(runId: string, paperId: string) {
     onSuccess: () => void client.invalidateQueries({ queryKey: keys.paperNotes(paperId) }),
   });
 }
+
+/* ---------- authors ---------- */
+
+/** Stored authors whose name contains every typed word (from 2 characters). */
+export const useAuthorSuggestions = (q: string, scope: AuthorScope) =>
+  useQuery({
+    queryKey: keys.authorSuggestions(q, scope), enabled: q.trim().length >= 2, placeholderData: keepPreviousData, staleTime: 30_000,
+    queryFn: () => api.get<AuthorSuggestionOut[]>("/authors", { q: q.trim(), ...scope, limit: 8 }),
+  });
+export const useAuthor = (id: string | null | undefined) =>
+  useQuery({ queryKey: keys.author(id ?? ""), enabled: !!id, retry: false, staleTime: Infinity, queryFn: () => api.get<AuthorSuggestionOut>(`/authors/${id}`) });
+export const useBackfillStatus = (enabled: boolean) =>
+  useQuery({ queryKey: keys.authorsBackfill, enabled, queryFn: () => api.get<BackfillStatusOut>("/authors/backfill") });
+export const useStartBackfill = () => useMutation({ mutationFn: () => api.post<JobOut>("/authors/backfill") });

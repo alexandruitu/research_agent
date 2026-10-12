@@ -320,6 +320,26 @@ API: `PaperRow.group`; `GET /runs/{id}/papers?group_by=…&group=<key>`;
 `GET /runs/{id}/papers/groups?by=quality|source|year|decided_by|library` (+ the list's filters) →
 `[{key, label, count, rule}]`. A paper found by several sources is counted in each source group.
 
+## Authors (spec 2026-10-12, steps 1–2)
+
+Connectors fill `Paper.authors` (`{name, orcid?, openalex_id?, s2_id?, affiliations, position}`): OpenAlex,
+Semantic Scholar, Europe PMC (and medRxiv/bioRxiv), PubMed, Crossref, arXiv; dedup keeps the richest list and
+fills identifiers it lacks without overwriting conflicting ones. Authors are left out of dumps when empty and
+never reach a model or a cache key (`agents.HIDDEN`), so existing runs resume unchanged.
+
+Tables `authors` (one row per ORCID / OpenAlex id; a name-only author is one row per normalized name, never
+merged into an identified one) and `paper_authors` (position, affiliations), migration 0015. The importer
+stores a run's authors; a run without authors leaves stored ones alone. **Backfill:** Settings → Sources →
+Authors (admin) queues `authors_backfill`: papers with a DOI and no authors are looked up in OpenAlex
+(`/works/https://doi.org/<doi>`, shared OpenAlex rate bucket, `mailto` = the contact address); progress and
+result `{total, done, updated, not_found, no_authors, failed}`.
+
+API: `PaperRow.authors` (first 3) + `author_count`, `DrawerOut.authors`, `ReaderOut.authors`,
+`LibraryItemOut.authors` + `author_count`; filters `author_id=<uuid>` or `author_name=<text>` (normalized
+name match: every author with that name) on `/runs/{id}/papers`, `/papers/groups`, `/library` and its export;
+`GET /authors?q=&run_id=&library=` (typeahead, identified first, with paper counts), `GET /authors/{id}`,
+`GET|POST /authors/backfill`. URL: `author=<uuid>` or `aname=<text>` on Results and Library.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19

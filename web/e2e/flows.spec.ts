@@ -65,6 +65,45 @@ test.describe("viewer", () => {
     await expect(page.getByRole("group", { name: "Active filters" })).toContainText("Only escalated");
   });
 
+  test("authors: shown on rows and in the drawer, filtered by person (in the URL) or by name match", async ({ page }) => {
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /retrieval augmented generation/ }).first().getByRole("link", { name: /^Results of / }).click();
+    await page.getByRole("button", { name: "Simple", exact: true }).click();
+    await page.getByRole("combobox", { name: "Group by" }).selectOption({ label: "None (flat list)" });
+    const first = page.getByRole("row", { name: /demo:1\b/ });
+    await expect(first).toContainText("Ana Popescu, Jon Smith, Third Author et al.");
+
+    const author = page.getByRole("combobox", { name: "Author" });
+    await author.fill("popescu");
+    await page.getByRole("option", { name: /Ana Popescu ORCID · OpenAlex 2 papers/ }).click();
+    await expect(page).toHaveURL(/author=[0-9a-f-]{36}/);
+    await expect(page.getByRole("group", { name: "Active filters" })).toContainText("Author: Ana Popescu (ORCID · OpenAlex)");
+    await expect(page.locator("[data-open-paper]")).toHaveCount(2);
+    await page.reload();
+    await expect(page.locator("[data-open-paper]")).toHaveCount(2);
+
+    await page.getByRole("button", { name: /^Author: Ana Popescu/ }).click();
+    await author.fill("Jon Smith");
+    await author.press("Enter");
+    await expect(page).toHaveURL(/aname=Jon\+Smith|aname=Jon%20Smith/);
+    await expect(page.getByRole("note")).toContainText("name match — may include other people with this name");
+    await expect(page.locator("[data-open-paper]")).toHaveCount(3);
+
+    await page.locator('[data-open-paper]').first().click();
+    const drawer = page.getByRole("complementary", { name: "Paper details" });
+    await expect(drawer.getByRole("list", { name: "Authors" })).toBeVisible();
+  });
+
+  test("Papers drawer: an ORCID link opens orcid.org in a new tab", async ({ page }) => {
+    await page.goto("/screening");
+    await page.getByRole("row", { name: /retrieval augmented generation/ }).first().getByRole("link", { name: /^Results of / }).click();
+    await page.getByRole("combobox", { name: "Group by" }).selectOption({ label: "None (flat list)" });
+    await page.getByRole("row", { name: /demo:1\b/ }).locator("[data-open-paper]").click();
+    const link = page.getByRole("complementary", { name: "Paper details" }).getByRole("link", { name: /ORCID 0000-0002-1825-0097 of Ana Popescu/ });
+    await expect(link).toHaveAttribute("href", "https://orcid.org/0000-0002-1825-0097");
+    await expect(link).toHaveAttribute("target", "_blank");
+  });
+
   test("System map: a stage is measured only with a measurement", async ({ page }) => {
     await page.goto("/validation/system");
     await expect(page.getByRole("button", { name: /^Search/ })).toHaveAttribute("data-status", "measured");

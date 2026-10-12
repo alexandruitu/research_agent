@@ -931,6 +931,27 @@ class RevealOut(Model):
     compared: int
 
 
+class AuthorOut(Model):
+    """A paper's author. Identified when it has an ORCID or an OpenAlex id; otherwise a name only (a filter
+    on it is a name match, which can include other people with the same name)."""
+
+    id: uuid.UUID
+    name: str
+    orcid: str | None  # bare iD, e.g. 0000-0002-1825-0097 (link: https://orcid.org/<iD>)
+    openalex_id: str | None  # e.g. A5023888391 (link: https://openalex.org/<id>)
+    position: int | None = None  # 1-based author order on this paper; null outside a paper
+    affiliations: list[str] = Field(default_factory=list)  # as given for this paper
+
+
+class AuthorSuggestionOut(AuthorOut):
+    paper_count: int  # papers with this author (within the run or library asked for, when given)
+
+
+class BackfillStatusOut(Model):
+    candidates: int  # papers with a DOI and no stored authors
+    job: "JobOut | None"  # the latest authors backfill job, if any
+
+
 class PaperRef(Model):
     id: uuid.UUID
     source_id: str
@@ -993,6 +1014,8 @@ class PaperRow(Model):
             "provisional",
             "checklist_answered",
             "checklist_total",
+            "authors",
+            "author_count",
         ]
     )
     paper: PaperRef
@@ -1019,6 +1042,8 @@ class PaperRow(Model):
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
     # read_first | worth_a_look | has_problems | not_relevant | not_reviewed (rules: papers.QUALITY_GROUPS)
     group: str | None = None
+    authors: list[AuthorOut] = Field(default_factory=list)  # the first 3 (then "et al.")
+    author_count: int = 0  # every stored author; 0: none stored yet (backfill)
 
 
 class PaperGroupOut(Model):
@@ -1177,7 +1202,7 @@ class PanelOut(Model):
 
 
 class DrawerOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["sources", "panel", "files", "library"])
+    ADDED: ClassVar[frozenset] = frozenset(["sources", "panel", "files", "library", "authors"])
     paper: PaperDetail
     found_by: str
     sources: list[str] = Field(default_factory=list)
@@ -1190,6 +1215,7 @@ class DrawerOut(Model):
     panel: PanelOut | None = None  # the review panel (panel runs)
     files: list[PaperFileOut] = Field(default_factory=list)  # uploaded full-text PDFs of this paper
     library: "LibraryRef | None" = None  # the paper's team-library item; null: not saved
+    authors: list[AuthorOut] = Field(default_factory=list)  # every stored author, with affiliations
 
 
 class CallOut(Model):
@@ -1496,6 +1522,7 @@ class LibraryFieldOut(Model):
 
 
 class LibraryItemOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["authors", "author_count"])
     id: uuid.UUID
     paper: LibraryPaperOut
     status: str  # to_read | read | relevant | rejected
@@ -1512,6 +1539,8 @@ class LibraryItemOut(Model):
     added_at: datetime
     updated_at: datetime
     can_delete: bool  # the signed-in user added it, or is an admin
+    authors: list[AuthorOut] = Field(default_factory=list)  # the first 3 (then "et al.")
+    author_count: int = 0
 
 
 class LibraryEventOut(Model):
@@ -1671,6 +1700,7 @@ class ReaderHighlight(Model):
 
 
 class ReaderOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["authors"])
     paper: PaperDetail
     run_id: uuid.UUID
     run_name: str | None
@@ -1678,6 +1708,7 @@ class ReaderOut(Model):
     text: ReaderText
     highlights: list[ReaderHighlight]
     max_selection: int
+    authors: list[AuthorOut] = Field(default_factory=list)  # every stored author, with affiliations
 
 
 class MapNodeOut(Model):
@@ -1755,3 +1786,6 @@ class ReaderNoteOut(Model):
     model: str
     created_by_name: str | None
     created_at: datetime
+
+
+BackfillStatusOut.model_rebuild()

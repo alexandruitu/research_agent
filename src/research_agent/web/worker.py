@@ -221,6 +221,8 @@ class Worker:
                     return self._reader_related(db, job)
                 if job.kind == "reader_map":
                     return self._reader_map(db, job)
+                if job.kind == "authors_backfill":
+                    return self._authors_backfill(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -674,6 +676,23 @@ class Worker:
             except RelatedFailed as exc:
                 self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
                 return True
+        return self._finish(db, job, result)
+
+    def _authors_backfill(self, db, job):
+        """Authors for papers with a DOI and none stored, from OpenAlex (rate-limited, polite pool with the
+        contact address). Progress and result: {total, done, updated, not_found, no_authors, failed}; each
+        paper's authors are committed with its progress, so a stopped job keeps what it found."""
+        from .authors import backfill
+
+        contact = settings_row(db).contact_email
+        limit = (job.payload or {}).get("limit")
+
+        def progress(summary):
+            set_progress(db, job, {"status": "running", **summary}, self.clock(), worker_id=self.worker_id)
+            db.commit()
+
+        with self._heartbeat_while(job.id):
+            result = backfill(db, contact=contact, client=self.http_client, progress=progress, limit=limit)
         return self._finish(db, job, result)
 
     def _gold_build(self, db, job):

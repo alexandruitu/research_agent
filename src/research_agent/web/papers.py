@@ -10,6 +10,7 @@ from sqlalchemy.orm import aliased
 
 from ..agents import validate_evidence
 from ..scoring import flag_problem_text
+from .authors import SHOWN, author_condition, authors_of
 from .db.models import (
     Criterion,
     CriterionScore,
@@ -48,6 +49,8 @@ class PaperQuery:
     group_by: str = "quality"
     group: str | None = None
     provisional: bool | None = None
+    author_id: object = None  # an author row id (identified person, or one name-only row)
+    author_name: str | None = None  # name match: every author with this normalized name
 
 
 # A panel score counts only the answered checklist items: below this coverage (answered / total) the score is
@@ -320,6 +323,9 @@ def _filtered(run, q):
         stmt = stmt.where(
             exists().where(CriterionScore.criterion_id == Criterion.id, *conditions).correlate(Screening)
         )
+    by_author = author_condition(Screening.paper_id, q.author_id, q.author_name)
+    if by_author is not None:
+        stmt = stmt.where(by_author)
     if q.group is not None:
         stmt = stmt.where(group_key(q.group_by, quality, q.group))
     return stmt, quality
@@ -445,6 +451,7 @@ def paper_table(db, run, q):
     from .library import library_refs  # the library builds on this module
 
     refs = library_refs(db, [r[1].id for r in rows])
+    people = authors_of(db, [r[1].id for r in rows], limit=SHOWN)
     items = [
         build_row(
             run,
@@ -473,6 +480,8 @@ def paper_table(db, run, q):
             flags[paper_id].append(text)
     for item in items:
         item["library"] = refs.get(item["paper"]["id"])
+        item["authors"] = people[item["paper"]["id"]]["authors"]
+        item["author_count"] = people[item["paper"]["id"]]["count"]
         item["red_flags"] = flags[item["paper"]["id"]] if item["red_flag_count"] is not None else None
     return items, total
 
@@ -537,6 +546,7 @@ def paper_drawer(db, run, paper):
     )
     rank = db.scalar(select(Ranking).where(Ranking.run_id == run.id, Ranking.paper_id == paper.id))
     return {
+        "authors": authors_of(db, [paper.id])[paper.id]["authors"],
         "panel": panel_drawer(db, run, paper),
         "paper": {
             "id": paper.id,

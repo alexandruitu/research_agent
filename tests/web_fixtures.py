@@ -38,6 +38,35 @@ def make_demo_run(directory, topic="retrieval augmented generation", max_papers=
     return Path(directory)
 
 
+DEMO_AUTHORS = {  # synthetic people for the demo papers (demo connector records carry no authors)
+    "demo:1": [
+        {
+            "name": "Ana Popescu",
+            "orcid": "0000-0002-1825-0097",
+            "openalex_id": "A1",
+            "affiliations": ["Carol Davila"],
+        },
+        {"name": "Jon Smith", "openalex_id": "A2"},
+        {"name": "Third Author"},
+        {"name": "Fourth Author"},
+    ],
+    "demo:2": [{"name": "A. Popescu", "openalex_id": "A1"}, {"name": "Jon Smith"}],
+    "demo:3": [{"name": "Jon Smith"}],
+}
+
+
+def add_authors(directory, by_id=None):
+    """Rewrite report.json so the given papers carry authors (as the pipeline dumps them)."""
+    path = Path(directory) / "report.json"
+    data = json.loads(path.read_text())
+    for paper in data["state"]["papers"]:
+        if paper["id"] in (by_id or DEMO_AUTHORS):
+            people = (by_id or DEMO_AUTHORS)[paper["id"]]
+            paper["authors"] = [{**a, "position": i} for i, a in enumerate(people, start=1)]
+    path.write_text(json.dumps(data))
+    return Path(directory)
+
+
 def add_jev_block(directory, paper_id, probability=0.93):
     """Rewrite report.json so one paper looks Jev-decided (demo mode never uses Jev)."""
     path = Path(directory) / "report.json"

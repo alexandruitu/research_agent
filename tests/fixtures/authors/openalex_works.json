@@ -1,0 +1,26 @@
+{
+ "meta": {"count": 1},
+ "results": [
+  {
+   "id": "https://openalex.org/W1",
+   "doi": "https://doi.org/10.1000/a1",
+   "title": "CT-FFR with deep learning",
+   "publication_year": 2024,
+   "abstract_inverted_index": {"Deep": [0], "learning.": [1]},
+   "authorships": [
+    {
+     "author_position": "first",
+     "author": {"id": "https://openalex.org/A5000000001", "display_name": "Ana Popescu", "orcid": "https://orcid.org/0000-0002-1825-0097"},
+     "institutions": [{"display_name": "Carol Davila University"}, {"display_name": "Carol Davila University"}],
+     "raw_affiliation_strings": ["Bucharest"]
+    },
+    {
+     "author_position": "last",
+     "author": {"id": "https://openalex.org/A5000000002", "display_name": "Jon Smith", "orcid": null},
+     "institutions": [],
+     "raw_affiliation_strings": ["Some Lab, Oxford"]
+    }
+   ]
+  }
+ ]
+}

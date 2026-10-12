@@ -2,9 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { ApiError } from "../../api/client";
-import { keys, useCheckSource, useJob, usePatchSettings, usePatchSource, useSettings, useSources } from "../../api/hooks";
+import { keys, useBackfillStatus, useCheckSource, useJob, usePatchSettings, usePatchSource, useSettings, useSources, useStartBackfill } from "../../api/hooks";
 import { hasRole, type SourceCheckResult, type SourceOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
+import { backfillWords, type BackfillSummary } from "./backfill";
 import { authWords, enableBlocked, groupSources, keyStatusWords, keyTone, rateWords, searchable } from "./sources";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
@@ -151,6 +152,48 @@ function AlertsLimitForm({ admin, value }: { admin: boolean; value: number }) {
   );
 }
 
+/** Admin: look up the authors of papers that have a DOI and none stored (OpenAlex, rate-limited). */
+function AuthorsBackfill() {
+  const status = useBackfillStatus(true);
+  const start = useStartBackfill();
+  const client = useQueryClient();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const currentId = jobId ?? status.data?.job?.id ?? null;
+  const job = useJob(currentId);
+  const data = job.data ?? status.data?.job ?? null;
+  const active = data?.status === "queued" || data?.status === "running";
+  const finished = data?.status === "done" || data?.status === "failed";
+  useEffect(() => {
+    if (finished) void client.invalidateQueries({ queryKey: keys.authorsBackfill });
+  }, [finished, client]);
+  const run = async () => {
+    setProblem(null);
+    try {
+      const started = await start.mutateAsync();
+      setJobId(started.id);
+    } catch (error) {
+      setProblem(errorText(error));
+    }
+  };
+  const progress = (data?.progress ?? {}) as BackfillSummary & { result?: BackfillSummary };
+  const summary = progress.result ?? (active ? progress : null);
+  return (
+    <section aria-labelledby="authors-backfill-heading" className="authors-backfill">
+      <h3 id="authors-backfill-heading">Authors</h3>
+      <p className="intro">Papers imported before authors were stored have none. This looks them up in OpenAlex by DOI, one paper at a time within OpenAlex’s rate limit, with the contact address below.</p>
+      {status.isError ? <p role="alert" className="form-error">{errorText(status.error)}</p> : status.isLoading ? <p role="status">Loading…</p> : (
+        <p>{status.data!.candidates === 0 ? "Every paper with a DOI has its authors stored." : `${status.data!.candidates} paper${status.data!.candidates === 1 ? "" : "s"} with a DOI ha${status.data!.candidates === 1 ? "s" : "ve"} no authors stored.`}</p>
+      )}
+      <button type="button" onClick={() => void run()} disabled={active || start.isPending || status.data?.candidates === 0}>Look up missing authors</button>
+      <p role="status" aria-live="polite">
+        {data?.status === "failed" ? `✗ The lookup stopped: ${data.error ?? "no details"}` : summary ? backfillWords(summary, active) : active ? "Queued…" : ""}
+      </p>
+      {problem && <p role="alert" className="form-error">{problem}</p>}
+    </section>
+  );
+}
+
 export function SourcesTab() {
   const { user } = useAuth();
   const admin = hasRole(user, "admin");
@@ -206,6 +249,7 @@ export function SourcesTab() {
       </aside>
       <p className="legend">Test runs one real search for one result with the worker’s keys. After adding or changing a key in the worker environment, restart the worker: it checks every key when it starts. Public APIs receive the contact address below, as they ask.</p>
       {settings.isLoading ? <p role="status">Loading…</p> : settings.isError ? <p role="alert" className="form-error">{errorText(settings.error)}</p> : <><ContactForm admin={admin} value={settings.data?.contact_email ?? null} /><AlertsLimitForm admin={admin} value={settings.data?.alerts_max_runs_per_day ?? 5} /></>}
+      {admin && <AuthorsBackfill />}
     </section>
   );
 }

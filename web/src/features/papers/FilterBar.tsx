@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { criterionLabel, sourceLabel } from "../fields/labels";
 import { PAPER_SOURCES, type PapersView } from "./papersState";
 
@@ -17,10 +19,10 @@ const CHIPS: { label: string; sr?: boolean; panel?: boolean; active: (v: PapersV
   { label: "Not in the SR", sr: true, active: (v) => v.params.in_sr === false, toggle: (v) => ({ in_sr: v.params.in_sr === false ? null : false }) },
 ];
 
-type Props = { view: PapersView; showSr: boolean; showPanel?: boolean; legacy: boolean; criteria: CriterionOption[]; onChange: (change: Change) => void };
+type Props = { view: PapersView; showSr: boolean; showPanel?: boolean; legacy: boolean; criteria: CriterionOption[]; onChange: (change: Change) => void; children?: ReactNode };
 
 /** `showSr` is false for runs without a gold set (the API refuses in_sr there); the topic-match range only applies to legacy runs. */
-export function FilterBar({ view, showSr, showPanel = false, legacy, criteria, onChange }: Props) {
+export function FilterBar({ view, showSr, showPanel = false, legacy, criteria, onChange, children }: Props) {
   const number = (text: string) => (text === "" ? null : Number(text));
   const selectedBy = view.params.decided_by;
   const options = selectedBy && !criteria.some((c) => c.key === selectedBy) ? [...criteria, { key: selectedBy, text: "" }] : criteria;
@@ -41,6 +43,7 @@ export function FilterBar({ view, showSr, showPanel = false, legacy, criteria, o
           {PAPER_SOURCES.map((name) => <option key={name} value={name}>{sourceLabel(name)}</option>)}
         </select>
       </label>
+      {children}
       {legacy && (
         <>
           <label>Topic match from <input type="number" min={0} max={1} step={0.05} value={view.params.p_min ?? ""} onChange={(e) => onChange({ pmin: number(e.target.value) })} /></label>

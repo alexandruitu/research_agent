@@ -1,0 +1,4 @@
+{"total": 1, "offset": 0, "next": null, "data": [
+ {"paperId": "abc123", "externalIds": {"DOI": "10.1000/s1"}, "title": "S2 paper", "abstract": "Text.", "year": 2022,
+  "authors": [{"authorId": "1741101", "name": "Ana Popescu"}, {"authorId": null, "name": "Jon Smith"}]}
+]}

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
 
 from ... import library as svc
+from ...authors import authors_of
 from ...db.models import Collection, LibraryItem, LibraryItemCollection, Paper, User
 from ..deps import get_db, get_settings, require_role
 from ..errors import ApiError
@@ -70,6 +71,7 @@ def detail(db, user, item):
     (row,) = svc.item_dicts(db, [(item, paper)], user)
     return row | {
         "abstract": paper.abstract,
+        "authors": authors_of(db, [paper.id])[paper.id]["authors"],
         "snapshot": item.snapshot,
         "events": svc.events_of(db, item),
         "files": files_of(db, user, paper.id),
@@ -84,13 +86,29 @@ def library_query(
     field_id: uuid.UUID | None = None,
     min_score: float | None = Query(None, ge=0, le=100),
     has_red_flags: bool | None = None,
+    author_id: uuid.UUID | None = Query(None, description="items whose paper has this stored author"),
+    author_name: str | None = Query(
+        None, min_length=1, max_length=200, description="name match: any author with this normalized name"
+    ),
     sort: Sort = "added_at",
     direction: Literal["asc", "desc"] = "desc",
     page: int = Query(1, ge=1, le=MAX_PAGE),
     page_size: int = Query(50, ge=1),
 ):
     return svc.LibraryQuery(
-        q, collection_id, status, tag, field_id, min_score, has_red_flags, sort, direction, page, page_size
+        q=q,
+        collection_id=collection_id,
+        status=status,
+        tag=tag,
+        field_id=field_id,
+        min_score=min_score,
+        has_red_flags=has_red_flags,
+        author_id=author_id,
+        author_name=(author_name or "").strip() or None,
+        sort=sort,
+        direction=direction,
+        page=page,
+        page_size=page_size,
     )
 
 

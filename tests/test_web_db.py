@@ -48,6 +48,8 @@ TABLES = {
     "digest_reads",
     "reader_notes",
     "paper_maps",
+    "authors",
+    "paper_authors",
 }
 
 

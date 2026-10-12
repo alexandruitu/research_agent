@@ -24,6 +24,7 @@ from .connectors import (
     _total,
     env_key,
     fetch,
+    make_authors,
     normalize_doi,
     plain,
     scrub,
@@ -228,6 +229,7 @@ class Keyed:
             pmid=str(ids.pop("pmid", None) or ""),
             arxiv=re.sub(r"v\d+$", "", ids.pop("arxiv", None) or ""),
             s2=ids.pop("s2", None) or "",
+            authors=make_authors(ids.pop("authors", None) or []),
             sources=[self.name],
             provenance=[
                 Source(
@@ -259,7 +261,7 @@ class SemanticScholar(Keyed):
     name = "semantic_scholar"
     optional_env = "S2_API_KEY"
     endpoint = "https://api.semanticscholar.org/graph/v1/paper/search"
-    fields = "paperId,externalIds,title,abstract,year,openAccessPdf"
+    fields = "paperId,externalIds,title,abstract,year,openAccessPdf,authors"
     page = 100
 
     def search_with_total(self, query, limit, raw=False):
@@ -304,6 +306,7 @@ class SemanticScholar(Keyed):
             pmcid=f"PMC{pmc}" if pmc else "",
             arxiv=ids.get("ArXiv"),
             s2=row["paperId"],
+            authors=[{"name": a.get("name"), "s2_id": a.get("authorId")} for a in row.get("authors") or []],
         )
 
 
@@ -312,7 +315,7 @@ class Crossref(Keyed):
 
     name = "crossref"
     endpoint = "https://api.crossref.org/works"
-    select = "DOI,title,issued,abstract,type"
+    select = "DOI,title,issued,abstract,type,author"
 
     def params(self, query, rows):
         params = {"query.bibliographic": query, "rows": rows, "select": self.select}
@@ -357,7 +360,20 @@ class Crossref(Keyed):
             retrieved,
             raw_hash,
             doi=doi,
+            authors=self.authors(row),
         )
+
+    @staticmethod
+    def authors(row):
+        """Crossref `author`: given + family (or `name` for an organisation), ORCID, affiliation names."""
+        return [
+            {
+                "name": " ".join(x for x in (a.get("given"), a.get("family")) if x) or a.get("name"),
+                "orcid": a.get("ORCID") or "",
+                "affiliations": [f.get("name") for f in a.get("affiliation") or [] if f.get("name")],
+            }
+            for a in row.get("author") or []
+        ]
 
 
 class CrossrefEnricher:
@@ -493,7 +509,30 @@ class PubMed(Keyed):
             doi=ids.get("doi"),
             pmid=pmid,
             pmcid=ids.get("pmc"),
+            authors=self.authors(art),
         )
+
+    @staticmethod
+    def authors(art):
+        """PubMed `AuthorList/Author`: fore + last name (or a collective name), ORCID identifier, affiliations."""
+        rows = []
+        for node in art.findall("AuthorList/Author"):
+            collective = node.find("CollectiveName")
+            parts = (node.findtext("ForeName"), node.findtext("LastName"))
+            name = " ".join(x.strip() for x in parts if x and x.strip())
+            if not name and collective is not None:
+                name = " ".join("".join(collective.itertext()).split())
+            orcid = next(
+                (
+                    i.text or ""
+                    for i in node.findall("Identifier")
+                    if (i.get("Source") or "").upper() == "ORCID"
+                ),
+                "",
+            )
+            affiliations = ["".join(a.itertext()) for a in node.findall("AffiliationInfo/Affiliation")]
+            rows.append({"name": name, "orcid": orcid, "affiliations": affiliations})
+        return rows
 
 
 PREPRINT_SERVERS = {"medrxiv": "medRxiv", "biorxiv": "bioRxiv"}
