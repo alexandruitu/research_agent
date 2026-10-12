@@ -44,15 +44,16 @@ def test_snap_panel_orders_snaps_and_requires_quotes():
     )
     assert [a.key for a in result.answers] == ["m1", "m2"]
     assert result.answers[0].quote == "split at patient level" and result.answers[1].section == ""
-    with pytest.raises(PanelAnswerError, match="needs a quote"):
-        snap_panel(
-            review(
-                {"key": "m1", "answer": "no", "quote": "", "section": ""},
-                {"key": "m2", "answer": "unclear", "quote": "", "section": ""},
-            ),
-            ITEMS,
-            TEXT,
-        )
+    unquoted = snap_panel(
+        review(
+            {"key": "m1", "answer": "no", "quote": "", "section": "Methods"},
+            {"key": "m2", "answer": "unclear", "quote": "", "section": ""},
+        ),
+        ITEMS,
+        TEXT,
+    )
+    assert (unquoted.answers[0].answer, unquoted.answers[0].section) == ("unclear", "")
+    assert unquoted.summary.startswith("x") and "m1 'no'" in unquoted.summary
     with pytest.raises(PanelAnswerError, match="exactly once"):
         snap_panel(review({"key": "m1", "answer": "unclear", "quote": "", "section": ""}), ITEMS, TEXT)
     with pytest.raises(EvidenceQuoteError):

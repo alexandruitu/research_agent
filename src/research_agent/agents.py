@@ -642,22 +642,30 @@ def snap_screen(screen, criteria, abstract):
 
 
 def snap_panel(review, items, text):
-    """Each checklist item answered exactly once (in checklist order); yes/no need a quote; every quote is
-    snapped to the reviewed text; no quote -> no section."""
+    """Each checklist item answered exactly once (in checklist order); every quote is snapped to the reviewed
+    text; no quote -> no section. yes/no count (score, red flags) only with a quote: without one the answer
+    becomes 'unclear' and the summary names the change, so one unquoted answer never stops the run. A quote
+    that is not in the text is still refused."""
     keys = [item["key"] for item in items]
     answers = {a.key: a for a in review.answers}
     if len(answers) != len(review.answers) or set(answers) != set(keys):
         raise PanelAnswerError("the review must answer each checklist item exactly once")
-    ordered = []
+    ordered, unquoted = [], []
     for key in keys:
         answer = answers[key]
         if answer.answer in ("yes", "no") and not answer.quote.strip():
-            raise PanelAnswerError(f"item {key}: '{answer.answer}' needs a quote from the text")
+            unquoted.append(f"{key} '{answer.answer}'")
+            ordered.append(answer.model_copy(update={"answer": "unclear", "quote": "", "section": ""}))
+            continue
         quote = snap_quote(answer.quote, text) if answer.quote.strip() else ""
         ordered.append(
             answer.model_copy(update={"quote": quote, "section": answer.section.strip() if quote else ""})
         )
-    return review.model_copy(update={"answers": ordered})
+    update = {"answers": ordered}
+    if unquoted:
+        note = f"Counted as unclear (answer without a quote from the text): {', '.join(unquoted)}."
+        update["summary"] = f"{review.summary} {note}".strip()
+    return review.model_copy(update=update)
 
 
 def check_editor(decision, reviewers):
