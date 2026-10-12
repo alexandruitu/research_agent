@@ -3,6 +3,8 @@ import type { components } from "./schema";
 type S = components["schemas"];
 
 export type UserOut = S["UserOut"];
+export type UserReferencesOut = S["UserReferencesOut"];
+export type UserDeleteOut = S["UserDeleteOut"];
 export type SessionOut = S["SessionOut"];
 export type FieldOut = S["FieldOut"];
 export type FieldVersionOut = S["FieldVersionOut"];

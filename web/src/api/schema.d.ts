@@ -79,11 +79,52 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete User */
+        delete: operations["delete_user_api_v1_users__user_id__delete"];
         options?: never;
         head?: never;
         /** Patch User */
         patch: operations["patch_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description An admin sets a new password; every session of that user ends. The password is never echoed or logged.
+         */
+        post: operations["reset_password_api_v1_users__user_id__password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * References
+         * @description What a delete would do: hard delete when nothing points to the user, else anonymise.
+         */
+        get: operations["references_api_v1_users__user_id__references_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/sources": {
@@ -4376,6 +4417,12 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** UserDeleteOut */
+        UserDeleteOut: {
+            /** Outcome */
+            outcome: string;
+            user?: components["schemas"]["UserOut"] | null;
+        };
         /** UserOut */
         UserOut: {
             /**
@@ -4394,17 +4441,37 @@ export interface components {
              * @default true
              */
             active: boolean;
+            /** Deleted At */
+            deleted_at?: string | null;
+        };
+        /** UserPasswordReset */
+        UserPasswordReset: {
+            /** Password */
+            password: string;
         };
         /** UserPatch */
         UserPatch: {
             /** Name */
             name?: string | null;
+            /** Email */
+            email?: string | null;
             /** Role */
             role?: string | null;
             /** Active */
             active?: boolean | null;
             /** Password */
             password?: string | null;
+        };
+        /** UserReferencesOut */
+        UserReferencesOut: {
+            /** Total */
+            total: number;
+            /** By Table */
+            by_table: {
+                [key: string]: number;
+            };
+            /** Outcome */
+            outcome: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -4530,7 +4597,9 @@ export interface operations {
     };
     list_users_api_v1_users_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_deleted?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4544,6 +4613,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4581,6 +4659,37 @@ export interface operations {
             };
         };
     };
+    delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_user_api_v1_users__user_id__patch: {
         parameters: {
             query?: never;
@@ -4603,6 +4712,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_users__user_id__password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPasswordReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    references_api_v1_users__user_id__references_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserReferencesOut"];
                 };
             };
             /** @description Validation Error */

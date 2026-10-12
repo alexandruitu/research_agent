@@ -251,6 +251,23 @@ test.describe("admin", () => {
     await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Users" })).toHaveCount(0);
   });
+
+  test("deletes a user nothing points to, after typing their email", async ({ page }) => {
+    await page.goto("/settings/users");
+    const invite = page.getByRole("form", { name: "Invite a user" });
+    await invite.getByLabel("Email").fill("gone@example.org");
+    await invite.getByLabel("Name").fill("Gone Soon");
+    await invite.getByLabel("Initial password").fill(PASSWORD);
+    await invite.getByRole("button", { name: "Invite" }).click();
+    await page.getByRole("button", { name: "Delete gone@example.org" }).click();
+    const dialog = page.getByRole("dialog", { name: "Delete gone@example.org" });
+    await expect(dialog.getByText(/deleted permanently/)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Delete user" })).toBeDisabled();
+    await dialog.getByLabel(/to confirm/).fill("gone@example.org");
+    await dialog.getByRole("button", { name: "Delete user" }).click();
+    await expect(page.getByText("gone@example.org was deleted.")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "gone@example.org", exact: true })).toHaveCount(0);
+  });
 });
 
 test.describe("review panel", () => {

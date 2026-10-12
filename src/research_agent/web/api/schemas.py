@@ -36,6 +36,7 @@ class UserOut(Model):
     name: str
     role: str
     active: bool = True
+    deleted_at: datetime | None = None
 
 
 class SessionOut(Model):
@@ -52,9 +53,25 @@ class UserCreate(Model):
 
 class UserPatch(Model):
     name: str | None = None
+    email: str | None = None
     role: str | None = None
     active: bool | None = None
     password: str | None = None
+
+
+class UserPasswordReset(Model):
+    password: str
+
+
+class UserReferencesOut(Model):
+    total: int
+    by_table: dict[str, int]
+    outcome: str  # delete | anonymize
+
+
+class UserDeleteOut(Model):
+    outcome: str  # deleted | anonymized
+    user: UserOut | None = None
 
 
 class CriterionOut(Model):

@@ -1,5 +1,6 @@
 """Users, sessions and roles. Sign-in sits behind AuthProvider so SSO can replace it later."""
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -36,15 +37,35 @@ def utcnow():
 _DUMMY_HASH = hash_password("dummy-password-for-timing")
 
 
-def create_user(db, *, email, name, role, password, min_password_length=12):
-    email = email.strip().lower()
-    if role not in ROLE_ORDER:
-        raise AuthError("unknown role")
-    if "@" not in email:
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+$")
+
+
+def normalize_email(email):
+    """Emails are stored lower-cased, so uniqueness is case-insensitive."""
+    email = (email or "").strip().lower()
+    if not _EMAIL.match(email) or len(email) > 320:
         raise AuthError("invalid email")
+    return email
+
+
+def check_password(password, min_password_length):
     if len(password) < min_password_length:
         raise AuthError(f"password must have at least {min_password_length} characters")
-    if db.scalar(select(User).where(User.email == email)):
+
+
+def email_taken(db, email, except_id=None):
+    query = select(User.id).where(User.email == email)
+    if except_id is not None:
+        query = query.where(User.id != except_id)
+    return db.scalar(query) is not None
+
+
+def create_user(db, *, email, name, role, password, min_password_length=12):
+    if role not in ROLE_ORDER:
+        raise AuthError("unknown role")
+    email = normalize_email(email)
+    check_password(password, min_password_length)
+    if email_taken(db, email):
         raise AuthError("email already registered")
     user = User(email=email, name=name.strip(), role=role, password_hash=hash_password(password), active=True)
     db.add(user)

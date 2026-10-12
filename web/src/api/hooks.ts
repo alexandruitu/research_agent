@@ -4,7 +4,7 @@ import { api, uploadFile } from "./client";
 import type {
   AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
-  ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserOut, WorkerStatusOut,
+  ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserDeleteOut, UserOut, UserReferencesOut, WorkerStatusOut,
 } from "./types";
 
 export type PaperParams = {
@@ -135,7 +135,11 @@ export const useEval = (id: string | null) =>
   useQuery({ queryKey: keys.eval(id ?? ""), enabled: !!id, queryFn: () => api.get<EvalDetailOut>(`/evals/${id}`) });
 export const useCall = (runId: string, key: string | null) =>
   useQuery({ queryKey: keys.call(runId, key ?? ""), enabled: !!key, retry: false, queryFn: () => api.get<CallOut>(`/runs/${runId}/calls/${key}`) });
-export const useUsers = () => useQuery({ queryKey: keys.users, queryFn: () => api.get<UserOut[]>("/users") });
+export const useUsers = (includeDeleted = false) =>
+  useQuery({ queryKey: [...keys.users, { includeDeleted }], queryFn: () => api.get<UserOut[]>("/users", includeDeleted ? { include_deleted: true } : undefined) });
+/** What deleting this user would do: hard delete, or anonymise because history points to them. */
+export const useUserReferences = (id: string | null) =>
+  useQuery({ queryKey: [...keys.users, "references", id], enabled: !!id, queryFn: () => api.get<UserReferencesOut>(`/users/${id}/references`) });
 export const useSources = () => useQuery({ queryKey: keys.sources, queryFn: () => api.get<SourceOut[]>("/sources") });
 export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => api.get<SettingsOut>("/settings") });
 export const useWorkers = () => useQuery({ queryKey: keys.workers, queryFn: () => api.get<WorkerStatusOut[]>("/workers/status") });
@@ -276,7 +280,20 @@ export function useCreateUser() {
 export function usePatchUser() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; role?: string; active?: boolean; name?: string; password?: string }) => api.patch<UserOut>(`/users/${id}`, { body }),
+    mutationFn: ({ id, ...body }: { id: string; role?: string; active?: boolean; name?: string; email?: string }) => api.patch<UserOut>(`/users/${id}`, { body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.users }),
+  });
+}
+
+/** An admin sets a new password; the server ends all of that user's sessions. */
+export function useResetPassword() {
+  return useMutation({ mutationFn: ({ id, password }: { id: string; password: string }) => api.post<void>(`/users/${id}/password`, { body: { password } }) });
+}
+
+export function useDeleteUser() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<UserDeleteOut>(`/users/${id}`),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.users }),
   });
 }
