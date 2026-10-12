@@ -1302,3 +1302,11 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
 .author-badge--name { background: var(--neutral-bg); color: var(--neutral-fg); }
 .author-note { max-width: 32rem; }
 .authors-backfill { margin-top: var(--s5); }
+
+/* researcher topics: the Researcher tab and "Matched by" on Results rows */
+.search-tabs { display: flex; gap: 6px; margin: 8px 0 12px; }
+.researcher-panel { border: 1px solid var(--line); border-radius: var(--r2); padding: 12px; margin-bottom: 12px; }
+.researcher-panel .plain-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.researcher-group { margin-top: 12px; display: grid; gap: 8px; }
+.matched-by { display: block; font-size: 12px; margin-top: 2px; }
+.match-chip { margin-left: 0; margin-right: 4px; }

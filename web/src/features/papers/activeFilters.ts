@@ -1,3 +1,4 @@
+import { MATCH_FILTER_WORDS } from "../authors/researcher";
 import { criterionLabel, sourceLabel } from "../fields/labels";
 import type { CriterionOption } from "./FilterBar";
 import { patchView, type PapersView } from "./papersState";
@@ -24,10 +25,11 @@ export function activeFilterChips(view: PapersView, criteria: CriterionOption[],
   }
   if (p.source) chips.push({ label: `Source: ${sourceLabel(p.source)}`, clear: { src: null } });
   if (p.author_id) chips.push({ label: `Author: ${authorLabel ?? "selected author"}`, clear: { author: null } });
+  if (p.matched_by) chips.push({ label: `Matched by ${MATCH_FILTER_WORDS[p.matched_by]}`, clear: { match: null } });
   if (p.author_name) chips.push({ label: `Author named “${p.author_name}” (name match)`, clear: { aname: null } });
   if (p.p_min !== undefined || p.p_max !== undefined) chips.push({ label: `Topic match ${p.p_min ?? 0}–${p.p_max ?? 1}`, clear: { pmin: null, pmax: null } });
   return chips;
 }
 
 export const clearPaperFilters = (search: URLSearchParams) =>
-  patchView(search, { decision: null, tier: null, escalated: null, flags: null, prov: null, in_sr: null, by: null, src: null, pmin: null, pmax: null, author: null, aname: null });
+  patchView(search, { decision: null, tier: null, escalated: null, flags: null, prov: null, in_sr: null, by: null, src: null, pmin: null, pmax: null, author: null, aname: null, match: null });

@@ -2,6 +2,7 @@
 
 A failing source reports its error and the others still answer. Nothing is kept (a scratch store)."""
 
+from ..authorsearch import skipped
 from ..connectors import SourceKeyMissing, SourceUnavailable, describe
 from ..schemas import Years
 from .checks import connector
@@ -11,7 +12,8 @@ PREVIEW_LIMIT = 10
 
 
 def field_preview(payload, store, *, http_client=None):
-    """payload: {"mode", "years": {"from", "to"}, "sources": [{"name", "contact"?}], "queries": {name: q}}.
+    """payload: {"mode", "years": {"from", "to"}, "sources": [{"name", "contact"?}], "queries": {name: q},
+    "keywords"?, "authors"? (an author topic: the author connectors; a skipped source reports why)}.
     Returns {"mode", "years", "sources": [{source, query, effective_query, count, papers, error}]}."""
     mode = payload.get("mode", "live")
     years = Years.model_validate(payload.get("years") or {})
@@ -30,6 +32,9 @@ def field_preview(payload, store, *, http_client=None):
         if not query:
             rows.append(row | {"error": "no query for this source"})
             continue
+        if skipped(query):
+            rows.append(row | {"query": None, "error": f"Skipped: {skipped(query)}"})
+            continue
         search = connector(
             name,
             store,
@@ -38,6 +43,7 @@ def field_preview(payload, store, *, http_client=None):
             contact=source.get("contact"),
             http_client=http_client,
             keywords=payload.get("keywords"),
+            authors=payload.get("authors"),
         )
         try:
             result = search.search_with_total(query, PREVIEW_LIMIT, raw=True)

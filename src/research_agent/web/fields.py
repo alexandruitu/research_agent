@@ -9,9 +9,10 @@ from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 
+from ..authorsearch import DEFAULT_CRITERION, build_author_queries, skipped
 from ..jev import default_criteria
 from ..querybuild import QueryError, build_queries, normalize_keywords
-from ..schemas import SEARCH_SOURCES, DomainSpec
+from ..schemas import SEARCH_SOURCES, AuthorSearch, DomainSpec
 from .db.models import AppSettings, Criterion, Field, FieldVersion, SourceRow
 
 SOURCE_NAMES = SEARCH_SOURCES  # a field may search any of these (research_agent.sources.REGISTRY)
@@ -58,6 +59,13 @@ def _next_number(db, field):
     ) + 1
 
 
+def normalize_authors(authors):
+    """Stored form of a researcher topic's author search (validated, every key present); None for none."""
+    if not authors:
+        return None
+    return AuthorSearch.model_validate(authors).model_dump(mode="json")
+
+
 def add_version(
     db,
     field,
@@ -73,9 +81,15 @@ def add_version(
     description="",
     keywords=None,
     query_override=None,
+    authors=None,
 ):
     """A new version with criteria keyed i1.., e1.. by position. `include`/`exclude` are lists of texts;
-    `legacy` a list of (key, question). Returns the version; does not touch `current_version`."""
+    `legacy` a list of (key, question). A researcher topic (`authors`) without criteria gets the code-defined
+    default criterion (a research article, not an erratum or editorial), so screening runs unchanged.
+    Returns the version; does not touch `current_version`."""
+    authors = normalize_authors(authors)
+    if authors and not (include or exclude or legacy):
+        include = [DEFAULT_CRITERION]
     version = FieldVersion(
         field_id=field.id,
         version=_next_number(db, field),
@@ -86,6 +100,7 @@ def add_version(
         description=description or "",
         keywords=normalize_keywords(keywords),
         query_override={k: v for k, v in (query_override or {}).items() if v} or None,
+        authors=authors,
         created_by=created_by,
     )
     db.add(version)
@@ -139,6 +154,7 @@ def body_keywords(body):
         "description": body.description,
         "keywords": body.keywords.model_dump() if body.keywords else None,
         "query_override": body.query_override.model_dump() if body.query_override else None,
+        "authors": body.authors.model_dump() if getattr(body, "authors", None) else None,
     }
 
 
@@ -222,9 +238,10 @@ def legacy_version(db, topic, created_by=None):
     return field, version
 
 
-def version_content(topic, include, exclude, names, years, keywords=None):
-    """What makes two versions the same field definition (for linking imported runs)."""
-    return {
+def version_content(topic, include, exclude, names, years, keywords=None, authors=None):
+    """What makes two versions the same field definition (for linking imported runs). `authors` is only
+    present for researcher topics, so other fields compare as before."""
+    content = {
         "topic": topic,
         "include": list(include),
         "exclude": list(exclude),
@@ -232,6 +249,9 @@ def version_content(topic, include, exclude, names, years, keywords=None):
         "years": {"from": years.get("from"), "to": years.get("to")},
         "keywords": normalize_keywords(keywords),
     }
+    if authors:
+        content["authors"] = normalize_authors(authors)
+    return content
 
 
 def stored_content(db, version):
@@ -243,6 +263,7 @@ def stored_content(db, version):
         (version.sources or {}).get("names", []),
         (version.sources or {}).get("years") or NO_YEARS,
         version.keywords,
+        version.authors,
     )
 
 
@@ -254,6 +275,7 @@ def domain_content(domain):
         [s["name"] for s in domain["sources"]],
         domain.get("years") or NO_YEARS,
         domain.get("keywords"),
+        domain.get("authors"),
     )
 
 
@@ -318,6 +340,7 @@ def version_for_domain(db, domain, created_by=None):
         created_by=created_by,
         description=domain.get("description") or "",
         keywords=wanted["keywords"],
+        authors=wanted.get("authors"),
     )
     if first:
         _make_current(field, version)
@@ -351,11 +374,16 @@ def build_domain(
     keywords=None,
     query_override=None,
     required=(),
+    authors=None,
 ):
     """domain.json for a run or a criteria test: the version's criteria, its sources that are enabled (with
     their limits and the contact email) and the default thresholds, plus the per-source queries built from
-    the keywords (research_agent.querybuild; an override wins). Raises FieldConflict(422) when none of its
+    the keywords (research_agent.querybuild; an override wins). A researcher topic (`authors`) gets author
+    queries for every source instead (research_agent.authorsearch; a source that cannot search by author is
+    never required: it is skipped with a warning). Raises FieldConflict(422) when none of its
     sources is enabled or the keywords make no query. Validated by the pipeline's own DomainSpec."""
+    if authors and not (include or exclude):  # an unsaved researcher draft: as add_version saves it
+        include = [DEFAULT_CRITERION]
     enabled = enabled_sources(db)
     contact = settings_row(db).contact_email
     sources = []
@@ -387,8 +415,15 @@ def build_domain(
         "years": {"from": years.get("from"), "to": years.get("to")},
     }
     keywords = normalize_keywords(keywords)
+    authors = normalize_authors(authors)
     try:
-        queries = build_queries(keywords, [s["name"] for s in sources], query_override)
+        if authors:
+            queries = build_author_queries(authors, [s["name"] for s in sources], keywords)
+            for entry in sources:
+                if skipped(queries[entry["name"]]):
+                    entry.pop("required", None)
+        else:
+            queries = build_queries(keywords, [s["name"] for s in sources], query_override)
     except QueryError as exc:
         raise FieldConflict(422, "no_keywords", str(exc)) from None
     if description:
@@ -397,6 +432,8 @@ def build_domain(
         domain["keywords"] = keywords
     if queries:
         domain["queries"] = queries
+    if authors:
+        domain["authors"] = authors
     return DomainSpec.model_validate(domain).model_dump(mode="json")
 
 
@@ -416,4 +453,5 @@ def domain_for_version(db, field, version):
         description=version.description,
         keywords=version.keywords,
         query_override=version.query_override,
+        authors=version.authors,
     )

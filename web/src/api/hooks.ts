@@ -5,7 +5,7 @@ import type {
   AuthorSuggestionOut, BackfillStatusOut,
   AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
-  ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserDeleteOut, UserOut, UserReferencesOut, WorkerStatusOut,
+  AuthorSearch, MatchKind, ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserDeleteOut, UserOut, UserReferencesOut, WorkerStatusOut,
 } from "./types";
 
 export type PaperParams = {
@@ -14,6 +14,8 @@ export type PaperParams = {
   decided_by?: string; source?: string; has_red_flags?: boolean; provisional?: boolean;
   /** A stored author (identified person or one name-only row), or a name match on any author with that name. */
   author_id?: string; author_name?: string;
+  /** Researcher topics: papers matched this way (person, co-author, institution or name match). */
+  matched_by?: MatchKind;
   /** One group of one dimension (rows of that group only). */
   group_by?: GroupDimension; group?: string;
 };
@@ -395,6 +397,8 @@ export const useAssist = () => useMutation({ mutationFn: (body: AssistBody) => a
 export type PreviewBody = {
   keywords: KeywordsIO | null; query_override: QueryOverrideIO | null; sources: string[];
   years: { from: number | null; to: number | null }; mode: "live" | "demo";
+  /** A researcher topic: author queries instead of keyword queries. */
+  authors?: AuthorSearch | null;
 };
 export const usePreview = () => useMutation({ mutationFn: (body: PreviewBody) => api.post<JobOut>("/fields/preview", { body }) });
 
@@ -624,4 +628,9 @@ export const useAuthor = (id: string | null | undefined) =>
   useQuery({ queryKey: keys.author(id ?? ""), enabled: !!id, retry: false, staleTime: Infinity, queryFn: () => api.get<AuthorSuggestionOut>(`/authors/${id}`) });
 export const useBackfillStatus = (enabled: boolean) =>
   useQuery({ queryKey: keys.authorsBackfill, enabled, queryFn: () => api.get<BackfillStatusOut>("/authors/backfill") });
+export type AuthorLookupBody =
+  | { step: "search"; name: string; mode: "live" | "demo" }
+  | { step: "group"; people: { openalex_id: string; name: string; orcid?: string; s2_id?: string }[]; mode: "live" | "demo" };
+/** Queues an author_lookup job (Researcher tab); follow it with useJob. */
+export const useAuthorLookup = () => useMutation({ mutationFn: (body: AuthorLookupBody) => api.post<JobOut>("/authors/lookup", { body }) });
 export const useStartBackfill = () => useMutation({ mutationFn: () => api.post<JobOut>("/authors/backfill") });

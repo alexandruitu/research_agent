@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ...schemas import FULLTEXT_SOURCES, SEARCH_SOURCES, FulltextSource, SourceName
+from ...schemas import FULLTEXT_SOURCES, SEARCH_SOURCES, AuthorSearch, FulltextSource, SourceName
 
 
 def _added_fields_are_optional(schema, cls):
@@ -172,7 +172,9 @@ def _keyword_rule(keywords):
 class FieldDraft(Model):
     """A field definition as the editor sends it. Criterion keys are generated (i1.., e1..) on save."""
 
-    ADDED: ClassVar[frozenset] = frozenset(["description", "keywords", "query_override", "required_sources"])
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["description", "keywords", "query_override", "required_sources", "authors"]
+    )
 
     name: str = Field(min_length=1, max_length=200, pattern=PLAIN)
     topic: str = Field(min_length=3, max_length=500, pattern=PLAIN)
@@ -185,6 +187,8 @@ class FieldDraft(Model):
     query_override: QueryOverrideIO | None = None
     # Partial search: these sources stop the run when they fail; the others are skipped with a warning.
     required_sources: list[SourceName] = Field(default_factory=list, max_length=len(SEARCH_SOURCES))
+    # A researcher topic: search by these people and their group; criteria optional (default: research article)
+    authors: AuthorSearch | None = None
 
     @field_validator("name", "topic", "description", mode="before")
     @classmethod
@@ -193,7 +197,7 @@ class FieldDraft(Model):
 
     @model_validator(mode="after")
     def _rules(self):
-        if not (self.include or self.exclude):
+        if not (self.include or self.exclude or self.authors):
             raise ValueError("at least one inclusion or exclusion criterion is required")
         if len(set(self.sources)) != len(self.sources):
             raise ValueError("each source may be listed once")
@@ -218,7 +222,7 @@ class CriterionText(Model):
 
 class FieldVersionOut(Model):
     ADDED: ClassVar[frozenset] = frozenset(
-        ["description", "keywords", "query_override", "queries", "required_sources"]
+        ["description", "keywords", "query_override", "queries", "required_sources", "authors"]
     )
     version: int
     name: str
@@ -238,6 +242,7 @@ class FieldVersionOut(Model):
     query_override: QueryOverrideIO | None = None
     required_sources: list[str] = Field(default_factory=list)  # fail the run when they fail
     queries: dict[str, str] | None = None  # per source, as a run of this version would search (null: planned)
+    authors: AuthorSearch | None = None  # a researcher topic (null: keywords / topic)
 
 
 class FieldVersionSummary(Model):
@@ -295,14 +300,42 @@ class AssistRequest(Model):
         return value.strip() if isinstance(value, str) else value
 
 
+class LookupPerson(Model):
+    openalex_id: str = Field(pattern=r"^A\d{1,15}$")
+    name: str = Field(min_length=1, max_length=300)
+    orcid: str = Field(default="", pattern=r"^(\d{4}-\d{4}-\d{4}-\d{3}[\dX])?$")
+    s2_id: str = Field(default="", pattern=r"^(\d{1,20})?$")
+
+
+class AuthorLookupRequest(Model):
+    """Researcher tab: `search` a name in OpenAlex, or compute the `group` (co-authors, institutions) of the
+    picked people. Runs in the worker (`author_lookup`); the result is in the job's `progress.result`."""
+
+    step: Literal["search", "group"]
+    name: str = Field(default="", max_length=200, pattern=PLAIN)
+    people: list[LookupPerson] = Field(default_factory=list, max_length=10)
+    mode: Literal["live", "demo"] = "live"
+
+    @model_validator(mode="after")
+    def _rules(self):
+        if self.step == "search" and not self.name.strip():
+            raise ValueError("type a name to search")
+        if self.step == "group" and not self.people:
+            raise ValueError("pick at least one person")
+        return self
+
+
 class PreviewRequest(Model):
     """A draft's search to preview: keywords and/or overrides, sources and years (no criteria needed)."""
+
+    ADDED: ClassVar[frozenset] = frozenset(["authors"])
 
     keywords: KeywordsIO | None = None
     query_override: QueryOverrideIO | None = None
     sources: list[SourceName] = Field(min_length=1, max_length=len(SEARCH_SOURCES))
     years: Years = Field(default_factory=Years)
     mode: Literal["live", "demo"] = "live"
+    authors: AuthorSearch | None = None  # a researcher topic: author queries instead of keyword queries
 
     @model_validator(mode="after")
     def _rules(self):
@@ -999,6 +1032,11 @@ class RankCell(Model):
     position: int
 
 
+class MatchOut(Model):
+    kind: Literal["person", "coauthor", "institution", "name_match"]
+    name: str
+
+
 class PaperRow(Model):
     ADDED: ClassVar[frozenset] = frozenset(
         [
@@ -1016,6 +1054,7 @@ class PaperRow(Model):
             "checklist_total",
             "authors",
             "author_count",
+            "matched_by",
         ]
     )
     paper: PaperRef
@@ -1044,6 +1083,8 @@ class PaperRow(Model):
     group: str | None = None
     authors: list[AuthorOut] = Field(default_factory=list)  # the first 3 (then "et al.")
     author_count: int = 0  # every stored author; 0: none stored yet (backfill)
+    # researcher topics: how the paper matches the topic's people, best first (null: not a researcher topic)
+    matched_by: list[MatchOut] | None = None
 
 
 class PaperGroupOut(Model):

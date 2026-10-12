@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { AuthorLine } from "../authors/AuthorList";
+import { MatchedBy } from "../authors/MatchedBy";
 
 import type { PaperRow } from "../../api/types";
 import { QualityCell } from "./cells";
@@ -63,6 +64,7 @@ export function SimpleTable({ rows, selectedPaperId, onOpen, texts, selection = 
                     {row.paper.title}
                   </button>
                   <AuthorLine authors={row.authors} count={row.author_count} />
+                  <MatchedBy matches={row.matched_by} />
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
                 </td>
                 <td className="col-group"><QualityCell group={group} /></td>

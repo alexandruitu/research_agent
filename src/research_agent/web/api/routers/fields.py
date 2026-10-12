@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 
+from ....authorsearch import build_author_queries
 from ....querybuild import QueryError, build_queries
 from ... import fields as svc
 from ...db.models import Field, FieldVersion, Run, User
@@ -65,15 +66,17 @@ def version_out(db, version):
         query_override=version.query_override,
         queries=version_queries(version),
         required_sources=stored.get("required") or [],
+        authors=version.authors,
     )
 
 
 def version_queries(version):
     """The queries a run of this version would search (every source it names; null: all planned)."""
+    names = (version.sources or {}).get("names", [])
     try:
-        queries = build_queries(
-            version.keywords, (version.sources or {}).get("names", []), version.query_override
-        )
+        if version.authors:
+            return build_author_queries(version.authors, names, version.keywords) or None
+        queries = build_queries(version.keywords, names, version.query_override)
     except QueryError:
         return None
     return queries or None
@@ -196,8 +199,12 @@ def preview(
         raise ApiError(422, "no_enabled_source", "None of these sources is enabled")
     keywords = body.keywords.model_dump() if body.keywords else None
     overrides = body.query_override.model_dump() if body.query_override else None
+    authors = body.authors.model_dump(mode="json") if body.authors else None
     try:
-        queries = build_queries(keywords, names, overrides)
+        if authors:
+            queries = build_author_queries(authors, names, keywords)
+        else:
+            queries = build_queries(keywords, names, overrides)
     except QueryError as exc:
         raise ApiError(422, "no_keywords", str(exc)) from None
     if not queries:
@@ -215,6 +222,8 @@ def preview(
         "queries": queries,
         "keywords": keywords,  # the local filter of sources without boolean search (Semantic Scholar, Crossref)
     }
+    if authors:
+        payload["authors"] = authors
     job, _ = enqueue(db, "field_preview", payload, user.id)
     db.commit()
     return job_out(job)

@@ -34,6 +34,7 @@ import { useSaveFlow } from "../features/library/saveFlow";
 import { newestFirst, runOption } from "../features/runs/runWords";
 import { Term } from "../components/ui/Term";
 import { AuthorFilter } from "../features/authors/AuthorFilter";
+import { MatchFilter } from "../features/authors/MatchedBy";
 import { identityWords } from "../features/authors/authors";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
@@ -229,6 +230,7 @@ export function PapersPage() {
       {help && <ShortcutsHelp title="Results shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
       <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)}>
         <AuthorFilter authorId={view.params.author_id} authorName={view.params.author_name} scope={{ run_id: runId }} onChange={(next) => change(next)} />
+        {version.data?.authors && <MatchFilter value={view.params.matched_by} onChange={(match) => change({ match })} />}
       </FilterBar>
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">

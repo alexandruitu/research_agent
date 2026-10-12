@@ -1,4 +1,6 @@
 import type { PaperParams } from "../../api/hooks";
+import type { MatchKind } from "../../api/types";
+import { MATCH_KINDS } from "../authors/researcher";
 import { SOURCE_NAMES } from "../fields/labels";
 import { GROUP_BY_OPTIONS, type GroupBy } from "./groups";
 
@@ -51,6 +53,8 @@ export function parseView(search: URLSearchParams): PapersView {
   if (author && UUID.test(author)) params.author_id = author;
   const aname = search.get("aname")?.trim();
   if (aname) params.author_name = aname.slice(0, 200);
+  const match = search.get("match");
+  if (match && (MATCH_KINDS as string[]).includes(match)) params.matched_by = match as MatchKind;
   let pMin = number(search.get("pmin"), 0, 1);
   let pMax = number(search.get("pmax"), 0, 1);
   if (pMin !== undefined && pMax !== undefined && pMin > pMax) pMin = pMax = undefined; // an inverted range is a 422
@@ -64,7 +68,7 @@ type Changes = Partial<{
   run: string | null; page: number | null; sort: string | null; dir: "asc" | "desc" | null; decision: string | null; tier: string | null;
   escalated: boolean | null; in_sr: boolean | null; pmin: number | null; pmax: number | null; paper: string | null; stage: string | null;
   by: string | null; src: string | null; flags: boolean | null; prov: boolean | null; group: GroupBy | null;
-  author: string | null; aname: string | null;
+  author: string | null; aname: string | null; match: MatchKind | null;
 }>;
 
 /** Returns new search parameters. Any change other than `page`, `paper` or `stage` goes back to page 1; changing the run closes the panels and drops the criterion filter. */

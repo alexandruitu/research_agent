@@ -85,6 +85,8 @@ class FieldVersion(Base):
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     keywords: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {all, any, none}; null: none
     query_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {source: query}
+    # a researcher topic: {people, group, coauthors, institutions, min_shared}; null: keywords/topic field
+    authors: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = created()
 

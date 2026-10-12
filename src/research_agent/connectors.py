@@ -157,6 +157,14 @@ class SourceKeyMissing(SourceUnavailable):
         self.env_var = env_var
 
 
+class SourceNotApplicable(SourceUnavailable):
+    """A source that cannot run this search (an author topic on a source without author search, or without a
+    known author id); raised before any request. Skipped with a warning like any optional source."""
+
+    def __init__(self, source, reason):
+        super().__init__(source, f"{source}: {reason}", reason=reason)
+
+
 def failure_reason(exc):
     """A short, safe description of why a request failed (no URL, header or body)."""
     if isinstance(exc, httpx.HTTPStatusError):
@@ -387,11 +395,12 @@ class OpenAlex:
     endpoint = "https://api.openalex.org/works"
     select = "id,doi,title,publication_year,abstract_inverted_index,authorships"
 
-    def __init__(self, store, client=None, years=None, contact=None):
+    def __init__(self, store, client=None, years=None, contact=None, author=False):
         self.store = store
         self.client = client
         self.years = years
         self.contact = contact  # polite pool; never recorded in provenance
+        self.author = author  # an author topic: the query is a whole filter (research_agent.authorsearch)
 
     def search(self, query, limit, raw=False):
         return self.search_with_total(query, limit, raw).papers
@@ -400,7 +409,9 @@ class OpenAlex:
         """`raw`: a query built from keywords, searched in title and abstract (a filter, not `search`)."""
         params = {"per-page": min(limit, 200), "select": self.select}
         filters = []
-        if raw:
+        if self.author:
+            filters.append(query)
+        elif raw:
             filters.append(f"title_and_abstract.search:{query}")
         else:
             params["search"] = query
@@ -591,6 +602,8 @@ def search_warning(exc):
     """{source, error_type, reason, detail}: what was skipped, why, and how to fix it. All safe to show."""
     if isinstance(exc, SourceKeyMissing):
         detail = f"Set {exc.env_var} in the worker environment (Settings → Sources shows the status)."
+    elif isinstance(exc, SourceNotApplicable):
+        detail = "Author search: this source was not searched for this researcher topic."
     elif exc.reason.startswith("rate limited"):
         from .sources import CONNECTORS  # sources imports this module
 

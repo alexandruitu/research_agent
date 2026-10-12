@@ -1147,6 +1147,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/authors/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Author Lookup
+         * @description Queue an `author_lookup` job (topic editor, Researcher tab): OpenAlex candidates for a name, or the
+         *     co-authors (with shared works) and institutions of the picked people. Payload keys never include run_id.
+         */
+        post: operations["author_lookup_api_v1_authors_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/authors/{author_id}": {
         parameters: {
             query?: never;
@@ -1713,6 +1734,31 @@ export interface components {
             mode: "live" | "demo";
         };
         /**
+         * AuthorLookupRequest
+         * @description Researcher tab: `search` a name in OpenAlex, or compute the `group` (co-authors, institutions) of the
+         *     picked people. Runs in the worker (`author_lookup`); the result is in the job's `progress.result`.
+         */
+        AuthorLookupRequest: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "search" | "group";
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** People */
+            people?: components["schemas"]["LookupPerson"][];
+            /**
+             * Mode
+             * @default live
+             * @enum {string}
+             */
+            mode: "live" | "demo";
+        };
+        /**
          * AuthorOut
          * @description A paper's author. Identified when it has an ORCID or an OpenAlex id; otherwise a name only (a filter
          *     on it is a name match, which can include other people with the same name).
@@ -1733,6 +1779,53 @@ export interface components {
             position?: number | null;
             /** Affiliations */
             affiliations?: string[];
+        };
+        /**
+         * AuthorRef
+         * @description A person of an author search: a name, and the identifiers a human picked (never inferred from a name).
+         */
+        AuthorRef: {
+            /** Name */
+            name: string;
+            /**
+             * Openalex Id
+             * @default
+             */
+            openalex_id: string;
+            /**
+             * Orcid
+             * @default
+             */
+            orcid: string;
+            /**
+             * S2 Id
+             * @default
+             */
+            s2_id: string;
+        };
+        /**
+         * AuthorSearch
+         * @description A researcher topic (research_agent.authorsearch): the person (several OpenAlex ids when OpenAlex split
+         *     one person), and the group searched with them: frequent co-authors, the institution(s), or nobody.
+         */
+        AuthorSearch: {
+            /** People */
+            people: components["schemas"]["AuthorRef"][];
+            /**
+             * Group
+             * @default coauthors
+             * @enum {string}
+             */
+            group: "coauthors" | "institution" | "person";
+            /** Coauthors */
+            coauthors?: components["schemas"]["AuthorRef"][];
+            /** Institutions */
+            institutions?: components["schemas"]["InstitutionRef"][];
+            /**
+             * Min Shared
+             * @default 3
+             */
+            min_shared: number;
         };
         /** AuthorSuggestionOut */
         AuthorSuggestionOut: {
@@ -2494,6 +2587,7 @@ export interface components {
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /** Required Sources */
             required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
+            authors?: components["schemas"]["AuthorSearch"] | null;
             /**
              * Note
              * @default
@@ -2522,6 +2616,7 @@ export interface components {
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /** Required Sources */
             required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
+            authors?: components["schemas"]["AuthorSearch"] | null;
         };
         /** FieldOut */
         FieldOut: {
@@ -2583,6 +2678,7 @@ export interface components {
             query_override?: components["schemas"]["QueryOverrideIO"] | null;
             /** Required Sources */
             required_sources?: ("europepmc" | "openalex" | "arxiv" | "semantic_scholar" | "crossref" | "pubmed" | "medrxiv" | "biorxiv" | "core" | "ieee" | "springer" | "scopus")[];
+            authors?: components["schemas"]["AuthorSearch"] | null;
             /**
              * Note
              * @default
@@ -2631,6 +2727,7 @@ export interface components {
             queries?: {
                 [key: string]: string;
             } | null;
+            authors?: components["schemas"]["AuthorSearch"] | null;
         };
         /** FieldVersionSummary */
         FieldVersionSummary: {
@@ -2744,6 +2841,13 @@ export interface components {
             kind: "research" | "eval";
             /** Name */
             name: string;
+        };
+        /** InstitutionRef */
+        InstitutionRef: {
+            /** Name */
+            name: string;
+            /** Openalex Id */
+            openalex_id: string;
         };
         /** JobOut */
         JobOut: {
@@ -3015,6 +3119,23 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** LookupPerson */
+        LookupPerson: {
+            /** Openalex Id */
+            openalex_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Orcid
+             * @default
+             */
+            orcid: string;
+            /**
+             * S2 Id
+             * @default
+             */
+            s2_id: string;
+        };
         /** MapBranchOut */
         MapBranchOut: {
             /**
@@ -3044,6 +3165,16 @@ export interface components {
             label: string;
             /** Quote */
             quote: string;
+        };
+        /** MatchOut */
+        MatchOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "person" | "coauthor" | "institution" | "name_match";
+            /** Name */
+            name: string;
         };
         /** MissingCell */
         MissingCell: {
@@ -3304,6 +3435,8 @@ export interface components {
             authors?: components["schemas"]["AuthorOut"][];
             /** Author Count */
             author_count?: number;
+            /** Matched By */
+            matched_by?: components["schemas"]["MatchOut"][] | null;
         };
         /**
          * PreviewRequest
@@ -3321,6 +3454,7 @@ export interface components {
              * @enum {string}
              */
             mode: "live" | "demo";
+            authors?: components["schemas"]["AuthorSearch"] | null;
         };
         /** ProviderCostOut */
         ProviderCostOut: {
@@ -6190,6 +6324,8 @@ export interface operations {
                 author_id?: string | null;
                 /** @description name match: any author with this normalized name */
                 author_name?: string | null;
+                /** @description researcher topics: papers matched this way (any of their matches) */
+                matched_by?: ("person" | "coauthor" | "institution" | "name_match") | null;
             };
             header?: never;
             path: {
@@ -6244,6 +6380,8 @@ export interface operations {
                 author_id?: string | null;
                 /** @description name match: any author with this normalized name */
                 author_name?: string | null;
+                /** @description researcher topics: papers matched this way (any of their matches) */
+                matched_by?: ("person" | "coauthor" | "institution" | "name_match") | null;
             };
             header?: never;
             path: {
@@ -7133,6 +7271,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+        };
+    };
+    author_lookup_api_v1_authors_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

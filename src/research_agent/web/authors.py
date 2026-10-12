@@ -6,9 +6,10 @@ normalized name and is never merged into an identified author (spec: docs/superp
 import logging
 from collections import defaultdict
 
-from sqlalchemy import and_, delete, exists, func, or_, select
+from sqlalchemy import Text, and_, cast, delete, exists, false, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
+from ..authorsearch import as_dict, matched_by
 from ..connectors import (
     SourceUnavailable,
     fetch,
@@ -189,6 +190,67 @@ def author_detail(db, author_id):
         return None
     papers = db.scalar(select(func.count()).where(PaperAuthor.author_id == row.id))
     return author_out(row) | {"paper_count": papers}
+
+
+# ---------- "Matched by" (researcher topics) ----------
+
+
+def topic_authors(db, run):
+    """The authors spec of the run's topic version (None: not a researcher topic)."""
+    from .db.models import FieldVersion
+
+    version = db.get(FieldVersion, run.field_version_id) if run.field_version_id else None
+    return version.authors if version is not None else None
+
+
+def matched_for(db, paper_ids, spec):
+    """{paper_id: [{kind, name}]} from every stored author of each paper (research_agent.authorsearch)."""
+    people = authors_of(db, paper_ids)
+    return {pid: matched_by(people[pid]["authors"], spec) for pid in paper_ids}
+
+
+def _identified(paper_id_column, refs):
+    ids = [r["openalex_id"] for r in refs if r.get("openalex_id")]
+    orcids = [r["orcid"] for r in refs if r.get("orcid")]
+    if not (ids or orcids):
+        return false()
+    return exists().where(
+        PaperAuthor.paper_id == paper_id_column,
+        PaperAuthor.author_id == Author.id,
+        or_(Author.openalex_id.in_(ids), Author.orcid.in_(orcids)),
+    )
+
+
+def matched_condition(paper_id_column, spec, kind):
+    """The condition "the paper is matched by `kind`" (person / coauthor / institution / name_match), the SQL
+    form of `matched_by`; an institution matches an affiliation containing its name, case-insensitively."""
+    spec = as_dict(spec) or {}
+    group = spec.get("group", "coauthors")
+    people = spec.get("people") or []
+    coauthors = (spec.get("coauthors") or []) if group == "coauthors" else []
+    if kind == "person":
+        return _identified(paper_id_column, people)
+    if kind == "coauthor":
+        return _identified(paper_id_column, coauthors)
+    if kind == "institution":
+        names = [i["name"] for i in spec.get("institutions") or []] if group == "institution" else []
+        if not names:
+            return false()
+        return exists().where(
+            PaperAuthor.paper_id == paper_id_column,
+            or_(*(cast(PaperAuthor.affiliations, Text).ilike(_like(n), escape="\\") for n in names)),
+        )
+    if kind == "name_match":
+        options = []
+        for ref in people + coauthors:
+            by_name = exists().where(
+                PaperAuthor.paper_id == paper_id_column,
+                PaperAuthor.author_id == Author.id,
+                Author.normalized_name == normalize_name(ref["name"]),
+            )
+            options.append(and_(by_name, ~_identified(paper_id_column, [ref])))
+        return or_(*options) if options else false()
+    raise ValueError(f"unknown match kind {kind!r}")
 
 
 # ---------- backfill (worker job `authors_backfill`) ----------

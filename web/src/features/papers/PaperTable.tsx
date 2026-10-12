@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AuthorLine } from "../authors/AuthorList";
+import { MatchedBy } from "../authors/MatchedBy";
 
 import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
@@ -90,6 +91,7 @@ export function PaperTable({ rows, sort, direction, onSort, selectedPaperId, onO
                     {row.paper.title}
                   </button>
                   <AuthorLine authors={row.authors} count={row.author_count} />
+                  <MatchedBy matches={row.matched_by} />
                   <span className="sub">{row.paper.year ?? "year unknown"} · {row.paper.source_id}</span>
                 </td>
                 <td><FoundByCell foundBy={row.found_by} sources={row.sources ?? []} /></td>

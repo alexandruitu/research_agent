@@ -10,7 +10,7 @@ from sqlalchemy.orm import aliased
 
 from ..agents import validate_evidence
 from ..scoring import flag_problem_text
-from .authors import SHOWN, author_condition, authors_of
+from .authors import SHOWN, author_condition, authors_of, matched_condition, matched_for
 from .db.models import (
     Criterion,
     CriterionScore,
@@ -51,6 +51,8 @@ class PaperQuery:
     provisional: bool | None = None
     author_id: object = None  # an author row id (identified person, or one name-only row)
     author_name: str | None = None  # name match: every author with this normalized name
+    matched_by: str | None = None  # researcher topics: person | coauthor | institution | name_match
+    authors_spec: dict | None = None  # the run's topic authors spec (set by the router; None: not one)
 
 
 # A panel score counts only the answered checklist items: below this coverage (answered / total) the score is
@@ -326,6 +328,8 @@ def _filtered(run, q):
     by_author = author_condition(Screening.paper_id, q.author_id, q.author_name)
     if by_author is not None:
         stmt = stmt.where(by_author)
+    if q.matched_by is not None and q.authors_spec:
+        stmt = stmt.where(matched_condition(Screening.paper_id, q.authors_spec, q.matched_by))
     if q.group is not None:
         stmt = stmt.where(group_key(q.group_by, quality, q.group))
     return stmt, quality
@@ -452,6 +456,7 @@ def paper_table(db, run, q):
 
     refs = library_refs(db, [r[1].id for r in rows])
     people = authors_of(db, [r[1].id for r in rows], limit=SHOWN)
+    matches = matched_for(db, [r[1].id for r in rows], q.authors_spec) if q.authors_spec else {}
     items = [
         build_row(
             run,
@@ -482,6 +487,7 @@ def paper_table(db, run, q):
         item["library"] = refs.get(item["paper"]["id"])
         item["authors"] = people[item["paper"]["id"]]["authors"]
         item["author_count"] = people[item["paper"]["id"]]["count"]
+        item["matched_by"] = matches.get(item["paper"]["id"]) if q.authors_spec else None
         item["red_flags"] = flags[item["paper"]["id"]] if item["red_flag_count"] is not None else None
     return items, total
 

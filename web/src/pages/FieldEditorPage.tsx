@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FlowStepper } from "../components/FlowStepper";
 
@@ -12,7 +12,7 @@ import { CriteriaList } from "../features/fields/CriteriaList";
 import { CriteriaTestPanel } from "../features/fields/CriteriaTestPanel";
 import { FieldSidePanel } from "../features/fields/FieldSidePanel";
 import {
-  draftKeywords, draftOverrides, emptyForm, formFromVersion, hasKeywords, toBody, toDraft, validate, yearsOf, type FieldForm,
+  draftKeywords, draftOverrides, emptyForm, formFromVersion, hasKeywords, isResearcher, toBody, toDraft, validate, yearsOf, type FieldForm,
 } from "../features/fields/fieldForm";
 import { SOURCE_NAMES } from "../features/fields/labels";
 import { SourcePicker } from "../features/fields/SourcePicker";
@@ -26,6 +26,8 @@ import { SummaryCard } from "../features/fieldflow/SummaryCard";
 import { TagInput } from "../features/fieldflow/TagInput";
 import { useReportDirty } from "../features/settings/dirtyGuard";
 import { TermHint } from "../components/ui/Term";
+import { ResearcherPanel } from "../features/authors/ResearcherPanel";
+import type { AuthorSearch } from "../api/types";
 
 const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
 
@@ -79,6 +81,9 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   useReportDirty(dirty && canEdit);
   const update = (patch: Partial<FieldForm>) => setForm((f) => ({ ...f, ...patch }));
+  const setAuthors = useCallback((authors: AuthorSearch | null) => setForm((f) => ({ ...f, authors })), []);
+  const [searchTab, setSearchTab] = useState<"keywords" | "researcher">(() => (initial.authors ? "researcher" : "keywords"));
+  const researcher = isResearcher(form);
   const legacy = !!current && current.include.length + current.exclude.length === 0 && current.legacy.length > 0;
   const nextVersion = (field?.current_version ?? 0) + 1;
   // demo mode lives in the URL, so it survives the remount after "Create topic" and a reload
@@ -99,8 +104,8 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
     requestAnimationFrame(() => document.getElementById(`step-${next}-heading`)?.focus());
   };
   const done: Record<StepNumber, boolean> = {
-    1: !!form.name.trim() && (!!form.description.trim() || !!form.topic.trim() || hasKeywords(form)),
-    2: form.include.length + form.exclude.length > 0 && form.sources.length > 0,
+    1: !!form.name.trim() && (!!form.description.trim() || !!form.topic.trim() || hasKeywords(form) || researcher),
+    2: (form.include.length + form.exclude.length > 0 || researcher) && form.sources.length > 0,
     3: !!field && !dirty,
   };
 
@@ -149,7 +154,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
     try {
       const job = await preview.mutateAsync({
         keywords: draftKeywords(form), query_override: draftOverrides(form), sources: form.sources.filter((s) => (SOURCE_NAMES as readonly string[]).includes(s)),
-        years: yearsOf(form), mode: demo ? "demo" : "live",
+        years: yearsOf(form), mode: demo ? "demo" : "live", ...(researcher ? { authors: form.authors } : {}),
       });
       setPreviewJob(job.id);
     } catch (error) {
@@ -171,7 +176,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
     update({ sources: on ? [...form.sources, name] : form.sources.filter((s) => s !== name), required: (form.required ?? []).filter((s) => on || s !== name) });
   const requireSource = (name: string, on: boolean) =>
     update({ required: on ? [...(form.required ?? []), name] : (form.required ?? []).filter((s) => s !== name) });
-  const canPreview = hasKeywords(form) || !!draftOverrides(form);
+  const canPreview = hasKeywords(form) || !!draftOverrides(form) || researcher;
 
   return (
     <section className="field-editor">
@@ -227,6 +232,17 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                     </p>
                   )}
                   <p className="lede">Keywords decide what the search finds; criteria decide what the screen keeps.</p>
+                  <div className="search-tabs" role="group" aria-label="How to search">
+                    <button type="button" aria-pressed={searchTab === "keywords"} onClick={() => setSearchTab("keywords")}>Keyword search</button>
+                    <button type="button" aria-pressed={searchTab === "researcher"} onClick={() => setSearchTab("researcher")}>Researcher{researcher ? " (on)" : ""}</button>
+                  </div>
+                  {searchTab === "researcher" && <ResearcherPanel authors={form.authors ?? null} onChange={setAuthors} demo={demo} disabled={!canEdit} />}
+                  {researcher && (
+                    <p className="hint">
+                      Optional topic restriction: keywords below narrow the researcher search; without criteria, screening only checks that each
+                      paper is a research article (not an erratum, editorial or retraction).
+                    </p>
+                  )}
                   <div className="keyword-groups">
                     <TagInput tone="all" label={GROUP_LABEL.all} hint="Every one must appear." tags={form.keywords.all} disabled={!canEdit} onChange={(all) => update({ keywords: { ...form.keywords, all } })} placeholder="Type and press Enter" />
                     <TagInput tone="any" label={GROUP_LABEL.any} hint="Synonyms and alternatives." tags={form.keywords.any} disabled={!canEdit} onChange={(any) => update({ keywords: { ...form.keywords, any } })} placeholder="Type and press Enter" />
@@ -255,7 +271,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
                   {canEdit && (
                     <div className="actions">
                       <button type="button" onClick={runPreview} disabled={!canPreview || preview.isPending}>Preview search</button>
-                      {!canPreview && <span className="hint">Add a keyword (step 2) to preview.</span>}
+                      {!canPreview && <span className="hint">Add a keyword or pick a researcher (step 2) to preview.</span>}
                     </div>
                   )}
                   {previewProblem && <p role="alert" className="form-error">{previewProblem}</p>}

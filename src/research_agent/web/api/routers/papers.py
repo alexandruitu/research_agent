@@ -3,6 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 
+from ...authors import topic_authors
 from ...callstore import HEX64, CallStoreError, read_call, safe_folder
 from ...db.models import Paper, Run
 from ...library import library_refs
@@ -40,6 +41,9 @@ def paper_filters(
     author_name: str | None = Query(
         None, min_length=1, max_length=200, description="name match: any author with this normalized name"
     ),
+    matched_by: Literal["person", "coauthor", "institution", "name_match"] | None = Query(
+        None, description="researcher topics: papers matched this way (any of their matches)"
+    ),
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
     settings=Depends(get_settings),
@@ -76,7 +80,11 @@ def paper_filters(
         provisional,
         author_id,
         (author_name or "").strip() or None,
+        matched_by,
+        topic_authors(db, run),
     )
+    if matched_by is not None and not query.authors_spec:
+        raise ApiError(422, "validation_error", "matched_by needs a run of a researcher topic")
     return run, query
 
 

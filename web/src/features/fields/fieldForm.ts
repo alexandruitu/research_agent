@@ -1,5 +1,5 @@
 import type { FieldBody } from "../../api/hooks";
-import type { FieldDraft, FieldVersionOut } from "../../api/types";
+import type { AuthorSearch, FieldDraft, FieldVersionOut } from "../../api/types";
 import { checkOverride, hasTerms, QUERY_SOURCES, QueryError, type Keywords, type QuerySource } from "../fieldflow/querybuild";
 import { isSourceName } from "./labels";
 
@@ -11,6 +11,8 @@ export type FieldForm = {
   include: string[]; exclude: string[]; sources: string[]; yearFrom: string; yearTo: string; note: string;
   /** Sources that fail the run when they fail (partial search skips the others with a warning). */
   required?: string[];
+  /** A researcher topic: search these people and their group (null/absent: a keyword search). */
+  authors?: AuthorSearch | null;
 };
 
 export const MAX_TERMS = 20;
@@ -33,6 +35,7 @@ export const formFromVersion = (version: FieldVersionOut): FieldForm => ({
   exclude: version.exclude.map((c) => c.text),
   sources: [...version.sources],
   required: [...(version.required_sources ?? [])],
+  ...(version.authors ? { authors: version.authors } : {}),
   yearFrom: version.years.from == null ? "" : String(version.years.from),
   yearTo: version.years.to == null ? "" : String(version.years.to),
   note: "",
@@ -47,10 +50,14 @@ export function effectiveTopic(form: FieldForm): string {
   if (typed) return typed;
   const sentence = form.description.trim().split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
   if (sentence) return sentence.slice(0, 500);
+  const person = form.authors?.people[0]?.name;
+  if (person) return `Papers by ${person}${form.authors?.group === "person" ? "" : " and their group"}`.slice(0, 500);
   return [...form.keywords.all, ...form.keywords.any].join(" ").slice(0, 500);
 }
 
 export const hasKeywords = (form: FieldForm) => hasTerms(form.keywords);
+/** A researcher topic: criteria are optional (screening then only checks for a research article). */
+export const isResearcher = (form: FieldForm) => !!form.authors && form.authors.people.length > 0;
 
 const GROUP_NAME = { all: "Must include", any: "At least one of", none: "Exclude" } as const;
 
@@ -80,7 +87,9 @@ export function validate(form: FieldForm): string[] {
   form.exclude.forEach((text, i) => {
     if (!text.trim()) problems.push(`Exclusion criterion ${i + 1} is empty.`);
   });
-  if (form.include.length + form.exclude.length === 0) problems.push("Add at least one inclusion or exclusion criterion.");
+  if (form.include.length + form.exclude.length === 0 && !isResearcher(form)) problems.push("Add at least one inclusion or exclusion criterion.");
+  if (form.authors && form.authors.people.length === 0) problems.push("Pick the researcher (Researcher tab) or stop searching by researcher.");
+  if (form.authors?.group === "institution" && (form.authors.institutions ?? []).length === 0) problems.push("Choose at least one institution, or another group.");
   if (!form.sources.some(isSourceName)) problems.push("Choose at least one source.");
   const years = [form.yearFrom, form.yearTo].map((text) => text.trim()).filter(Boolean);
   if (years.some((text) => !YEAR.test(text) || Number(text) < 1900 || Number(text) > 2100)) {
@@ -119,6 +128,7 @@ export const toDraft = (form: FieldForm): FieldDraft => {
   if (keywords) draft.keywords = keywords;
   const overrides = draftOverrides(form);
   if (overrides) draft.query_override = overrides;
+  if (isResearcher(form)) draft.authors = form.authors;
   const required = draft.sources.filter((s) => (form.required ?? []).includes(s));
   if (required.length) draft.required_sources = required;
   return draft;

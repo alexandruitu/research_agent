@@ -20,6 +20,7 @@ from .connectors import (
     OpenAlex,
     SearchResult,
     SourceKeyMissing,
+    SourceNotApplicable,
     SourceUnavailable,
     _total,
     env_key,
@@ -780,9 +781,158 @@ CONNECTORS = {
 }
 
 
+class SemanticScholarAuthors(SemanticScholar):
+    """An author topic on Semantic Scholar: the query is `author:<id>,<id>`; each author's papers are listed
+    (`/author/{id}/papers`), then the years and the keywords (when given) filter them locally."""
+
+    author_endpoint = "https://api.semanticscholar.org/graph/v1/author/{id}/papers"
+
+    def search_with_total(self, query, limit, raw=False):
+        key = self.key()
+        ids = [i for i in query.removeprefix("author:").split(",") if i.strip().isdigit()]
+        headers = {"x-api-key": key} if key else None
+        papers, seen = [], set()
+        for author_id in ids:
+            offset = 0
+            while offset < limit:
+                params = {"fields": self.fields, "offset": offset, "limit": min(self.page, limit - offset)}
+                payload = self.get(self.author_endpoint.format(id=author_id.strip()), params, key, headers)
+                raw_hash, retrieved = self.keep(payload, key), _now()
+                try:
+                    rows = payload["data"]
+                    for row in rows:
+                        if row["paperId"] not in seen:
+                            seen.add(row["paperId"])
+                            papers.append(self._paper(row, query, retrieved, raw_hash))
+                except (KeyError, TypeError, ValueError, AttributeError) as exc:
+                    _malformed(self.name, exc)
+                following = payload.get("next")
+                if not rows or not isinstance(following, int) or following <= offset:
+                    break
+                offset = following
+        if self.span:
+            start, end = self.span
+            papers = [
+                p
+                for p in papers
+                if p.year.isdigit()
+                and (start is None or int(p.year) >= start)
+                and (end is None or int(p.year) <= end)
+            ]
+        if self.keywords:
+            papers = [p for p in papers if matches(self.keywords, f"{p.title} {p.abstract}")]
+        return SearchResult(
+            papers[:limit], len(papers), query, "Semantic Scholar: each author's papers, filtered locally"
+        )
+
+
+class NotApplicable:
+    """A source that cannot run an author topic: every search raises SourceNotApplicable (skipped, warned)."""
+
+    def __init__(self, name, reason):
+        self.name = name
+        self.reason = reason
+
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def search_with_total(self, query, limit, raw=False):
+        raise SourceNotApplicable(self.name, self.reason)
+
+
+class DemoAuthorConnector:
+    """Synthetic author-topic records (demo mode, no network): papers by the person, with each co-author, by
+    someone at an institution, and (sources searched by name) one record by the person's name only. Not real
+    publications."""
+
+    def __init__(self, store, source, spec):
+        self.store = store
+        self.name = source
+        self.spec = spec
+
+    def search(self, query, limit, raw=False):
+        return self.search_with_total(query, limit, raw).papers
+
+    def _records(self):
+        from .authorsearch import as_dict, name_match
+
+        spec = as_dict(self.spec)
+        person = spec["people"][0]
+
+        def ident(ref, affiliation=None):
+            return {
+                "name": ref["name"],
+                "orcid": ref.get("orcid", ""),
+                "openalex_id": ref.get("openalex_id", ""),
+                "affiliations": [affiliation] if affiliation else [],
+            }
+
+        stranger = {"name": "Synthetic Collaborator"}
+        records = [("person-1", [ident(person)]), ("person-2", [ident(person), stranger])]
+        if spec.get("group") == "coauthors":
+            for n, ref in enumerate(spec.get("coauthors") or [], start=1):
+                records.append((f"coauthor-{n}", [stranger, ident(ref)]))
+        if spec.get("group") == "institution":
+            for n, inst in enumerate(spec.get("institutions") or [], start=1):
+                records.append(
+                    (f"institution-{n}", [{"name": "Synthetic Colleague", "affiliations": [inst["name"]]}])
+                )
+        if name_match(spec, self.name):
+            records.append(("name", [{"name": person["name"]}]))
+        return records
+
+    def search_with_total(self, query, limit, raw=False):
+        papers = []
+        for local, people in self._records()[:limit]:
+            row = {
+                "title": f"SYNTHETIC DEMO AUTHOR PAPER {local}: imaging study",
+                "abstract": f"Synthetic study {local} evaluated a segmentation model on a toy imaging dataset. "
+                "The reported accuracy increased in this simulated experiment. "
+                "External validation was not performed.",
+            }
+            raw_hash = self.store.raw(row | {"authors": people})
+            papers.append(
+                Paper(
+                    id=f"demo-author:{local}",
+                    **row,
+                    year="2026",
+                    authors=make_authors(people),
+                    sources=[self.name],
+                    provenance=[
+                        Source(
+                            connector="synthetic_fixture",
+                            record_id=f"demo-author:{local}",
+                            url=f"urn:demo-author:{local}",
+                            query=query,
+                            retrieved_at="2026-09-12T00:00:00+00:00",
+                            raw_sha256=raw_hash,
+                        )
+                    ],
+                )
+            )
+        return SearchResult(papers, len(papers), query)
+
+
 def make_connector(source, domain, store, mode, client=None):
-    """The connector for one SourceSpec of a field (demo: synthetic records, no network)."""
+    """The connector for one SourceSpec of a field (demo: synthetic records, no network). An author topic
+    (`domain.authors`) gets the author connectors; a source that cannot search it reports why."""
     name = source.name
+    authors = getattr(domain, "authors", None)
+    if authors is not None:
+        from .authorsearch import skip_reason
+
+        reason = skip_reason(authors, name)
+        if reason:
+            return NotApplicable(name, reason)
+        if mode == "demo":
+            return DemoAuthorConnector(store, name, authors)
+        if name == "openalex":
+            return OpenAlex(store, client, years=domain.years, contact=source.contact, author=True)
+        if name == "semantic_scholar":
+            keywords = domain.keywords.model_dump() if domain.keywords else None
+            return SemanticScholarAuthors(
+                store, client, years=domain.years, contact=source.contact, keywords=keywords
+            )
     if mode == "demo":
         return DemoConnector(store, source=name)
     if name == "europepmc":

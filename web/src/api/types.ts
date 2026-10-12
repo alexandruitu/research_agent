@@ -6,6 +6,19 @@ export type UserOut = S["UserOut"];
 export type AuthorOut = S["AuthorOut"];
 export type AuthorSuggestionOut = S["AuthorSuggestionOut"];
 export type BackfillStatusOut = S["BackfillStatusOut"];
+export type AuthorSearch = S["AuthorSearch"];
+export type AuthorRef = S["AuthorRef"];
+export type InstitutionRef = S["InstitutionRef"];
+export type MatchOut = S["MatchOut"];
+export type MatchKind = MatchOut["kind"];
+/** One OpenAlex author the Researcher tab lists (author_lookup, step "search"). */
+export type AuthorCandidate = { openalex_id: string; name: string; orcid: string; works_count: number; institution: { openalex_id: string; name: string } | null; concepts: string[] };
+export type LookupCoauthor = { openalex_id: string; orcid: string; name: string; shared: number };
+export type LookupInstitution = { openalex_id: string; name: string; works: number };
+/** author_lookup results: step "search" lists candidates; step "group" the people (with s2_id), co-authors and institutions. */
+export type AuthorLookupResult =
+  | { step: "search"; name: string; candidates: AuthorCandidate[] }
+  | { step: "group"; people: AuthorRef[]; works: number; coauthors: LookupCoauthor[]; institutions: LookupInstitution[] };
 export type UserReferencesOut = S["UserReferencesOut"];
 export type UserDeleteOut = S["UserDeleteOut"];
 export type SessionOut = S["SessionOut"];

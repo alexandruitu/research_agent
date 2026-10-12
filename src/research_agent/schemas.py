@@ -153,14 +153,45 @@ class Keywords(Model):
     none: list[Term] = Field(default_factory=list, max_length=20)
 
 
-OPTIONAL_DOMAIN_KEYS = ("description", "keywords", "queries")
+class AuthorRef(Model):
+    """A person of an author search: a name, and the identifiers a human picked (never inferred from a name)."""
+
+    name: str = Field(min_length=1, max_length=300)
+    openalex_id: str = Field(default="", pattern=r"^(A\d{1,15})?$")
+    orcid: str = Field(default="", pattern=r"^(\d{4}-\d{4}-\d{4}-\d{3}[\dX])?$")
+    s2_id: str = Field(default="", pattern=r"^(\d{1,20})?$")
+
+
+class InstitutionRef(Model):
+    name: str = Field(min_length=1, max_length=300)
+    openalex_id: str = Field(pattern=r"^I\d{1,15}$")
+
+
+class AuthorSearch(Model):
+    """A researcher topic (research_agent.authorsearch): the person (several OpenAlex ids when OpenAlex split
+    one person), and the group searched with them: frequent co-authors, the institution(s), or nobody."""
+
+    people: list[AuthorRef] = Field(min_length=1, max_length=10)
+    group: Literal["coauthors", "institution", "person"] = "coauthors"
+    coauthors: list[AuthorRef] = Field(default_factory=list, max_length=50)
+    institutions: list[InstitutionRef] = Field(default_factory=list, max_length=10)
+    min_shared: int = Field(default=3, ge=1, le=50)
+
+    @model_validator(mode="after")
+    def _group(self):
+        if self.group == "institution" and not self.institutions:
+            raise ValueError("an institution group needs at least one institution")
+        return self
+
+
+OPTIONAL_DOMAIN_KEYS = ("description", "keywords", "queries", "authors")
 
 
 class DomainSpec(Model):
     """domain.json: the frozen contract between the web app and one pipeline run.
 
     `queries` ({source: query}, built in code from `keywords`) are searched as they are; a source without one
-    gets the LLM-planned queries. The three optional keys are left out of dumps when null, so older contracts
+    gets the LLM-planned queries. The optional keys are left out of dumps when null, so older contracts
     (and their cache keys) are unchanged."""
 
     model_config = ALIASED
@@ -174,6 +205,7 @@ class DomainSpec(Model):
     description: str | None = Field(default=None, max_length=2000)
     keywords: Keywords | None = None
     queries: dict[SourceName, Annotated[str, Field(min_length=1, max_length=2000)]] | None = None
+    authors: AuthorSearch | None = None  # a researcher topic: every source searches by author
 
     @model_validator(mode="after")
     def _unique_sources(self):

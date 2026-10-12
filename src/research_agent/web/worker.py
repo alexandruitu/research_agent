@@ -223,6 +223,8 @@ class Worker:
                     return self._reader_map(db, job)
                 if job.kind == "authors_backfill":
                     return self._authors_backfill(db, job)
+                if job.kind == "author_lookup":
+                    return self._author_lookup(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
@@ -693,6 +695,16 @@ class Worker:
 
         with self._heartbeat_while(job.id):
             result = backfill(db, contact=contact, client=self.http_client, progress=progress, limit=limit)
+        return self._finish(db, job, result)
+
+    def _author_lookup(self, db, job):
+        """Topic editor, Researcher tab: OpenAlex author candidates, or the picked people's co-authors and
+        institutions (web.authorlookup). The result is in the job's `progress.result`."""
+        from .authorlookup import author_lookup
+
+        contact = settings_row(db).contact_email
+        with self._heartbeat_while(job.id):
+            result = author_lookup(job.payload or {}, client=self.http_client, contact=contact)
         return self._finish(db, job, result)
 
     def _gold_build(self, db, job):
