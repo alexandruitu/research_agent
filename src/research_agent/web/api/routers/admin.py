@@ -92,8 +92,15 @@ def check_source(
 
 @router.get("/settings", response_model=SettingsOut)
 def get_settings_row(user=Depends(require_role("viewer")), db=Depends(get_db)):
-    row = settings_row(db)
-    return SettingsOut(contact_email=row.contact_email, alerts_max_runs_per_day=row.alerts_max_runs_per_day)
+    return _settings_out(settings_row(db))
+
+
+def _settings_out(row):
+    return SettingsOut(
+        contact_email=row.contact_email,
+        alerts_max_runs_per_day=row.alerts_max_runs_per_day,
+        signup_domains=list(row.signup_domains or []),
+    )
 
 
 @router.patch("/settings", response_model=SettingsOut)
@@ -103,8 +110,10 @@ def patch_settings(body: SettingsPatch, user=Depends(require_role("admin")), db=
         row.contact_email = body.contact_email
     if body.alerts_max_runs_per_day is not None:
         row.alerts_max_runs_per_day = body.alerts_max_runs_per_day
+    if body.signup_domains is not None:
+        row.signup_domains = body.signup_domains
     db.commit()
-    return SettingsOut(contact_email=row.contact_email, alerts_max_runs_per_day=row.alerts_max_runs_per_day)
+    return _settings_out(row)
 
 
 @router.get("/workers/status", response_model=list[WorkerStatusOut])

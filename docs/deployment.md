@@ -24,6 +24,12 @@ continues from its checkpoint when the worker starts again. One run may take at 
 `RESEARCH_WEB_JOB_TIMEOUT_SECONDS` (default 3600; set it in `deploy/worker.env`), after which it fails with
 `the run timed out after N s`. The pipeline child never reads a `.env` file.
 
+Since per-user keys (spec 2026-11-03), `research-web serve` and `research-web worker` refuse to start without
+`RESEARCH_SECRETS_KEY` (a Fernet key: `python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`).
+Both `api` (encrypts users' keys) and `worker` (decrypts them) need the same value. Outside `research-web dev` the
+worker's own provider keys are never passed to a run: each user brings their own (Settings → My keys). The Docker
+files are updated in a later step (spec section 5).
+
 ## 2. First deployment
 
 ```bash

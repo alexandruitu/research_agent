@@ -175,15 +175,13 @@ def test_a_draft_is_tested_through_the_api_and_the_worker_without_writing_papers
 
 def test_a_live_test_without_the_key_fails_with_a_clear_message(world, monkeypatch):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    settings, factory, sign_in = world
+    _settings, _factory, sign_in = world
     field_id = new_field(sign_in)
     member, csrf = sign_in("member")
     r = member.post(f"{API}/fields/{field_id}/test", json={}, headers=csrf)
-    Worker(settings, factory, sleep=lambda s: None, http_client=europepmc_client([row(1)])).tick()
-    job = member.get(f"{API}/jobs/{r.json()['id']}").json()
-    assert (
-        job["status"] == "failed" and job["error"] == "ValueError: TYPESAFE_API_KEY is not set in the worker"
-    )
+    # blocked before any job exists: the member has no TypeSafe key in Settings → My keys
+    assert r.status_code == 422 and r.json()["code"] == "key_missing"
+    assert r.json()["message"] == "Add your TypeSafe (Jev) key in Settings → My keys"
 
 
 def test_criteria_tests_refuse_archived_and_legacy_fields(world):

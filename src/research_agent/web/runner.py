@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -65,6 +66,8 @@ def spawn_command(command, env, log_path, cwd=None):
 
 
 def child_environment():
+    """The worker's environment minus the web app's settings. Provider keys are filtered (or kept, in development
+    mode) by keyring.job_environment."""
     env = {
         k: v
         for k, v in os.environ.items()
@@ -117,9 +120,25 @@ def failure_message(run_dir, exit_code):
     return f"the run process exited with code {exit_code}"
 
 
+_JOB_SECRETS = set()  # the current job's decrypted user keys (worker only); cleared when the job ends
+_JOB_LOCK = threading.Lock()
+
+
+def add_job_secrets(values):
+    with _JOB_LOCK:
+        _JOB_SECRETS.update(v for v in values if v)
+
+
+def clear_job_secrets():
+    with _JOB_LOCK:
+        _JOB_SECRETS.clear()
+
+
 def _secret_values():
-    """Values of key, password, secret and token variables, and the database URLs with their passwords."""
-    values = set()
+    """Values of key, password, secret and token variables, the database URLs with their passwords, and the
+    current job's user keys."""
+    with _JOB_LOCK:
+        values = set(_JOB_SECRETS)
     for name, value in os.environ.items():
         if name.endswith(SECRET_SUFFIXES) or name in SECRET_NAMES:
             values.add(value)

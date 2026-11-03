@@ -12,7 +12,12 @@ from fastapi.testclient import TestClient
 from research_agent.web.api.app import API_PREFIX, create_app
 from research_agent.web.api.deps import get_db
 
-PUBLIC = {("POST", f"{API_PREFIX}/auth/login"), ("GET", f"{API_PREFIX}/health")}
+PUBLIC = {
+    ("POST", f"{API_PREFIX}/auth/login"),
+    ("GET", f"{API_PREFIX}/health"),
+    ("GET", f"{API_PREFIX}/auth/signup"),
+    ("POST", f"{API_PREFIX}/auth/signup"),
+}
 ROLES = ["viewer", "member", "admin"]
 RANK = {"viewer": 0, "member": 1, "admin": 2}
 NIL = "00000000-0000-0000-0000-000000000000"

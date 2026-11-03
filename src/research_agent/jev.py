@@ -123,7 +123,9 @@ class JevScreener:
         criteria=None,
         client=None,
         sleep=time.sleep,
+        namespace=None,
     ):
+        self.namespace = namespace  # a user id keeps users' cached answers apart; None: legacy keys
         self.store = store
         self.api_key = api_key
         self.model = model
@@ -144,7 +146,10 @@ class JevScreener:
         state = {"title": paper["title"], "abstract": paper["abstract"]}
         questions = questions or self.criteria or default_criteria(topic)
         inputs = {"model": self.model, "state": state, "questions": questions}
-        key = digest({"role": "jev_screen", "version": JEV_SCREEN_VERSION, "inputs": inputs})
+        body = {"role": "jev_screen", "version": JEV_SCREEN_VERSION, "inputs": inputs}
+        if self.namespace is not None:
+            body["namespace"] = str(self.namespace)
+        key = digest(body)
         return key, inputs, questions
 
     def _cached(self, key, questions):

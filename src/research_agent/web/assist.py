@@ -23,10 +23,12 @@ def assist_payload(draft):
     }
 
 
-def field_assist(draft, store, *, mode="live", model=None):
+def field_assist(draft, store, *, mode="live", model=None, namespace=None, api_keys=None):
     """The job result: {"mode", "model", "suggestions": FieldSuggestions as a dict}."""
     if mode == "live" and not model:
         raise ValueError("Set RESEARCH_ASSIST_MODEL or RESEARCH_MODEL in the worker")
-    evaluator = Evaluator(store, mode, {ROLE: model} if mode == "live" else {})
+    evaluator = Evaluator(
+        store, mode, {ROLE: model} if mode == "live" else {}, namespace=namespace, api_keys=api_keys
+    )
     suggestions = evaluator.ask(ROLE, FieldSuggestions, assist_payload(draft))
     return {"mode": mode, "model": evaluator.model_for(ROLE), "suggestions": suggestions.model_dump()}

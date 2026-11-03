@@ -23,6 +23,8 @@ from research_agent.web.worker import Worker
 
 BASE = ROOT / ".web-dev" / "e2e"
 PASSWORD = "e2e-test-password-1"  # keep in step with web/e2e/users.ts
+E2E_SECRETS_KEY = "ZTJlLXRlc3Qtc2VjcmV0cy1rZXktMzItYnl0ZXMhISE="
+SIGNUP_DOMAINS = ["signup.example.org"]  # keep in step with web/e2e/signup.spec.ts
 USERS = {
     "viewer@example.org": ("Vera Viewer", "viewer"),
     "member@example.org": ("Mia Member", "member"),
@@ -44,6 +46,8 @@ def environment(database_url, base):
         # a heartbeat per progress poll; 0.2 s stays far below the default stale limit (120 s)
         "RESEARCH_WEB_PROGRESS_POLL_SECONDS": "0.2",
         "RESEARCH_WEB_JOB_TIMEOUT_SECONDS": "300",
+        # a throwaway Fernet key for the throwaway database (users' test keys in the browser tests)
+        "RESEARCH_SECRETS_KEY": E2E_SECRETS_KEY,
     }
 
 
@@ -70,6 +74,9 @@ def seed(settings):
                 password=PASSWORD,
                 min_password_length=settings.min_password_length,
             )
+        from research_agent.web.fields import settings_row
+
+        settings_row(db).signup_domains = SIGNUP_DOMAINS
         db.commit()
     if run_imports(settings, find_import_targets(settings)) != 0:
         raise SystemExit("importing the browser test dataset failed")

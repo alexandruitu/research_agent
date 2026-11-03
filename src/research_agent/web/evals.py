@@ -225,6 +225,11 @@ PRICES = (
     ("gemini-2.5-pro", 1.25, 10.0),
     ("gemini-2.5-flash", 0.30, 2.50),
     ("gemini-3.1-pro", 2.0, 12.0),
+    # estimates (list prices not confirmed here); the cost table is marked "estimate" throughout
+    ("gpt-5-mini", 0.25, 2.0),
+    ("gpt-5", 1.25, 10.0),
+    ("grok-4-fast", 0.20, 0.50),
+    ("grok-4", 3.0, 15.0),
 )
 
 

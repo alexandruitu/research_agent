@@ -154,6 +154,11 @@ PROVIDERS = {
         "https://generativelanguage.googleapis.com/v1beta/models",
         lambda key: {"x-goog-api-key": key},
     ),
+    "xai": (
+        "XAI_API_KEY",
+        "https://api.x.ai/v1/models",
+        lambda key: {"Authorization": f"Bearer {key}"},
+    ),
     "typesafe": ("TYPESAFE_API_KEY", None, None),
 }
 KEY_ROLE = "key:{}"  # worker_status row of a provider whose key is set but that no role uses
@@ -190,6 +195,14 @@ def _validate(provider, key, http_client):
     if response.status_code in (401, 403):
         return False, f"rejected ({response.status_code})"
     return None, f"check failed (HTTP {response.status_code})"
+
+
+def validate_key(provider, key, http_client=None):
+    """(accepted, detail) for one user's key (Settings → My keys → Test). Providers without a cheap check
+    (TypeSafe, the sources) answer (None, "not checked")."""
+    if provider not in PROVIDERS:
+        return None, "not checked"
+    return _validate(provider, key, http_client)
 
 
 def check_keys(env, http_client=None):

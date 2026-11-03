@@ -3,14 +3,30 @@
 import math
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[3]
 
 
+SECRETS_KEY_ENV = "RESEARCH_SECRETS_KEY"
+
+
 class SettingsError(ValueError):
     pass
+
+
+def check_secrets_key(value):
+    """A Fernet key (32 url-safe base64 bytes). The message never repeats the value."""
+    from cryptography.fernet import Fernet
+
+    try:
+        Fernet(value)
+    except (ValueError, TypeError):
+        raise SettingsError(
+            f"{SECRETS_KEY_ENV} is not a valid Fernet key (generate one with "
+            "`python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`)"
+        ) from None
 
 
 @dataclass(frozen=True)
@@ -37,6 +53,15 @@ class Settings:
     worker_poll_seconds: float = 2.0
     progress_poll_seconds: float = 2.0
     job_timeout_seconds: float = 3600.0
+    # Fernet key for user_secrets. `research-web serve` and `worker` refuse to start without it; `dev`
+    # generates one into .web-dev/. Never logged (repr=False) and never sent to a client.
+    secrets_key: str | None = field(default=None, repr=False)
+    # Development mode: set only by `research-web dev` (RESEARCH_WEB_DEV_MODE=true). Only then may the
+    # worker's own provider keys (.env) stand in for a key the user has not saved.
+    dev_mode: bool = False
+    signup_max_attempts: int = 5  # sign-ups per IP per window (every attempt counts)
+    signup_window_seconds: int = 3600
+    login_ip_max_attempts: int = 30  # failed logins per IP (any email) per login window
 
 
 def _number(env, name, default, cast=int, low=None, high=None, positive=False):
@@ -81,7 +106,12 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         job_timeout_seconds=_number(
             env, "RESEARCH_WEB_JOB_TIMEOUT_SECONDS", 3600.0, cast=float, positive=True
         ),
+        secrets_key=(env.get(SECRETS_KEY_ENV) or "").strip() or None,
+        dev_mode=env.get("RESEARCH_WEB_DEV_MODE", "false").strip().lower() == "true",
+        signup_max_attempts=_number(env, "RESEARCH_WEB_SIGNUP_MAX_ATTEMPTS", 5, low=1, high=1000),
     )
+    if settings.secrets_key:
+        check_secrets_key(settings.secrets_key)
     if settings.progress_poll_seconds * 3 >= settings.job_stale_seconds:
         # a running job heartbeats once per progress poll; it must never look stale between two beats
         raise SettingsError(

@@ -38,16 +38,22 @@ def test_only_admins_change_sources(sign_in):
 def test_contact_email_setting(sign_in):
     viewer, _ = sign_in("viewer")
     admin, csrf = sign_in("admin")
-    assert viewer.get(f"{API}/settings").json() == {"contact_email": None, "alerts_max_runs_per_day": 5}
+    assert viewer.get(f"{API}/settings").json() == {
+        "contact_email": None,
+        "alerts_max_runs_per_day": 5,
+        "signup_domains": [],
+    }
     assert viewer.patch(f"{API}/settings", json={"contact_email": "a@b.org"}).status_code == 403
     r = admin.patch(f"{API}/settings", json={"contact_email": "team@example.org"}, headers=csrf)
     assert r.status_code == 200 and r.json() == {
         "contact_email": "team@example.org",
         "alerts_max_runs_per_day": 5,
+        "signup_domains": [],
     }
     assert admin.patch(f"{API}/settings", json={}, headers=csrf).json() == {
         "contact_email": "team@example.org",
         "alerts_max_runs_per_day": 5,
+        "signup_domains": [],
     }
     assert (
         admin.patch(f"{API}/settings", json={"contact_email": "not an email"}, headers=csrf).status_code
@@ -58,6 +64,7 @@ def test_contact_email_setting(sign_in):
     ).json() == {
         "contact_email": None,
         "alerts_max_runs_per_day": 5,
+        "signup_domains": [],
     }
 
 

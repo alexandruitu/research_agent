@@ -340,6 +340,31 @@ name match: every author with that name) on `/runs/{id}/papers`, `/papers/groups
 `GET /authors?q=&run_id=&library=` (typeahead, identified first, with paper counts), `GET /authors/{id}`,
 `GET|POST /authors/backfill`. URL: `author=<uuid>` or `aname=<text>` on Results and Library.
 
+## Signup, per-user keys and models (spec 2026-11-03, sections 1–2)
+
+- **Signup:** `POST /auth/signup` {email, name, password} creates an active `member` when the email's domain is in
+  `signup_domains` (Settings → Users, admin; empty = signup off, `GET /auth/signup` → {open}). A taken email gets the
+  same 202 answer as a new one and no session (the user then signs in). Password policy as for invites (12+).
+  Limits per IP: 5 signups/hour (`RESEARCH_WEB_SIGNUP_MAX_ATTEMPTS`), 30 failed logins per login window (any email),
+  on top of the per IP+email login limit.
+- **My keys** (`/me/keys`, member+): Anthropic, Google, OpenAI, xAI, TypeSafe and the keyed sources. A key is
+  Fernet-encrypted with `RESEARCH_SECRETS_KEY` into `user_secrets`; responses carry only `last4` and dates. Test
+  (`POST /me/keys/{provider}/check`) is a `secret_check` job: only the worker decrypts (`web/keyring.py`).
+- **Use:** the worker decrypts the job owner's keys and passes them to the pipeline child **only through its
+  environment**; provider variables of the worker's own environment are removed from the child unless in
+  development mode. A live job whose step needs a missing key is refused by the API before it is queued
+  ("Add your <provider> key in Settings → My keys"), and checked again by the worker. Demo jobs need no key.
+- **Development mode** = `RESEARCH_WEB_DEV_MODE=true`, set only by `research-web dev`. Only then do the worker's
+  `.env` keys stand in for keys a user has not saved. `research-web dev` reads `RESEARCH_SECRETS_KEY` from the
+  environment or creates `.web-dev/secrets.key` (mode 600); `serve` and `worker` refuse to start without the key.
+- **Cache namespace:** a new run records `cache_namespace` (the starting user's id) in its manifest and every call's
+  cache key includes it (`agents.cache_key`). Runs without it (older runs, the CLI) keep the legacy keys, also on
+  resume. In-process worker calls (Reader, paper map, field assist) use the job owner's id the same way.
+- **My models** (`/me/models`): a model per role (plan, screen, screen by criteria, extract, each default-panel
+  reviewer, editor, reader) from providers the user has a key for; unset roles use the admin default. The choices
+  are applied to the run's `review_request` when it is created, so they are frozen in the run.
+- **My usage** (`/me/usage`): per month of run start, the user's runs, recorded calls and estimated cost.
+
 ## Frontend
 
 The single-page app lives in `web/` (Vite, React 18, TypeScript strict, TanStack Query). It needs Node 20.19

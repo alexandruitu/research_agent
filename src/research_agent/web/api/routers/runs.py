@@ -380,6 +380,23 @@ def job_out(job):
     )
 
 
+def require_keys(db, settings, user, providers):
+    """Preflight: refuse a job when the user lacks a key one of its steps needs (presence flags only)."""
+    from ... import usersecrets
+
+    try:
+        usersecrets.preflight(db, settings, user.id, providers)
+    except usersecrets.SecretsError as exc:
+        raise ApiError(exc.status, exc.code, exc.message) from None
+
+
+def require_run_keys(db, settings, user, mode, review, domain):
+    from ... import usersecrets
+
+    if mode == "live":
+        require_keys(db, settings, user, usersecrets.needed_for_run(db, review, domain))
+
+
 def check_active_cap(db, user, settings):
     active = db.scalar(
         select(func.count())
@@ -400,7 +417,7 @@ def _existing(db, user, idempotency_key, response):
     return StartRunOut(job=job_out(existing), run_id=uuid.UUID(existing.payload["run_id"]))
 
 
-def _current_requests(db, field):
+def _current_requests(db, field, user=None):
     """(field version, domain request or None, review request, review settings, reviewer versions) for a new run
     from the field's current version and the current review settings."""
     version = svc.get_version(db, field)
@@ -419,6 +436,13 @@ def _current_requests(db, field):
         review, review_settings, reviewers = review_svc.review_for_run(db)
     except review_svc.ReviewConflict as exc:
         raise ApiError(exc.status, exc.code, exc.message) from None
+    if user is not None:  # the user's own model choices (Settings → My models), frozen into the request
+        from ... import usersecrets
+
+        try:
+            review = usersecrets.apply_user_models(review, usersecrets.user_choices(db, user.id))
+        except ValueError as exc:
+            raise ApiError(422, "invalid_settings", str(exc)[:300]) from None
     return version, domain, review, review_settings.id, [r.id for r in reviewers]
 
 
@@ -426,6 +450,7 @@ def _create_run(db, user, settings, response, idempotency_key, field, plan):
     """Queue a new research run. `plan` = {field_version_id, settings_version_id, reviewer_version_ids, domain,
     review, topic, max_papers, mode}."""
     domain, review = plan["domain"], plan["review"]
+    require_run_keys(db, settings, user, plan["mode"], review, domain)
     contract = {"topic": plan["topic"] if domain is None else domain["topic"]}
     contract |= {"max_papers": plan["max_papers"], "mode": plan["mode"]}
     manifest = {"contract": contract} | ({"domain_request": domain} if domain else {})
@@ -480,7 +505,7 @@ def start_run(
         return existing
     if field.archived_at is not None:
         raise ApiError(409, "archived", "This field is archived; restore it first")
-    version, domain, review, settings_id, reviewer_ids = _current_requests(db, field)
+    version, domain, review, settings_id, reviewer_ids = _current_requests(db, field, user)
     check_active_cap(db, user, settings)
     plan = {
         "field_version_id": version.id if version else None,
@@ -537,7 +562,7 @@ def rerun(
             "topic": contract.get("topic") or field.topic,
         }
     else:
-        version, domain, review, settings_id, reviewer_ids = _current_requests(db, field)
+        version, domain, review, settings_id, reviewer_ids = _current_requests(db, field, user)
         plan = {
             "field_version_id": version.id if version else None,
             "settings_version_id": settings_id,
@@ -566,6 +591,15 @@ def resume_run(
     state = runs_svc.resume_state(settings, run)
     if state["code"] == "prompt_version_changed":
         raise ApiError(409, state["code"], state["reason"])
+    resume_contract = (run.manifest or {}).get("contract") or {}
+    require_run_keys(
+        db,
+        settings,
+        user,
+        resume_contract.get("mode", "live"),
+        (run.manifest or {}).get("review_request"),
+        (run.manifest or {}).get("domain_request"),
+    )
     check_active_cap(db, user, settings)
     active = db.scalar(
         select(func.count())

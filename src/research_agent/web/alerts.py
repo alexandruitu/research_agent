@@ -114,18 +114,25 @@ def create_alert_run(
     db, settings, alert, *, user_id, mode="live", idempotency_key=None, now=None, deferred=False
 ):
     """Queue one alert run of the field's current version. Returns (job, run, created). Raises AlertError."""
-    from .api.errors import ApiError
-    from .api.routers.runs import _current_requests
+    from types import SimpleNamespace
 
+    from .api.errors import ApiError
+    from .api.routers.runs import _current_requests, require_run_keys
+
+    owner = SimpleNamespace(id=user_id)  # the alert run uses its owner's models and keys
     field = db.get(Field, alert.field_id)
     if field is None or field.archived_at is not None:
         raise AlertError("The field is archived; restore it to run its alert", 409, "archived")
     try:
-        version, domain, review, settings_id, reviewer_ids = _current_requests(db, field)
+        version, domain, review, settings_id, reviewer_ids = _current_requests(db, field, owner)
     except ApiError as exc:
         raise AlertError(exc.message, exc.status, exc.code) from None
     if domain is None:
         raise AlertError("Alerts need a field with criteria and sources (a field version)")
+    try:
+        require_run_keys(db, settings, owner, mode, review, domain)
+    except ApiError as exc:
+        raise AlertError(exc.message, exc.status, exc.code) from None
     now = now or datetime.now().astimezone()
     domain = {
         **domain,

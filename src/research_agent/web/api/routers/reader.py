@@ -23,7 +23,7 @@ from ..schemas import (
     ReaderOut,
     ReaderRelatedIn,
 )
-from .runs import check_active_cap, job_out
+from .runs import check_active_cap, job_out, require_keys
 
 router = APIRouter(tags=["reader"])
 
@@ -68,6 +68,15 @@ def get_reader(
     }
 
 
+def _reader_keys(db, settings, user, run):
+    """Preflight: a live Reader call needs a key for the Reader model's provider."""
+    from ...usersecrets import provider_of
+
+    if svc.run_mode(run) == "live":
+        model = svc.reader_model(db, os.environ, user.id)
+        require_keys(db, settings, user, {provider_of(model)} if model else set())
+
+
 @router.post("/runs/{run_id}/papers/{paper_id}/reader/ask", response_model=JobOut, status_code=202)
 def ask(
     run_id: uuid.UUID,
@@ -84,6 +93,7 @@ def ask(
         raise ApiError(422, "nothing_to_ask", "Write a question first")
     if body.tool == "background" and not (body.selection.strip() or body.question.strip()):
         raise ApiError(422, "nothing_to_explain", "Select a passage or write the concept to explain")
+    _reader_keys(db, settings, user, run)
     check_active_cap(db, user, settings)
     # The run id is under `reader_run_id`, never `run_id`: a failed Reader job must not fail the run.
     payload = {
@@ -186,7 +196,7 @@ def get_map(
         .order_by(PaperMap.built_at.desc(), PaperMap.id)
         .limit(1)
     )
-    reason = svc.map_staleness(row, svc.current_map_model(db, os.environ, run)) if row else None
+    reason = svc.map_staleness(row, svc.current_map_model(db, os.environ, run, user.id)) if row else None
     job = _latest_map_job(db, run, paper)
     if job is not None and not (
         job.status in ("queued", "running")
@@ -216,6 +226,7 @@ def build_map(
     working = _latest_map_job(db, run, paper)
     if working is not None and working.status in ("queued", "running"):
         return job_out(working)
+    _reader_keys(db, settings, user, run)
     check_active_cap(db, user, settings)
     # The run id is under `reader_run_id`, never `run_id`: a failed Reader job must not fail the run.
     payload = {"reader_run_id": str(run.id), "paper_id": str(paper.id), "mode": svc.run_mode(run)}

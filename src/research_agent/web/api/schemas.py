@@ -374,14 +374,100 @@ class SourcePatch(Model):
 
 
 class SettingsOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["alerts_max_runs_per_day"])
+    ADDED: ClassVar[frozenset] = frozenset(["alerts_max_runs_per_day", "signup_domains"])
     contact_email: str | None
     alerts_max_runs_per_day: int = 5
+    signup_domains: list[str] = []  # empty: signup is off
+
+
+DOMAIN = r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
 
 
 class SettingsPatch(Model):
     contact_email: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     alerts_max_runs_per_day: int | None = Field(default=None, ge=0, le=100)
+    signup_domains: list[str] | None = Field(default=None, max_length=50)
+
+    @field_validator("signup_domains")
+    @classmethod
+    def _domains(cls, value):
+        if value is None:
+            return value
+        out = []
+        for raw in value:
+            domain = raw.strip().lower().lstrip("@")
+            if not re.match(DOMAIN, domain):
+                raise ValueError(f"not an email domain: {raw[:60]!r}")
+            if domain not in out:
+                out.append(domain)
+        return out
+
+
+class SignupIn(Model):
+    email: str = Field(max_length=320)
+    name: str = Field(max_length=200)
+    password: str = Field(max_length=1000)
+
+
+class SignupOut(Model):
+    message: str
+
+
+class SignupStatusOut(Model):
+    open: bool
+
+
+class KeyIn(Model):
+    key: str = Field(max_length=1000)
+
+
+class KeyOut(Model):
+    provider: str
+    label: str
+    kind: str  # model | jev | source
+    saved: bool
+    last4: str | None
+    created_at: datetime | None
+    checked_at: datetime | None
+    check_ok: bool | None
+    check_detail: str
+    checkable: bool
+
+
+class MyModelRole(Model):
+    role: str
+    label: str
+    default: str | None  # the admin default (or the worker's model)
+    choice: str | None  # the user's own choice; null: the default
+    effective: str | None
+
+
+class MyModelOption(Model):
+    id: str
+    provider: str
+    available: bool  # the user has a key for its provider
+
+
+class MyModelsOut(Model):
+    roles: list[MyModelRole]
+    options: list[MyModelOption]
+
+
+class MyModelsIn(Model):
+    models: dict[str, str | None]
+
+
+class UsageMonth(Model):
+    month: str  # YYYY-MM (UTC)
+    runs: int
+    calls: int
+    cost_usd: float
+    unpriced_models: list[str]
+
+
+class UsageOut(Model):
+    estimate: bool
+    months: list[UsageMonth]
 
 
 class WorkerStatusOut(Model):

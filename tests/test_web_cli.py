@@ -3,6 +3,7 @@ from typing import ClassVar
 
 import pytest
 import sqlalchemy as sa
+from conftest import TEST_SECRETS_KEY
 from sqlalchemy import func, select
 from web_fixtures import make_demo_run, make_eval_run
 
@@ -21,6 +22,7 @@ def cli_settings(fresh_db_url, tmp_path):
             "RESEARCH_RUNS_DIR": str(tmp_path / "runs"),
             "RESEARCH_EVALS_DIR": str(tmp_path / "evals"),
             "RESEARCH_GOLD_DIR": str(tmp_path / "gold"),
+            "RESEARCH_SECRETS_KEY": TEST_SECRETS_KEY,
         }
     )
 
@@ -254,6 +256,7 @@ def test_the_real_worker_process_exits_cleanly_on_sigterm(cli_settings):
         RESEARCH_GOLD_DIR=str(cli_settings.gold_dir),
         PYTHON_DOTENV_DISABLED="1",
         PYTHONUNBUFFERED="1",
+        RESEARCH_SECRETS_KEY=TEST_SECRETS_KEY,
     )
     process = subprocess.Popen(
         [sys.executable, "-m", "research_agent.web.cli", "worker"], env=env, stdout=subprocess.PIPE, text=True

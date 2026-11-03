@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ..sources import REGISTRY
 from ..storage import Store
+from . import keyring
 from .alerts import finish_alert_run, record_failure, schedule_due, write_seen_file
 from .assist import assist_model, field_assist
 from .checks import check_keys, check_source_keys, criteria_test, source_check
@@ -40,6 +41,7 @@ from .runner import (
     EXIT_LOCKED,
     RunSpec,
     child_environment,
+    clear_job_secrets,
     eval_command,
     failure_message,
     progress_snapshot,
@@ -50,6 +52,7 @@ from .runner import (
 )
 from .runner import spawn as spawn_process
 from .uploads import materialize
+from .usersecrets import needed_for_run, provider_of, user_choices
 
 log = logging.getLogger(__name__)
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -196,6 +199,19 @@ class Worker:
 
     def execute(self, job_id):
         """Run one claimed job. Returns False when it went back to the queue."""
+        try:
+            return self._execute(job_id)
+        finally:
+            clear_job_secrets()  # the job's decrypted keys leave the redaction set (and this process's use)
+
+    def _keys(self, db, job):
+        """The keys this job runs with (the user's; in development mode the worker's own fill the gaps)."""
+        return keyring.job_keys(db, self.settings, job.created_by)
+
+    def _job_env(self, keys, job):
+        return keyring.job_environment(child_environment(), keys, job.created_by, self.settings.dev_mode)
+
+    def _execute(self, job_id):
         with self.factory() as db:
             job = db.get(Job, job_id)
             try:
@@ -225,11 +241,14 @@ class Worker:
                     return self._authors_backfill(db, job)
                 if job.kind == "author_lookup":
                     return self._author_lookup(db, job)
+                if job.kind == "secret_check":
+                    return self._secret_check(db, job)
                 raise ValueError(f"unknown job kind {job.kind!r}")
             except Exception as exc:  # noqa: BLE001 -- the worker must survive and report any failure
                 db.rollback()
                 job = db.get(Job, job_id)
-                self._fail(db, job, sanitize_error(exc))
+                message = redact(str(exc)) if isinstance(exc, keyring.KeyMissing) else sanitize_error(exc)
+                self._fail(db, job, message)
                 return True
 
     def _fail(self, db, job, message):
@@ -330,18 +349,21 @@ class Worker:
         run.started_at = run.started_at or datetime.now(UTC)
         db.commit()
         mode = contract["mode"] or "live"
+        keys = self._keys(db, job) if mode == "live" else {}
+        if mode == "live":  # the API checked this before queueing; check again with the keys in hand
+            keyring.require(keys, needed_for_run(db, review, domain))
         spec = RunSpec(
             topic=contract["topic"] or "",
             max_papers=int(contract["max_papers"] or self.settings.max_papers_cap),
             mode=mode,
-            jev=mode == "live" and bool(os.environ.get("TYPESAFE_API_KEY")),
+            jev=mode == "live" and "typesafe" in keys,
             resume=resume,
             run_dir=run_dir,
             domain_file=domain_file,
             review_file=review_file,
             seen_file=seen_file,
         )
-        process = self.spawn(spec, child_environment(), run_dir / "worker.log")
+        process = self.spawn(spec, self._job_env(keys, job), run_dir / "worker.log")
         deadline = self.monotonic() + self.settings.job_timeout_seconds
         interrupted = None
         try:
@@ -385,7 +407,7 @@ class Worker:
         else:
             if (warnings := read_progress(run_dir).get("search_warnings")) is not None:
                 run.search_warnings = warnings  # every source failed: say which and why
-            self._fail(db, job, failure_message(run_dir, process.returncode))
+            self._fail(db, job, redact(failure_message(run_dir, process.returncode)))
         return True
 
     def _import(self, db, job):
@@ -451,7 +473,9 @@ class Worker:
                 payload["domain"],
                 Store(scratch),
                 mode=payload.get("mode", "live"),
-                api_key=os.environ.get("TYPESAFE_API_KEY"),
+                api_key=self._keys(db, job).get("typesafe")
+                if payload.get("mode", "live") == "live"
+                else None,
                 jev_client=self.jev_client,
                 http_client=self.http_client,
                 progress=progress,
@@ -462,12 +486,19 @@ class Worker:
     def _field_assist(self, db, job):
         payload = job.payload or {}
         store = Store(self.settings.cache_dir / "assist")  # kept: the same draft never costs twice
+        mode = payload.get("mode", "live")
+        model = user_choices(db, job.created_by).get("screen") or assist_model(os.environ)
+        keys = self._keys(db, job) if mode == "live" else {}
+        if mode == "live" and model:
+            keyring.require(keys, {provider_of(model)})
         with self._heartbeat_while(job.id):
             result = field_assist(
                 payload.get("draft") or {},
                 store,
-                mode=payload.get("mode", "live"),
-                model=assist_model(os.environ),
+                mode=mode,
+                model=model,
+                namespace=job.created_by,
+                api_keys=keys,
             )
         return self._finish(db, job, result)
 
@@ -503,7 +534,10 @@ class Worker:
                 return True
             db.commit()
             process = self.spawn_eval(
-                eval_command(argv), child_environment(), folder / "worker.log", str(self.settings.evals_dir)
+                eval_command(argv),
+                self._job_env(self._keys(db, job), job),
+                folder / "worker.log",
+                str(self.settings.evals_dir),
             )
             interrupted = None
             try:
@@ -566,7 +600,8 @@ class Worker:
             raise ReaderFailed("The run or the paper no longer exists")
         mode = payload.get("mode", "live")
         text = paper_text(db, self.settings, run, paper)
-        model = reader_model(db, os.environ) if mode == "live" else None
+        model = reader_model(db, os.environ, job.created_by) if mode == "live" else None
+        keys = self._reader_keys(db, job, mode, model)
         with self._heartbeat_while(job.id):
             try:
                 result = reader_ask(
@@ -577,6 +612,8 @@ class Worker:
                     reader_store(self.settings, run.id),
                     mode=mode,
                     model=model,
+                    namespace=job.created_by,
+                    api_keys=keys,
                 )
             except ReaderFailed as exc:
                 self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
@@ -599,11 +636,18 @@ class Worker:
             raise ReaderFailed("The run or the paper no longer exists")
         mode = payload.get("mode", "live")
         text = paper_text(db, self.settings, run, paper)
-        model = reader_model(db, os.environ) if mode == "live" else None
+        model = reader_model(db, os.environ, job.created_by) if mode == "live" else None
+        keys = self._reader_keys(db, job, mode, model)
         with self._heartbeat_while(job.id):
             try:
                 result = build_map(
-                    paper.title, text, reader_store(self.settings, run.id), mode=mode, model=model
+                    paper.title,
+                    text,
+                    reader_store(self.settings, run.id),
+                    mode=mode,
+                    model=model,
+                    namespace=job.created_by,
+                    api_keys=keys,
                 )
             except ReaderFailed as exc:
                 self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix
@@ -634,6 +678,37 @@ class Worker:
         row.created_by, row.built_at = job.created_by, datetime.now(UTC)
         db.flush()
         return self._finish(db, job, {**result, "map_id": str(row.id), "red_flags": flags})
+
+    def _reader_keys(self, db, job, mode, model):
+        from .reader import ReaderFailed
+
+        if mode != "live":
+            return {}
+        keys = self._keys(db, job)
+        try:
+            keyring.require(keys, {provider_of(model)} if model else set())
+        except keyring.KeyMissing as exc:
+            raise ReaderFailed(str(exc)) from None
+        return keys
+
+    def _secret_check(self, db, job):
+        """Test one saved key with a free listing call (the key goes only into the request header). The result
+        goes on the user_secrets row and in the job (never a value)."""
+        from sqlalchemy import select
+
+        from .checks import validate_key
+        from .db.models import UserSecret
+
+        provider = (job.payload or {}).get("provider")
+        keys = keyring.decrypt_keys(db, self.settings, job.created_by)
+        row = db.scalar(
+            select(UserSecret).where(UserSecret.user_id == job.created_by, UserSecret.provider == provider)
+        )
+        if row is None or provider not in keys:
+            raise ValueError("no key saved for this provider")
+        accepted, detail = validate_key(provider, keys[provider], self.http_client)
+        row.checked_at, row.check_ok, row.check_detail = datetime.now(UTC), accepted, detail[:200]
+        return self._finish(db, job, {"provider": provider, "ok": accepted, "detail": detail})
 
     def _reader_related(self, db, job):
         """Find related / earlier work for a passage: the enabled sources (partial failure → warnings) plus the

@@ -168,12 +168,15 @@ def run_mode(run):
     return ((run.manifest or {}).get("contract") or {}).get("mode") or "live"
 
 
-def reader_model(db, env):
-    """Settings → AI models → Reader, else the Screen model, else the worker's RESEARCH_MODEL; None: unset."""
+def reader_model(db, env, user_id=None):
+    """The user's choice (Settings → My models → Reader), else Settings → AI models → Reader, else the Screen
+    model, else the worker's RESEARCH_MODEL; None: unset."""
     from .review import current_settings
+    from .usersecrets import reader_choice
 
     models = current_settings(db).models or {}
-    return models.get("reader") or models.get("screen") or env.get("RESEARCH_MODEL") or None
+    mine = reader_choice(db, user_id) if user_id is not None else None
+    return mine or models.get("reader") or models.get("screen") or env.get("RESEARCH_MODEL") or None
 
 
 def reader_payload(tool, text, selection, question):
@@ -184,7 +187,9 @@ def reader_payload(tool, text, selection, question):
     return {"paper_text": text["content"], "selection": selection, "question": question}
 
 
-def reader_ask(tool, text, selection, question, store, *, mode="live", model=None):
+def reader_ask(
+    tool, text, selection, question, store, *, mode="live", model=None, namespace=None, api_keys=None
+):
     """The job result: {tool, mode, model, prompt_version, answer, statements, not_in_paper, general}."""
     role = TOOLS[tool]
     if mode == "live" and not model:
@@ -193,7 +198,12 @@ def reader_ask(tool, text, selection, question, store, *, mode="live", model=Non
         raise ReaderFailed("This paper has no text to read: no abstract and no full text")
     schema = BackgroundAnswer if tool == "background" else ReaderAnswer
     evaluator = Evaluator(
-        store, mode, {role: model} if mode == "live" else {}, prompt_version=READER_PROMPT_VERSION
+        store,
+        mode,
+        {role: model} if mode == "live" else {},
+        prompt_version=READER_PROMPT_VERSION,
+        namespace=namespace,
+        api_keys=api_keys,
     )
     try:
         result = evaluator.ask(role, schema, reader_payload(tool, text, selection, question))
@@ -232,7 +242,7 @@ MAP_TITLES = {
 DEMO_MODEL = "synthetic-demo-v1"
 
 
-def build_map(title, text, store, *, mode="live", model=None):
+def build_map(title, text, store, *, mode="live", model=None, namespace=None, api_keys=None):
     """The paper map of one paper (job `reader_map`): {mode, model, prompt_version, text_kind, branches}. Every
     node quote is checked against the same text the Reader shows (the abstract when there is no full text);
     a failure is retried, then fails closed with a clear error."""
@@ -241,7 +251,12 @@ def build_map(title, text, store, *, mode="live", model=None):
     if not text["content"].strip():
         raise ReaderFailed("This paper has no text to map: no abstract and no full text")
     evaluator = Evaluator(
-        store, mode, {"paper_map": model} if mode == "live" else {}, prompt_version=PAPER_MAP_PROMPT_VERSION
+        store,
+        mode,
+        {"paper_map": model} if mode == "live" else {},
+        prompt_version=PAPER_MAP_PROMPT_VERSION,
+        namespace=namespace,
+        api_keys=api_keys,
     )
     try:
         result = evaluator.ask("paper_map", PaperMap, {"title": title or "", "paper_text": text["content"]})
@@ -270,9 +285,9 @@ def map_red_flags(db, run, paper):
     ]
 
 
-def current_map_model(db, env, run):
+def current_map_model(db, env, run, user_id=None):
     """The model a map built now would use; None when it cannot be known here (no model set)."""
-    return DEMO_MODEL if run_mode(run) == "demo" else reader_model(db, env)
+    return DEMO_MODEL if run_mode(run) == "demo" else reader_model(db, env, user_id)
 
 
 def map_staleness(row, current_model):

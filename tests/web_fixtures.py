@@ -157,3 +157,12 @@ def make_ablation_eval(base, panel_dir, name="abl-a"):
     assert cli.main(["ablation", str(panel_dir), "--eval-dir", str(folder)], dotenv=False) == 0
     assert cli.main(["report", str(folder)], dotenv=False) == 0
     return folder
+
+
+def save_key(factory, settings, user_id, provider="anthropic", value="sk-test-key-0000"):
+    """Store a (fake) provider key for a user, the way Settings → My keys does."""
+    from research_agent.web.usersecrets import save_secret
+
+    with factory() as db:
+        save_secret(db, settings, user_id, provider, value)
+        db.commit()

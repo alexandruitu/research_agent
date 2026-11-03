@@ -18,6 +18,7 @@ from .routers import (
     imports,
     jobs,
     library,
+    me,
     papers,
     ratings,
     reader,
@@ -40,6 +41,8 @@ def create_app(settings=None, session_factory=None):
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.rate_limiter = RateLimiter(settings.login_max_attempts, settings.login_window_seconds)
+    app.state.login_ip_limiter = RateLimiter(settings.login_ip_max_attempts, settings.login_window_seconds)
+    app.state.signup_limiter = RateLimiter(settings.signup_max_attempts, settings.signup_window_seconds)
     app.state.auth_provider = SessionCookieProvider(settings)
     app.state.preview_limiter = RateLimiter(PREVIEWS_PER_MINUTE, 60)  # per user, in-process
     install_error_handlers(app)
@@ -61,6 +64,7 @@ def create_app(settings=None, session_factory=None):
         evals,
         gold_sets,
         jobs,
+        me,
         imports,
         health,
     ):

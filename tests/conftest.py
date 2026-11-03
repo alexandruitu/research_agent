@@ -66,6 +66,7 @@ def db(migrated_engine):
 
 
 PASSWORD = "correct horse battery"
+TEST_SECRETS_KEY = "x" * 43 + "="  # a valid Fernet key (32 bytes), for tests only
 
 
 @pytest.fixture
@@ -82,6 +83,7 @@ def settings(tmp_path, pg_url):
             "RESEARCH_CACHE_DIR": str(tmp_path / "cache"),
             "RESEARCH_WEB_COOKIE_SECURE": "false",
             "RESEARCH_WEB_ALLOW_DEMO": "true",
+            "RESEARCH_SECRETS_KEY": TEST_SECRETS_KEY,
         }
     )
 
@@ -184,6 +186,7 @@ def world(fresh_db_url, tmp_path):
             "RESEARCH_WEB_ALLOW_DEMO": "true",
             "RESEARCH_WEB_WORKER_POLL_SECONDS": "0.01",
             "RESEARCH_WEB_PROGRESS_POLL_SECONDS": "0.01",
+            "RESEARCH_SECRETS_KEY": TEST_SECRETS_KEY,
         }
     )
     engine = sa.create_engine(fresh_db_url)

@@ -369,6 +369,8 @@ class AppSettings(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)  # always 1
     contact_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     alerts_max_runs_per_day: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
+    # email domains allowed to sign up (lower-case, without "@"); empty: signup is off
+    signup_domains: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -732,3 +734,33 @@ class PaperMap(Base):
     red_flags: Mapped[list] = mapped_column(JSONB, default=list)  # [{label, quote, by}] from the run, by code
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     built_at: Mapped[datetime] = created()
+
+
+class UserSecret(Base):
+    """A user's provider key, Fernet-encrypted with RESEARCH_SECRETS_KEY. Only the worker decrypts it; the API
+    shows `last4` and the dates, never the value."""
+
+    __tablename__ = "user_secrets"
+    __table_args__ = (UniqueConstraint("user_id", "provider"),)
+    id: Mapped[uuid.UUID] = pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(32))  # a research_agent.web.usersecrets.PROVIDERS key
+    ciphertext: Mapped[str] = mapped_column(Text)
+    last4: Mapped[str] = mapped_column(String(4))
+    created_at: Mapped[datetime] = created()
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    check_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # None: not checked or no check
+    check_detail: Mapped[str] = mapped_column(String(200), default="", server_default="")
+
+
+class UserModels(Base):
+    """A user's model per role ({role: "provider:model"}); a role left out uses the admin default."""
+
+    __tablename__ = "user_models"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    models: Mapped[dict] = mapped_column(JSONB, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

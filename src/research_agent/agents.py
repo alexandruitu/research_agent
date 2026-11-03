@@ -206,13 +206,47 @@ def system_for(role):
     return SYSTEM
 
 
+def cache_key(model, role, version, inputs, namespace=None):
+    """The call's content address. `namespace` (a user id) keeps users' cached answers apart; None is the
+    legacy namespace (runs started before per-user keys, and the CLI), whose keys are unchanged."""
+    body = {"model": model, "role": role, "version": version, "inputs": inputs}
+    if namespace is not None:
+        body["namespace"] = str(namespace)
+    return digest(body)
+
+
+# init_chat_model's keyword for an explicit key, per provider (only used for in-process worker calls; the
+# pipeline child reads its keys from its environment).
+API_KEY_ARGUMENT = {
+    "anthropic": "api_key",
+    "openai": "api_key",
+    "xai": "api_key",
+    "google_genai": "google_api_key",
+}
+
+
+def model_provider(model):
+    return model.split(":", 1)[0] if model and ":" in model else None
+
+
 class Evaluator:
-    def __init__(self, store, mode="demo", models=None, offline=False, prompt_version=PROMPT_VERSION):
+    def __init__(
+        self,
+        store,
+        mode="demo",
+        models=None,
+        offline=False,
+        prompt_version=PROMPT_VERSION,
+        namespace=None,
+        api_keys=None,
+    ):
         self.store = store
         self.mode = mode
         self.models = models or {}
         self.offline = offline
         self.prompt_version = prompt_version  # an old run's version reads that run's cache
+        self.namespace = namespace  # see cache_key
+        self.api_keys = api_keys or {}  # {provider: key}; never logged, never part of a cache key
 
     def model_for(self, role):
         if self.mode == "demo":
@@ -238,7 +272,7 @@ class Evaluator:
             "payload": payload,
             "schema": schema.model_json_schema(),
         }
-        key = digest({"model": model, "role": role, "version": self.prompt_version, "inputs": inputs})
+        key = cache_key(model, role, self.prompt_version, inputs, self.namespace)
         cached = self.store.cached(key)
         if cached is not None:
             return schema.model_validate(cached)
@@ -251,8 +285,13 @@ class Evaluator:
 
             from .connectors import canonical_json
 
+            explicit = {}
+            provider = model_provider(model)
+            if provider in self.api_keys and provider in API_KEY_ARGUMENT:
+                explicit[API_KEY_ARGUMENT[provider]] = self.api_keys[provider]
             llm = init_chat_model(
                 model,
+                **explicit,
                 timeout=120 if is_panel(role) else 60,
                 max_retries=2,
                 max_tokens=16000

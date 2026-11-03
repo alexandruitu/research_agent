@@ -25,7 +25,7 @@ from ..schemas import (
     PreviewRequest,
     Years,
 )
-from .runs import check_active_cap, job_out
+from .runs import check_active_cap, job_out, require_keys
 
 router = APIRouter(prefix="/fields", tags=["fields"])
 
@@ -174,6 +174,11 @@ def assist(
         raise ApiError(422, "nothing_to_assist", "Describe the field or add a keyword first")
     if body.mode == "demo" and not settings.allow_demo:
         raise ApiError(422, "validation_error", "demo mode is disabled on this deployment")
+    if body.mode == "live":
+        from ...usersecrets import assist_model_api, provider_of
+
+        model = assist_model_api(db, user.id)
+        require_keys(db, settings, user, {provider_of(model)} if model else set())
     check_active_cap(db, user, settings)
     draft = {"description": body.description, "topic": body.topic, "keywords": keywords}
     job, _ = enqueue(db, "field_assist", {"mode": body.mode, "draft": draft}, user.id)
@@ -315,6 +320,8 @@ def test_criteria(
             domain = svc.domain_for_version(db, field, version)
     except svc.FieldConflict as exc:
         raise conflict(exc) from None
+    if body.mode == "live":
+        require_keys(db, settings, user, {"typesafe"})
     check_active_cap(db, user, settings)
     payload = {
         "field_id": str(field.id),

@@ -24,6 +24,8 @@ from .scoring import SCORE_VERSION
 from .seen import SEEN_FILE, read_seen
 from .storage import Store
 
+CACHE_NAMESPACE_ENV = "RESEARCH_CACHE_NAMESPACE"  # set by the web worker: the user id of the run
+
 STAGES = {
     "plan": "Planificare căutare",
     "discover": "Căutare în surse",
@@ -271,6 +273,7 @@ def run_research(
             if contract and contract.topic != saved.topic:
                 raise RunRefused("The topic cannot be changed when resuming.")
             contract, models = saved, manifest["models"]
+            namespace = manifest.get("cache_namespace")  # absent: a run from before per-user caches (legacy)
             uploads = (manifest.get("review") or {}).get("uploads", [])
             seen_file = path / SEEN_FILE if manifest.get("skip_seen") else None
         else:
@@ -278,6 +281,8 @@ def run_research(
                 raise RunRefused("This research already exists; resume it or choose a new folder.")
             contract = Contract.model_validate(contract)
             models = models or run_models(contract)
+            # The web worker sets this to the id of the user who started the run; the CLI leaves it unset.
+            namespace = os.environ.get(CACHE_NAMESPACE_ENV) or None
             manifest = {
                 "contract": contract.model_dump(),
                 "models": {
@@ -288,6 +293,7 @@ def run_research(
                 "domain": copy_domain(path, contract, domain_file) if contract.domain else None,
                 "review": copy_review(path, contract, review_file, uploads) if contract.review else None,
                 "prompt_version": PROMPT_VERSION,
+                **({"cache_namespace": namespace} if namespace else {}),
                 "score_version": SCORE_VERSION if contract.review else "m1.1",
                 **({"fulltext_version": FULLTEXT_VERSION} if contract.review else {}),
                 "packages": {
@@ -307,11 +313,13 @@ def run_research(
         progress.write()
         try:
             store = Store(path)
-            evaluator = Evaluator(store, contract.mode, models)
+            evaluator = Evaluator(store, contract.mode, models, namespace=namespace)
             connector = make_connector(contract, store)
             jev = (
                 JevScreener.from_env(
-                    store, JevThresholds(contract.jev_min_confidence, contract.jev_exclude_min_confidence)
+                    store,
+                    JevThresholds(contract.jev_min_confidence, contract.jev_exclude_min_confidence),
+                    namespace=namespace,
                 )
                 if contract.jev
                 else None

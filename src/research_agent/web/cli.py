@@ -20,7 +20,7 @@ from .importer.common import ImportFailed
 from .importer.evals import import_eval_run
 from .importer.research import import_research_run
 from .runner import sanitize_error
-from .settings import load_settings
+from .settings import SECRETS_KEY_ENV, load_settings
 from .worker import Worker
 
 
@@ -133,6 +133,29 @@ def cmd_migrate(args, settings):
     return 0
 
 
+def dev_secrets_key(folder):
+    """The development server's Fernet key: RESEARCH_SECRETS_KEY when set, else `<folder>/secrets.key`, created
+    (mode 600) on first use. Never written to .env and never printed."""
+    from cryptography.fernet import Fernet
+
+    if os.environ.get(SECRETS_KEY_ENV):
+        return os.environ[SECRETS_KEY_ENV]
+    path = Path(folder) / "secrets.key"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(Fernet.generate_key().decode())
+    return path.read_text().strip()
+
+
+def require_secrets_key(settings):
+    if not settings.secrets_key:
+        print(f"FAILED: set {SECRETS_KEY_ENV} (a Fernet key) in the server environment; users' keys need it")
+        return False
+    return True
+
+
 def cmd_dev(args, settings):
     """Local development: an embedded PostgreSQL in .web-dev/, migrations, optional import, then the API."""
     import pgserver
@@ -142,7 +165,15 @@ def cmd_dev(args, settings):
     data.mkdir(parents=True, exist_ok=True)
     server = pgserver.get_server(data, cleanup_mode="stop")
     url = server.get_uri().replace("postgresql://", "postgresql+psycopg://", 1)
-    env = dict(os.environ, RESEARCH_WEB_DATABASE_URL=url, RESEARCH_WEB_COOKIE_SECURE="false")
+    # Development mode (RESEARCH_WEB_DEV_MODE): only this command sets it. It lets the worker's .env keys stand
+    # in for keys a user has not saved; `serve` and `worker` never do that.
+    env = dict(
+        os.environ,
+        RESEARCH_WEB_DATABASE_URL=url,
+        RESEARCH_WEB_COOKIE_SECURE="false",
+        RESEARCH_WEB_DEV_MODE="true",
+        **{SECRETS_KEY_ENV: dev_secrets_key(data.parent)},
+    )
     if args.allow_demo:
         env["RESEARCH_WEB_ALLOW_DEMO"] = "true"
     dev_settings = load_settings(env)
@@ -178,6 +209,8 @@ def cmd_dev(args, settings):
 def cmd_serve(args, settings):
     import uvicorn
 
+    if not require_secrets_key(settings):
+        return 1
     uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -198,6 +231,8 @@ def stop_on_signals(worker):
 
 
 def cmd_worker(args, settings):
+    if not require_secrets_key(settings):
+        return 1
     worker = Worker(settings, key_check=not args.once)
     with stop_on_signals(worker):
         if args.once:

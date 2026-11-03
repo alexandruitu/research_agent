@@ -8,6 +8,7 @@ from typing import ClassVar
 import pytest
 from pdf_helpers import PAPER_LINES, tiny_pdf
 from sqlalchemy import select
+from web_fixtures import save_key
 
 from research_agent.agents import (
     PROMPT_VERSION,
@@ -261,6 +262,7 @@ def test_a_failed_reader_job_never_fails_the_run(reader_world, stub, monkeypatch
     member, csrf = sign_in("member")
     with factory() as db:
         member_id = db.scalar(select(User.id).where(User.role == "member"))
+        save_key(factory, settings, member_id)
         job = Job(
             kind="reader_ask",
             payload={

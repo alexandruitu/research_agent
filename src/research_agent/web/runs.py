@@ -361,7 +361,36 @@ def provider_of(model):
         return "anthropic"
     if model.startswith("gemini"):
         return "google_genai"
+    if model.startswith("gpt"):
+        return "openai"
+    if model.startswith("grok"):
+        return "xai"
     return None
+
+
+def user_usage(db, settings, user_id):
+    """My usage: per calendar month (UTC) of the run's start, the runs a user started, their recorded model
+    calls and estimated cost (the run's own cost table, approximate list prices). Newest month first."""
+    from sqlalchemy import select
+
+    from .db.models import Run
+
+    months = {}
+    runs = db.scalars(
+        select(Run).where(Run.created_by == user_id, Run.kind == "research").order_by(Run.created_at)
+    )
+    for run in runs:
+        month = run.created_at.strftime("%Y-%m")
+        entry = months.setdefault(
+            month, {"month": month, "runs": 0, "calls": 0, "cost_usd": 0.0, "unpriced_models": set()}
+        )
+        summary = calls_summary(settings, run)
+        entry["runs"] += 1
+        entry["calls"] += summary["totals"]["calls"]
+        entry["cost_usd"] = round(entry["cost_usd"] + summary["totals"]["cost_usd"], 4)
+        entry["unpriced_models"].update(summary["totals"]["unpriced_models"])
+    out = [{**m, "unpriced_models": sorted(m["unpriced_models"])} for m in months.values()]
+    return {"estimate": True, "months": sorted(out, key=lambda m: m["month"], reverse=True)}
 
 
 def calls_summary(settings, run):

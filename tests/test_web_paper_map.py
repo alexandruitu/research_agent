@@ -7,6 +7,7 @@ from typing import ClassVar
 
 import pytest
 from sqlalchemy import select
+from web_fixtures import save_key
 
 from research_agent.agents import (
     PAPER_MAP_PROMPT_VERSION,
@@ -243,6 +244,7 @@ def test_a_failed_map_job_never_fails_the_run(map_world, stub, monkeypatch):
     stub.answers = [{"branches": branches(task=[{"label": "x", "quote": "not in the paper at all"}])}]
     with factory() as db:
         member_id = db.scalar(select(User.id).where(User.role == "member"))
+        save_key(factory, settings, member_id)
         db.add(
             Job(
                 kind="reader_map",
