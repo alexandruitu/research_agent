@@ -483,6 +483,13 @@ def test_signup_creates_a_member_and_answers_the_same_for_a_taken_email(app, cli
     assert weak.status_code == 422 and "12 characters" in weak.json()["message"]
 
 
+def test_signup_star_allows_any_email_domain(client, sign_in):
+    assert _domains(sign_in, ["*"]) == ["*"]
+    assert client.get(f"{API}/auth/signup").json() == {"open": True}
+    body = {"email": "pilot@anywhere.example", "name": "Pilot", "password": "a long enough password"}
+    assert client.post(f"{API}/auth/signup", json=body).status_code == 202
+
+
 def test_signup_and_login_are_rate_limited_per_ip(app, client, sign_in):
     _domains(sign_in, ["company.example"])
     statuses = [

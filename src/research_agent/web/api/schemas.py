@@ -396,6 +396,10 @@ class SettingsPatch(Model):
         out = []
         for raw in value:
             domain = raw.strip().lower().lstrip("@")
+            if domain == "*":  # any email domain: open sign-up (a closed pilot group)
+                if domain not in out:
+                    out.append(domain)
+                continue
             if not re.match(DOMAIN, domain):
                 raise ValueError(f"not an email domain: {raw[:60]!r}")
             if domain not in out:

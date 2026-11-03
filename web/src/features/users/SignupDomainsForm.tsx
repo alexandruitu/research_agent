@@ -30,7 +30,7 @@ export function SignupDomainsForm() {
       <h3>Sign-up</h3>
       <label className="block">Email domains allowed to create an account
         <input type="text" value={text} placeholder="company.com" aria-describedby="signup-domains-hint" onChange={(e) => setText(e.target.value)} />
-        <span id="signup-domains-hint" className="hint">Separate several with commas. Leave empty to turn sign-up off; you can still invite people below.</span>
+        <span id="signup-domains-hint" className="hint">Separate several with commas. Use * to let anyone sign up (a closed pilot group). Leave empty to turn sign-up off; you can still invite people below.</span>
       </label>
       <p>{saved.length ? `Sign-up is on for: ${saved.join(", ")}.` : "Sign-up is off."}</p>
       {problem && <p role="alert" className="form-error">{problem}</p>}

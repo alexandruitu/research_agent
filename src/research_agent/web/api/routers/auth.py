@@ -106,7 +106,7 @@ def signup(body: SignupIn, request: Request, db=Depends(get_db), settings=Depend
         email = normalize_email(body.email)
     except AuthError:
         raise ApiError(422, "invalid_signup", "Enter a valid email address") from None
-    if email.rsplit("@", 1)[1] not in domains:
+    if "*" not in domains and email.rsplit("@", 1)[1] not in domains:
         raise ApiError(422, "domain_not_allowed", WRONG_DOMAIN)
     name = body.name.strip()
     if not name:
