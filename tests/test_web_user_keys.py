@@ -507,3 +507,15 @@ def test_signup_and_login_are_rate_limited_per_ip(app, client, sign_in):
         for n in range(31)
     ]
     assert failures[:30] == [401] * 30 and failures[30] == 429
+
+
+def test_server_key_flag_only_in_dev_mode(db, users, monkeypatch):
+    """The .env stand-in is reported (as a yes/no, never a value) only in development mode."""
+    monkeypatch.setenv("TYPESAFE_API_KEY", SENTINEL)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    user = users["member"]
+    dev = {k["provider"]: k for k in usersecrets.key_list(db, user.id, dev_mode=True)}
+    assert dev["typesafe"]["server_key"] is True and dev["xai"]["server_key"] is False
+    prod = usersecrets.key_list(db, user.id)
+    assert not any(k["server_key"] for k in prod)
+    assert SENTINEL not in json.dumps(dev, default=str)

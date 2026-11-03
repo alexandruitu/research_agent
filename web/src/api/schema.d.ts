@@ -3074,6 +3074,8 @@ export interface components {
             check_detail: string;
             /** Checkable */
             checkable: boolean;
+            /** @default false */
+            server_key?: boolean;
         };
         /**
          * KeywordsIO

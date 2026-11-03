@@ -436,6 +436,7 @@ class KeyOut(Model):
     check_ok: bool | None
     check_detail: str
     checkable: bool
+    server_key: bool = False  # development only: the worker's .env has a key for this provider
 
 
 class MyModelRole(Model):

@@ -5,6 +5,7 @@ last 4 characters. Nothing here decrypts (that is `keyring`, imported only by th
 Preflight works from presence flags (a saved row), never from a plaintext value.
 """
 
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -118,8 +119,9 @@ def secret_rows(db, user_id):
     return {r.provider: r for r in db.scalars(select(UserSecret).where(UserSecret.user_id == user_id))}
 
 
-def key_list(db, user_id):
-    """One entry per provider: label, kind and, when saved, last 4 characters and dates. Never a value."""
+def key_list(db, user_id, dev_mode=False):
+    """One entry per provider: label, kind and, when saved, last 4 characters and dates. Never a value.
+    In development mode `server_key` says whether the worker's .env holds a key it would stand in with."""
     rows = secret_rows(db, user_id)
     out = []
     for provider in PROVIDERS.values():
@@ -136,6 +138,7 @@ def key_list(db, user_id):
                 "check_ok": row.check_ok if row else None,
                 "check_detail": (row.check_detail or "") if row else "",
                 "checkable": provider.check_url is not None,
+                "server_key": bool(dev_mode and os.environ.get(provider.env, "").strip()),
             }
         )
     return out

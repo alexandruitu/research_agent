@@ -21,13 +21,13 @@ def _error(exc):
     return ApiError(exc.status, exc.code, exc.message)
 
 
-def _key(db, user_id, provider):
-    return next(k for k in usersecrets.key_list(db, user_id) if k["provider"] == provider)
+def _key(db, user_id, provider, dev_mode=False):
+    return next(k for k in usersecrets.key_list(db, user_id, dev_mode) if k["provider"] == provider)
 
 
 @router.get("/keys", response_model=list[KeyOut])
-def list_keys(user=Depends(require_role("member")), db=Depends(get_db)):
-    return usersecrets.key_list(db, user.id)
+def list_keys(user=Depends(require_role("member")), db=Depends(get_db), settings=Depends(get_settings)):
+    return usersecrets.key_list(db, user.id, settings.dev_mode)
 
 
 @router.put("/keys/{provider}", response_model=KeyOut)
@@ -45,7 +45,7 @@ def save_key(
         raise _error(exc) from None
     db.commit()
     log.info("key saved: provider %s by %s", provider, user.id)
-    return _key(db, user.id, provider)
+    return _key(db, user.id, provider, settings.dev_mode)
 
 
 @router.delete("/keys/{provider}", status_code=204)

@@ -14,12 +14,20 @@ const GROUPS: { kind: string; title: string; intro: string }[] = [
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString() : "");
 
 export function checkWords(key: KeyOut): string {
-  if (!key.saved) return "No key saved";
+  if (!key.saved) return key.server_key ? "No key of yours saved · the server's .env key is used (development only)" : "No key saved";
   const saved = `Saved …${key.last4} on ${day(key.created_at)}`;
   if (key.check_ok === true) return `${saved} · ✓ accepted`;
   if (key.check_ok === false) return `${saved} · ✗ rejected (${key.check_detail})`;
   if (key.checked_at) return `${saved} · not checked (${key.check_detail || "no check for this provider"})`;
   return `${saved} · not tested yet`;
+}
+
+// Green chip only for a key that is actually there; the words carry the state, not the colour.
+function KeyChip({ entry }: { entry: KeyOut }) {
+  if (entry.saved && entry.check_ok === false) return <span className="chip chip--warn">✗ Saved, rejected</span>;
+  if (entry.saved) return <span className="chip chip--ok">✓ Saved</span>;
+  if (entry.server_key) return <span className="chip chip--ok" title="Development only: the server's .env key is used until you save your own">✓ Server key (dev)</span>;
+  return null;
 }
 
 function KeyRow({ entry }: { entry: KeyOut }) {
@@ -70,7 +78,7 @@ function KeyRow({ entry }: { entry: KeyOut }) {
     <tr>
       <th scope="row">{entry.label}</th>
       <td>
-        <span>{checkWords(entry)}</span>
+        <KeyChip entry={entry} /> <span>{checkWords(entry)}</span>
         {job.data && ["queued", "running"].includes(job.data.status) && <span role="status"> · testing…</span>}
         {problem && <p role="alert" className="form-error">{problem}</p>}
         {(editing || !entry.saved) && (

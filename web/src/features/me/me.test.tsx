@@ -31,6 +31,21 @@ const keys = (saved: boolean): KeyOut[] => [
   key({ provider: "ieee", label: "IEEE Xplore", kind: "source", checkable: false }),
 ];
 
+describe("My keys status chip", () => {
+  it("marks a saved key and a dev server key in green words; nothing for a missing key", async () => {
+    mockApi({ "GET /api/v1/me/keys": { body: [
+      key({ saved: true, last4: "9c3a", created_at: "2026-11-01T10:00:00Z" }),
+      key({ provider: "typesafe", label: "TypeSafe (Jev)", kind: "jev", checkable: false, server_key: true }),
+      key({ provider: "openai", label: "OpenAI (GPT)" }),
+    ] } });
+    renderWithProviders(<MyKeysTab />);
+    const models = await screen.findByRole("table", { name: "AI models" });
+    expect(within(models).getByText("✓ Saved")).toHaveClass("chip--ok");
+    expect(within(screen.getByRole("table", { name: "Screening tier (Jev)" })).getByText("✓ Server key (dev)")).toHaveClass("chip--ok");
+    expect(within(models).getAllByText(/✓/)).toHaveLength(1);
+  });
+});
+
 describe("Login → Create an account", () => {
   it("shows the link only when sign-up is open", async () => {
     mockApi({ "GET /api/v1/auth/me": { status: 401, body: {} }, "GET /api/v1/auth/signup": { body: { open: true } } });
