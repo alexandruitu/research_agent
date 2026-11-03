@@ -79,7 +79,7 @@ export function uploadFile<T>(path: string, file: File, onProgress?: (fraction: 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
     };
-    xhr.onerror = () => reject(new ApiError(0, "network", "Could not reach the server.", "-"));
+    xhr.onerror = () => reject(new ApiError(0, "network", "Could not reach the server. Check your connection and try again.", "-"));
     xhr.onload = () => {
       const data = parse(xhr.responseText);
       if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);

@@ -5,7 +5,7 @@ export type FlowStep = 1 | 2 | 3 | 4;
 
 const STEPS: { n: FlowStep; label: string; to: string | null }[] = [
   { n: 1, label: "Topics", to: "/topics" },
-  { n: 2, label: "Screening", to: "/screening" },
+  { n: 2, label: "Search", to: "/screening" },
   { n: 3, label: "Results", to: "/results" },
   // Read opens from a paper in Results or the Library: there is no page to jump to
   { n: 4, label: "Read", to: null },

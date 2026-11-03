@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useArchiveReviewer, useReviewers } from "../../api/hooks";
 import { hasRole, type ReviewerOut, type ReviewSettingsOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
+import { Term } from "../../components/ui/Term";
 import { useReportDirty } from "./dirtyGuard";
 import { firstSentence } from "./reviewerForm";
 import { SettingsFrame } from "./SettingsFrame";
@@ -85,7 +86,7 @@ function PanelForm({ data, reviewers, admin, saver }: { data: ReviewSettingsOut;
     <>
     <SettingsFrame
       id="reviewers" title="Reviewers" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving}
-      intro="Every kept paper is peer-reviewed by a panel. Each reviewer reads the paper from one perspective and answers its checklist with exact quotes; code turns the answers into scores and red flags. An editor then weighs the reports."
+      intro={<>Every kept paper is reviewed by a <Term k="panel">panel</Term>. Each <Term k="reviewer" /> reads the paper from one angle and answers its checklist with exact quotes; code turns the answers into scores and <Term k="red_flag">red flags</Term>. An <Term k="editor" /> then weighs the reports. Edit a reviewer below, or choose who is in the default panel.</>}
       onSave={onSave} onReset={() => { setPanel(data.defaults.default_panel); setInstructions(data.defaults.editor.instructions); }} resetLabel="Reset panel and editor to default"
       stale={saver.stale} onReload={saver.reload} problem={saver.problem} message={saver.message}
       saveHint="Saving here stores the default panel and the editor instructions. Each reviewer's own checklist is saved from its page."

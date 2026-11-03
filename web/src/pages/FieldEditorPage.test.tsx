@@ -73,7 +73,7 @@ describe("FieldEditorPage", () => {
 
   it("is step 1 of the flow and, once the topic is saved, points to screening", async () => {
     setup();
-    expect(await screen.findByRole("link", { name: "Next: run screening" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
+    expect(await screen.findByRole("link", { name: "Next: start a search" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
     const steps = screen.getByRole("navigation", { name: "Research steps" });
     expect(within(steps).getByText("Topics").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
   });
@@ -81,7 +81,7 @@ describe("FieldEditorPage", () => {
   it("does not offer Next before the topic exists", async () => {
     setup("member", {}, "/topics/new");
     await screen.findByRole("heading", { name: "New topic" });
-    expect(screen.queryByRole("link", { name: "Next: run screening" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Next: start a search" })).not.toBeInTheDocument();
   });
 
   it("adds, reorders and removes criteria", async () => {
@@ -213,7 +213,7 @@ describe("FieldEditorPage", () => {
     const panel = await screen.findByRole("complementary", { name: "Topic history" });
     expect(await within(panel).findByText(/not measured/)).toBeInTheDocument();
     expect(within(panel).getByText("added the exclusion")).toBeInTheDocument();
-    expect(within(panel).getByText(/3 runs/)).toBeInTheDocument();
+    expect(within(panel).getByText(/3 searches/)).toBeInTheDocument();
     expect(await within(panel).findByText("The study uses machine learning or deep learning.")).toBeInTheDocument();
     expect(within(panel).getAllByText("added").length).toBeGreaterThan(0);
     expect(within(panel).getAllByText("removed").length).toBeGreaterThan(0);

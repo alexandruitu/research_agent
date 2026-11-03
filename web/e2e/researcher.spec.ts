@@ -26,11 +26,11 @@ test("a researcher topic: find the person, pick them, keep frequent co-authors, 
   await expect(page.getByRole("heading", { name: `${name} (v1)` })).toBeVisible();
 
   await page.goto("/topics");
-  await page.getByRole("link", { name: `Start run for ${name}` }).click();
-  await page.getByLabel("Papers to screen").fill("10");
+  await page.getByRole("link", { name: `Start a search for ${name}` }).click();
+  await page.getByLabel(/Papers to review/).fill("10");
   await page.getByLabel(/Demo mode/).check();
-  await page.getByRole("button", { name: "Start run" }).click();
-  await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
+  await page.getByRole("button", { name: "Start a search" }).click();
+  await expect(page.getByRole("status", { name: "Search progress" })).toContainText("Done", { timeout: 120_000 });
   await page.locator("table.runs tbody tr").filter({ hasText: name }).first().getByRole("link", { name: /^Results of / }).click();
   const papers = page.locator("table.papers");
   await expect(papers).toContainText("Matched by: the person (Ada Lovelace)", { timeout: 30_000 });

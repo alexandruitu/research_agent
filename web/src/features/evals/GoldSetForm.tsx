@@ -40,7 +40,7 @@ export function GoldSetForm({ onBuilt }: { onBuilt: (goldSetId: string) => void 
       });
       setJobId(started.id);
     } catch (error) {
-      setProblems([error instanceof ApiError ? error.message : "Could not reach the server."]);
+      setProblems([error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again."]);
     }
   };
   const count = parseIncluded(draft.included).length;

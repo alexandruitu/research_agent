@@ -18,7 +18,7 @@ function useLookupResult(jobId: string | null) {
   return { result, pending: !!jobId && (!job.data || status === "queued" || status === "running"), failed: status === "failed" ? (job.data?.error ?? "no details were stored.") : null };
 }
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 /**
  * Topic editor, Researcher tab: find the person in OpenAlex (a human picks; names never identify anyone), then the

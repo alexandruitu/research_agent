@@ -132,7 +132,7 @@ function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorP
     setStale(null);
     try {
       const saved = await save.mutateAsync({ key: reviewer?.key ?? null, baseVersion: reviewer?.current_version ?? null, body: toBody(form, note) });
-      onSaved(`Saved as v${saved.current_version}.${saved.in_default_panel ? " The next run uses it." : " Turn it on in the default panel to use it in runs."}`);
+      onSaved(`Saved as v${saved.current_version}.${saved.in_default_panel ? " The next search uses it." : " Turn it on in the default panel to use it in searches."}`);
       if (!reviewer) navigate(`/settings/reviewers/${saved.key}`, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.code === "stale_version") setStale(error.message);
@@ -155,7 +155,7 @@ function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorP
       <div className="page-head">
         <h2>{reviewer ? `${reviewer.current.name} (v${reviewer.current_version})` : "New reviewer"}</h2>
         {reviewer && (
-          <span className={`pill ${reviewer.in_default_panel ? "pill--measured" : ""}`}>{reviewer.in_default_panel ? "In the default panel · used by next run" : "Not in the default panel"}</span>
+          <span className={`pill ${reviewer.in_default_panel ? "pill--measured" : ""}`}>{reviewer.in_default_panel ? "In the default panel · used by the next search" : "Not in the default panel"}</span>
         )}
         {admin && reviewer && <button type="button" onClick={toggleArchive} disabled={archive.isPending}>{archived ? "Restore" : "Archive"}</button>}
       </div>
@@ -216,7 +216,7 @@ function Editor({ reviewer, models, admin, message, onSaved, onReload }: EditorP
           <ul className="versions">
             {reviewer.versions.map((v) => (
               <li key={v.version}>
-                <strong>v{v.version}</strong> · {v.item_count} items · {v.note || "no note"} · {v.created_by_name ?? "system"}, {new Date(v.created_at).toLocaleDateString()} · used by {v.run_count} run{v.run_count === 1 ? "" : "s"}
+                <strong>v{v.version}</strong> · {v.item_count} items · {v.note || "no note"} · {v.created_by_name ?? "system"}, {new Date(v.created_at).toLocaleDateString()} · used by {v.run_count} search{v.run_count === 1 ? "" : "es"}
               </li>
             ))}
           </ul>
@@ -242,7 +242,7 @@ function ReviewerVersionDiff({ reviewerKey, versions }: { reviewerKey: string; v
         <label>Compare from <select value={from} onChange={(e) => setFrom(Number(e.target.value))}>{options}</select></label>
         <label>to <select value={to} onChange={(e) => setTo(Number(e.target.value))}>{options}</select></label>
       </div>
-      {before.isError || after.isError ? <p role="alert" className="form-error">Could not load a version.</p>
+      {before.isError || after.isError ? <p role="alert" className="form-error">Could not load a version. Reload the page to try again.</p>
         : !changes ? <p className="sub">Loading…</p>
         : changes.length === 0 ? <p>No differences.</p>
         : <ul className="diff-lines">{changes.map((c, i) => <li key={i}><span className={`diff-tag diff-tag--${c.kind}`}>{c.kind}</span> {c.text}</li>)}</ul>}

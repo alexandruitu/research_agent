@@ -10,7 +10,7 @@ import { emptyGroupReason, QUALITY_ONELINER, groupIcon, groupName, readCollapsed
 const STEP = 25;
 const MAX_SIZE = 200; // the API's largest page
 
-const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server. Check your connection and try again.");
 
 type Props = {
   runId: string;

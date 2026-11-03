@@ -197,7 +197,7 @@ describe("PapersPage", () => {
       "GET /api/v1/fields/:id/versions/2": { body: versionOut() },
     });
     await screen.findByRole("table");
-    expect(screen.getByRole("combobox", { name: "Run" })).toHaveTextContent(/ML CT-FFR v2 · \d+ \w+, \d\d:\d\d · done · 151 papers/);
+    expect(screen.getByRole("combobox", { name: "Search" })).toHaveTextContent(/ML CT-FFR v2 · \d+ \w+, \d\d:\d\d · done · 151 papers/);
     const by = await screen.findByRole("combobox", { name: "Dropped by criterion" });
     await within(by).findByRole("option", { name: /excl 1: The paper is a review/ });
     await userEvent.selectOptions(by, "e1");
@@ -276,7 +276,7 @@ describe("PapersPage · Simple and Detailed view", () => {
     await screen.findByRole("table");
     const steps = screen.getByRole("navigation", { name: "Research steps" });
     expect(within(steps).getByText("Results").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
-    expect(within(steps).getByRole("link", { name: "Step 2: Screening" })).toHaveAttribute("href", "/screening");
+    expect(within(steps).getByRole("link", { name: "Step 2: Search" })).toHaveAttribute("href", "/screening");
   });
 
   it("v switches to the Detailed view and the choice is remembered for this user", async () => {

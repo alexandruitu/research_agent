@@ -13,7 +13,7 @@ import { RUN_STATUSES, runStatusMeta } from "../features/runs/runWords";
 import { StartRunForm } from "../features/runs/StartRunForm";
 
 const SORTS = { created: "Created", name: "Name", status: "Status", papers: "Papers" } as const;
-// `?field=` keeps preselecting the start form (Fields → "Start run"); the field filter is `?in=`.
+// `?field=` keeps preselecting the start form (Topics → "Start a search"); the field filter is `?in=`.
 const FILTER_KEYS = ["status", "in", "mine", "from", "to", "q"] as const;
 
 export function RunsPage() {
@@ -48,8 +48,8 @@ export function RunsPage() {
     setSearch(next, { replace: true });
   };
 
-  if (status === "loading" || (runs.isLoading && !runs.data)) return <section><FlowStepper current={2} /><h1>Screening</h1><Skeleton label="the runs" rows={5} /></section>;
-  if (runs.isError) return <p role="alert">Could not load the runs.</p>;
+  if (status === "loading" || (runs.isLoading && !runs.data)) return <section><FlowStepper current={2} /><h1>Search</h1><Skeleton label="your searches" rows={5} /></section>;
+  if (runs.isError) return <p role="alert">Could not load your searches. Reload the page; if it keeps failing, check that the server is running.</p>;
   const rows = runs.data ?? [];
   const chosen = rows.filter((run) => selected.has(run.id));
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -60,17 +60,17 @@ export function RunsPage() {
     <section className="runs-page">
       <FlowStepper current={2} />
       <header className="page-head">
-        <h1>Screening</h1>
-        <p className="lede">Start a run: it searches a topic's sources, screens what it finds and reviews what it keeps. When it is done, its papers are in Results.</p>
+        <h1>Search</h1>
+        <p className="lede">Pick a topic and start a search: it looks for papers in the topic's sources, keeps the relevant ones and reviews them. When it finishes, open its results.</p>
       </header>
       {canRun && <StartRunForm onStarted={setJobId} initialFieldId={search.get("field") ?? ""} />}
       {jobId && <JobProgress jobId={jobId} />}
 
-      <h2 id="history-heading" className="runs-history-heading">History</h2>
-      <p className="sub">Every run, with what it was started with. Open one to see its timeline, cost and log; run it again, resume, cancel, compare or export.</p>
+      <h2 id="history-heading" className="runs-history-heading">Your searches</h2>
+      <p className="sub">Every search so far, newest first. Open one to see what it did and what it cost, or use Results to read its papers; you can also search again, resume, cancel, compare or export.</p>
 
-      <form className="toolbar run-filters" role="search" aria-label="Filter the history" onSubmit={(e) => e.preventDefault()}>
-        <label>Search
+      <form className="toolbar run-filters" role="search" aria-label="Filter your searches" onSubmit={(e) => e.preventDefault()}>
+        <label>Find
           <input type="search" placeholder="Name or topic" defaultValue={params.q ?? ""} onChange={(e) => set("q", e.target.value.trim() || null)} />
         </label>
         <label>Status
@@ -100,10 +100,10 @@ export function RunsPage() {
         {user && <label className="check"><input type="checkbox" checked={!!params.mine} onChange={(e) => set("mine", e.target.checked ? "1" : null)} /> Only mine</label>}
         {filtered && <button type="button" className="link-button" onClick={clear}>Clear all</button>}
       </form>
-      <p className="sr-only" aria-live="polite">{rows.length} runs shown{runs.isFetching ? ", updating" : ""}.</p>
+      <p className="sr-only" aria-live="polite">{rows.length} searches shown{runs.isFetching ? ", updating" : ""}.</p>
 
       {chosen.length > 0 && (
-        <div className="selection-bar" role="region" aria-label="Selected runs">
+        <div className="selection-bar" role="region" aria-label="Selected searches">
           <strong>{chosen.length} selected</strong>
           <button type="button" onClick={() => download(runsExportUrl(chosen.map((r) => r.id), "csv"))}>Export CSV</button>
           <button type="button" onClick={() => download(runsExportUrl(chosen.map((r) => r.id), "bibtex"))}>Export BibTeX</button>

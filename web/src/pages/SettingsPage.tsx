@@ -41,8 +41,9 @@ export function SettingsPage() {
     <DirtyGuardProvider>
       <section>
         <h1>Settings</h1>
+        <p className="lede">How searches work for the whole team (sources, reviewers, models) and, under the My tabs, your own keys, models and usage. Pick a tab below.</p>
         <Tabs admin={admin} member={member} />
-        {!admin && <p className="sub">Read-only: only admins change the team settings{member ? " (your own keys, models and usage are under the My tabs)" : ""}. Every run records the settings version it used.</p>}
+        {!admin && <p className="sub">Read-only: only admins change the team settings{member ? " (your own keys, models and usage are under the My tabs)" : ""}. Every search records the settings version it used.</p>}
         <Outlet />
       </section>
     </DirtyGuardProvider>

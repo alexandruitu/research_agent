@@ -10,7 +10,7 @@ export function MyUsageTab() {
   return (
     <section>
       <h2>My usage</h2>
-      <p className="sub">The AI calls of the searches you started, per month, with an estimated cost from approximate list prices. Your provider’s bill is the exact figure.</p>
+      <p className="intro">What your searches cost: the AI calls of the searches you started, per month, with an estimated cost from approximate list prices. Your provider’s bill is the exact figure.</p>
       {months.length === 0 ? (
         <p>No searches yet. Start one from a topic to see its usage here.</p>
       ) : (

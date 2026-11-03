@@ -4,7 +4,7 @@ import type { RunOut } from "../../api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { MenuButton, type MenuItem } from "../../components/ui/MenuButton";
 import { Tooltip } from "../../components/ui/Tooltip";
-import { coverageLine, runDate, runLabel, runShortName, runStatusMeta } from "./runWords";
+import { coverageLine, runDate, runLabel, runShortName, runStatusMeta, searchSummary } from "./runWords";
 import { PartialSearchMarker } from "./SearchWarnings";
 
 export function RunStatus({ status }: { status: string }) {
@@ -26,10 +26,10 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
 }) {
   if (runs.length === 0) {
     return filtered ? (
-      <EmptyState title="No runs match these filters">Clear a filter or the search to see more runs.</EmptyState>
+      <EmptyState title="No searches match these filters">Clear a filter or the words you typed (Clear all, above) to see more searches.</EmptyState>
     ) : (
-      <EmptyState title="No runs yet">
-        A run searches a topic's sources, screens what it finds and reviews what it keeps. Choose a topic above and start one; demo mode runs offline.
+      <EmptyState title="No searches yet">
+        A search looks for papers on a topic, keeps the relevant ones and reviews them. Choose a topic in the form above and press Start a search; demo mode works offline and costs nothing.
       </EmptyState>
     );
   }
@@ -38,8 +38,8 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
     <table className="runs runs--ledger">
       <thead>
         <tr>
-          <th scope="col" className="runs__check"><input type="checkbox" aria-label="Select every run shown" checked={all} onChange={onToggleAll} /></th>
-          <th scope="col">Run</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Papers</th>
+          <th scope="col" className="runs__check"><input type="checkbox" aria-label="Select every search shown" checked={all} onChange={onToggleAll} /></th>
+          <th scope="col">Search</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Papers</th>
           <th scope="col">Started by</th><th scope="col">Created</th><th scope="col"><span className="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -54,8 +54,9 @@ export function RunList({ runs, selected, onToggle, onToggleAll, items, filtered
                 {run.pinned && <span className="runs__mark" title="Pinned"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}
                 <PartialSearchMarker warnings={run.search_warnings} />
                 {coverageLine(run.coverage) && (
-                  <Tooltip className="runs__coverage" trigger="coverage" triggerLabel={`Coverage of ${label}`} tip={coverageLine(run.coverage)} />
+                  <Tooltip className="runs__coverage" trigger="coverage" triggerLabel={`What was searched for ${label}`} tip={coverageLine(run.coverage)} />
                 )}
+                <span className="runs__summary">{searchSummary(run)}</span>
                 <span className="runs__sub">{run.field_name}{run.field_version ? ` v${run.field_version}` : ""} · {runDate(run.created_at)} · {runStatusMeta(run.status).word}</span>
                 {run.note && <span className="runs__note">{run.note}</span>}
                 {run.status === "failed" && run.error && <span className="runs__error" title={run.error}>{shortError(run.error)}</span>}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageRun, coverageLine, newestFirst, runIdentity, runOption, formatSeconds, formatUsd, runLabel } from "./runWords";
+import { canManageRun, coverageLine, newestFirst, runIdentity, runOption, formatSeconds, formatUsd, runLabel, searchSummary } from "./runWords";
 
 const me = { id: "u1", email: "m@x", name: "M", role: "member", active: true };
 
@@ -64,5 +64,19 @@ describe("run picker options", () => {
   it("sort most recent first", () => {
     const runs = [{ id: "a", created_at: "2026-10-01T00:00:00Z" }, { id: "b", created_at: "2026-10-06T00:00:00Z" }];
     expect(newestFirst(runs).map((r) => r.id)).toEqual(["b", "a"]);
+  });
+  it("describes a search in one plain line, for every state", () => {
+    const base = { topic: "CCTA plaque", field_name: "F", paper_count: 5, search_warnings: null,
+      coverage: { searched: ["europepmc", "openalex", "a", "b", "c", "d"], skipped: [], max_papers: 5, full_text: null, abstract_only: null } };
+    expect(searchSummary({ ...base, status: "done" }, 2)).toBe("Searched 6 sources for 'CCTA plaque' · reviewed 5 papers · 2 worth reading");
+    expect(searchSummary({ ...base, status: "done" })).toBe("Searched 6 sources for 'CCTA plaque' · reviewed 5 papers");
+    expect(searchSummary({ ...base, status: "done", paper_count: 0 }, 0)).toBe("Searched 6 sources for 'CCTA plaque' · found no papers to review");
+    expect(searchSummary({ ...base, status: "running" })).toMatch(/in progress/);
+    expect(searchSummary({ ...base, status: "queued" })).toBe("Waiting to start: a search for 'CCTA plaque'");
+    expect(searchSummary({ ...base, status: "failed", paper_count: 0 })).toBe("Searched 6 sources for 'CCTA plaque' · stopped with an error before it finished");
+    expect(searchSummary({ ...base, status: "cancelled", paper_count: 3 })).toBe("Searched 6 sources for 'CCTA plaque' · cancelled after 3 papers");
+    const partial = { ...base, coverage: { ...base.coverage, skipped: [{ source: "x", error_type: "e", reason: "rate_limited", detail: "d" }] } };
+    expect(searchSummary({ ...partial, status: "done" }, 1)).toBe("Searched 6 sources for 'CCTA plaque' (1 source did not answer) · reviewed 5 papers · 1 worth reading");
+    expect(searchSummary({ ...base, topic: "", coverage: null, status: "done", paper_count: 1 })).toBe("Searched for 'F' · reviewed 1 paper");
   });
 });

@@ -27,3 +27,13 @@ export function Term({ k, children }: { k: GlossaryKey; children?: ReactNode }) 
     </span>
   );
 }
+
+/** "Words used here: screening? · red flag? · …": the page's jargon, each with its glossary tip. */
+export function TermsLine({ keys }: { keys: GlossaryKey[] }) {
+  return (
+    <p className="sub terms-line">
+      Words used here:{" "}
+      {keys.map((k, i) => <span key={k}>{i > 0 && " · "}<Term k={k} /></span>)}
+    </p>
+  );
+}

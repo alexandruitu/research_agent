@@ -83,7 +83,7 @@ export function NewEvalPage() {
       if (what === "estimate") setEstimate({ key: requestKey!, out: await estimateCall.mutateAsync(request) });
       else setJobId((await start.mutateAsync(request)).id);
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -94,6 +94,7 @@ export function NewEvalPage() {
     <section className="wizard">
       <nav aria-label="Breadcrumb" className="crumbs"><Link to="/validation/evals">← All evaluations</Link></nav>
       <h1>New evaluation</h1>
+      <p className="lede">Measure one part of the pipeline: choose what to measure, what to measure it on, then estimate the cost and start.</p>
       <ol className="wizard-steps">
         <li className="wizard-step">
           <h2><span className="step-num" aria-hidden="true">1</span> What do you want to measure?</h2>

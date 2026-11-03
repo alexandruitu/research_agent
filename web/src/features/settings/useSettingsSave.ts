@@ -4,7 +4,7 @@ import { ApiError } from "../../api/client";
 import { useReviewSettings, useSaveReviewSettings } from "../../api/hooks";
 import type { ReviewSettingsContent, ReviewSettingsVersionOut } from "../../api/types";
 
-export const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+export const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 export const contentOf = (version: ReviewSettingsVersionOut): ReviewSettingsContent => ({
   models: version.models, screening: version.screening, fulltext: version.fulltext, default_panel: version.default_panel, editor: version.editor,
@@ -26,7 +26,7 @@ export function useSettingsSave() {
     setMessage(null);
     try {
       const saved = await mutation.mutateAsync({ ...contentOf(current), ...patch, note: note.trim(), base_version: current.version });
-      setMessage(`Saved as v${saved.current.version}. The next run uses it.`);
+      setMessage(`Saved as v${saved.current.version}. The next search uses it.`);
       return true;
     } catch (error) {
       if (error instanceof ApiError && error.code === "stale_version") setStale(error.message);

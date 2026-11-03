@@ -46,7 +46,7 @@ describe("run detail", () => {
 
   it("offers no Next on a run that did not finish", async () => {
     setup("viewer", detail({ status: "failed", error: "boom" }));
-    await screen.findByText(/The run failed/);
+    await screen.findByText(/The search stopped with an error/);
     expect(screen.queryByRole("link", { name: "Next: see results" })).not.toBeInTheDocument();
   });
 
@@ -59,13 +59,14 @@ describe("run detail", () => {
     setup();
     expect(await screen.findByRole("heading", { level: 1, name: "Baseline" })).toBeInTheDocument();
     expect(screen.getByText("first live try")).toBeInTheDocument();
-    const config = screen.getByRole("region", { name: "Frozen configuration" });
+    const config = screen.getByRole("region", { name: "Settings it used" });
     expect(config).toHaveTextContent("ML CT-FFR · version 2");
     expect(config).toHaveTextContent("europepmc (up to 50)");
     expect(config).toHaveTextContent("Methodologist v2");
     expect(config).toHaveTextContent("m1.3");
-    expect(screen.getByRole("region", { name: "Stages" })).toHaveTextContent("12 s");
-    expect(screen.getByRole("region", { name: "Results" })).toHaveTextContent("5 min 0 s");
+    expect(screen.getByRole("region", { name: "Steps" })).toHaveTextContent("12 s");
+    expect(screen.getByText(/· reviewed \d+ papers · 112 worth reading$/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Search results" })).toHaveTextContent("5 min 0 s");
     const calls = screen.getByRole("region", { name: /Model calls and cost/ });
     await waitFor(() => expect(calls).toHaveTextContent("4 distinct calls"));
     expect(calls).toHaveTextContent("estimate");
@@ -78,8 +79,8 @@ describe("run detail", () => {
     });
     const note = await screen.findByRole("note");
     expect(note).toHaveTextContent("The prompts changed");
-    expect(screen.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-    await userEvent.click(within(note).getByRole("button", { name: "Run again (same configuration)" }));
+    expect(screen.queryByRole("button", { name: "Resume the search" })).not.toBeInTheDocument();
+    await userEvent.click(within(note).getByRole("button", { name: "Search again (same settings)" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/rerun"))).toBe(true));
   });
 
@@ -98,17 +99,17 @@ describe("run detail", () => {
     const { calls } = setup("member", detail({ status: "running", active_job_id: "55555555-5555-4555-8555-555555555555" }), {
       "POST /api/v1/runs/:id/cancel": { status: 202, body: { status: "cancelling" } },
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Cancel run…" }));
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel run" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel the search…" }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel the search" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/cancel"))).toBe(true));
-    expect(await screen.findByText(/checkpoint is kept/)).toBeInTheDocument();
+    expect(await screen.findByText(/what it did so far is kept/)).toBeInTheDocument();
   });
 
   it("deleting from the page goes back to the list", async () => {
     setup("member", detail(), { "DELETE /api/v1/runs/:id": { body: { id: RUN_ID, folder: "trashed" } } });
     await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete run" }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete search" }));
     expect(await screen.findByText("runs list")).toBeInTheDocument();
   });
 

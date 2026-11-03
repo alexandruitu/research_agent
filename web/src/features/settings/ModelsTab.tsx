@@ -42,7 +42,7 @@ function keyText(worker: WorkerStatusOut): string {
 function WorkerKeys() {
   const workers = useWorkers();
   if (workers.isLoading) return <p role="status">Loading…</p>;
-  if (workers.isError) return <p role="alert" className="form-error">{workers.error instanceof ApiError ? workers.error.message : "Could not reach the server."}</p>;
+  if (workers.isError) return <p role="alert" className="form-error">{workers.error instanceof ApiError ? workers.error.message : "Could not reach the server. Check your connection and try again."}</p>;
   const rows = workers.data ?? [];
   return (
     <section aria-labelledby="keys-heading">
@@ -98,7 +98,7 @@ function ModelsForm({ data, panel, models, admin, saver }: { data: ReviewSetting
       return false;
     }
     if (settingsChanged) return saver.save({ models: state.models, editor: { ...data.current.editor, model: state.editor } }, note);
-    setMessage(`Saved new versions of ${changedReviewers.map((r) => r.current.name).join(", ")}. The next run uses them.`);
+    setMessage(`Saved new versions of ${changedReviewers.map((r) => r.current.name).join(", ")}. The next search uses them.`);
     return true;
   };
   const reset = () => setState({ models: data.defaults.models, editor: data.defaults.editor.model ?? null, reviewers: Object.fromEntries(panel.map((r) => [r.key, r.default?.model ?? null])) });
@@ -106,7 +106,7 @@ function ModelsForm({ data, panel, models, admin, saver }: { data: ReviewSetting
   return (
     <SettingsFrame
       id="models" title="AI models" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving || saveReviewer.isPending}
-      intro="Which model does each job. Only models whose provider key the worker accepted are offered; “Worker default” uses the model set in the worker's environment."
+      intro="Which AI model does each job for the whole team; choose one per job below and save. Only models whose provider key the worker accepted are offered; “Worker default” uses the model set in the worker's environment."
       onSave={onSave} onReset={reset} stale={saver.stale} onReload={saver.reload} problem={problem ?? saver.problem} message={message ?? saver.message}
       saveHint={changedReviewers.length > 0 ? `Saving also creates a new version of ${changedReviewers.map((r) => r.current.name).join(", ")}, because a reviewer's model belongs to the reviewer.` : undefined}
     >

@@ -24,7 +24,7 @@ export function callItems(drawer: DrawerOut): Item[] {
 function CallView({ runId, callKey }: { runId: string; callKey: string }) {
   const call = useCall(runId, callKey);
   if (call.isLoading) return <p role="status">Loading the call…</p>;
-  if (call.isError) return <p role="alert" className="form-error">{call.error instanceof ApiError ? call.error.message : "Could not load the call."}</p>;
+  if (call.isError) return <p role="alert" className="form-error">{call.error instanceof ApiError ? call.error.message : "Could not load the call. Reload the page to try again."}</p>;
   const data = call.data!;
   return (
     <div className="call">

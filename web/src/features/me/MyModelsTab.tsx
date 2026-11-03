@@ -32,13 +32,13 @@ export function MyModelsTab() {
       await save.mutateAsync(choices);
       setNotice("Saved. Your next search uses these models.");
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
     }
   };
   return (
     <section>
       <h2>My models</h2>
-      <p className="sub">Choose the AI model for each step of your searches. “Default” uses the team setting. Each search keeps the models it started with.</p>
+      <p className="intro">Which AI model does each step of your searches. Choose one per step and save; “Default” uses the team setting. Each search keeps the models it started with.</p>
       {none && <p className="banner banner--warn">You have no AI key yet: add one in Settings → My keys to choose a model.</p>}
       <table className="runs">
         <thead><tr><th scope="col">Step</th><th scope="col">Model</th></tr></thead>

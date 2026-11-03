@@ -6,7 +6,7 @@ import type { PaperMapOut } from "../../api/types";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { branchesOf, curve, layout, type MapItem, toMarkdown } from "./mapLayout";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 type Active = { item: MapItem; branch: string; anchor: Element };
 
 function MapPop({ active }: { active: Active | null }) {
@@ -166,7 +166,7 @@ export function PaperMapView({ runId, paperId, title, member, onJump }: { runId:
       <header className="map-head-row">
         <div>
           <h2 id="map-heading">Paper map</h2>
-          <p className="sub">Six fixed branches, the same for every paper. Each node is an exact quote from the paper, checked by code; the red flags come from this run's reviewers.</p>
+          <p className="sub">Six fixed branches, the same for every paper. Each node is an exact quote from the paper, checked by code; the red flags come from the reviewers in this search.</p>
         </div>
         {map && <button type="button" onClick={() => void copy()}>Copy as outline (Markdown)</button>}
       </header>

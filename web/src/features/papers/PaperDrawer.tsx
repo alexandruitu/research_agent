@@ -94,7 +94,7 @@ function Timeline({ drawer }: { drawer: DrawerOut }) {
         )}
       </Step>
       <Step title="Extract" tone="ok">
-        {drawer.claims.length === 0 ? <p>No extraction for this paper in this run.</p> : drawer.claims.map((claim, index) => (
+        {drawer.claims.length === 0 ? <p>No extraction for this paper in this search: it was dropped by screening or not reviewed. Search again to review it.</p> : drawer.claims.map((claim, index) => (
           <blockquote key={index}>“{claim.quote}”<footer>{claim.statement}</footer></blockquote>
         ))}
       </Step>
@@ -104,7 +104,7 @@ function Timeline({ drawer }: { drawer: DrawerOut }) {
         </Step>
       ) : (
       <Step title="Reviewers" tone="warn">
-        {drawer.reviews.length === 0 ? <p>No reviews for this paper in this run.</p> : drawer.reviews.map((review) => (
+        {drawer.reviews.length === 0 ? <p>No reviews for this paper in this search: only kept papers are reviewed.</p> : drawer.reviews.map((review) => (
           <div key={review.role} className="review">
             <p><strong>{ROLE_LABEL[review.role] ?? review.role}</strong> <span className={`chip verdict--${review.verdict}`}>{review.verdict}</span> <span className="sub">relevance {review.relevance} · methods {review.methods} · support {review.support}</span></p>
             {detailText(review, "assessment") && <p>{detailText(review, "assessment")}</p>}
@@ -149,7 +149,7 @@ export function PaperDrawer({ runId, paperId, onClose, detailsOpen = true }: { r
         {paper.data && <DrawerLibrary runId={runId} drawer={paper.data} />}
         {paper.data && <p className="drawer-read"><Link to={`/read/${runId}/${paper.data.paper.id}`} state={readerState("results", `${location.pathname}${location.search}`)}>Read the paper <span aria-hidden="true">→</span></Link></p>}
       </div>
-      {paper.isError && <p role="alert" className="form-error">{paper.error instanceof ApiError ? `${paper.error.message} (request ${paper.error.requestId})` : "Could not load this paper."}</p>}
+      {paper.isError && <p role="alert" className="form-error">{paper.error instanceof ApiError ? `${paper.error.message} (request ${paper.error.requestId})` : "Could not load this paper. Reload the page to try again."}</p>}
       {paper.data && (
         <>
           <p className="drawer-why"><span className="sr-only">Why: </span>{drawerWhy(paper.data)}</p>

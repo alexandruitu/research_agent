@@ -79,7 +79,7 @@ test.describe("member", () => {
   test.use({ storageState: auth("member") });
   test("runs with the start form", async ({ page }) => {
     await page.goto("/screening");
-    await expect(page.getByRole("button", { name: "Start run" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start a search" })).toBeVisible();
     await audit(page);
   });
 });

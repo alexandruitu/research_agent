@@ -10,7 +10,7 @@ import { Tooltip } from "../../components/ui/Tooltip";
 import { useToast } from "../../components/ui/Toast";
 
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 const hourText = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 
 /** "Every Monday at 07:00 (CEST)" / "Every day at 07:00 (CEST)". */
@@ -70,7 +70,7 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
   const start = () => void act(async () => {
     const out = await runNow.mutateAsync(demo ? "demo" : "live");
     setStartedRun(out.run_id);
-    toast.show({ text: demo ? "Alert run started (demo)" : "Alert run started" });
+    toast.show({ text: demo ? "Alert search started (demo)" : "Alert search started" });
   });
   const people = alert.subscriber_count === 1 ? "1 person follows" : `${alert.subscriber_count} people follow`;
   const capped = alert.effective_max_new < alert.max_new;
@@ -78,10 +78,10 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
 
   return (
     <aside className="side-panel alert-card" aria-label="Alert">
-      <h2>Alert <Tooltip trigger="?" triggerLabel="About alerts" tip="On a schedule, the alert re-runs this topic, skips papers seen in earlier runs, reviews only what is new and puts the best of it in the Alerts inbox of everyone who follows it." /></h2>
+      <h2>Alert <Tooltip trigger="?" triggerLabel="About alerts" tip="On a schedule, the alert searches this topic again, skips papers seen in earlier searches, reviews only what is new and puts the best of it in the Alerts inbox of everyone who follows it." /></h2>
       {alert.paused_reason && <p className="banner banner--bad" role="status"><strong>Paused:</strong> {alert.paused_reason}</p>}
-      {!alert.paused_reason && alert.failures > 0 && <p className="banner banner--warn" role="status">The last {alert.failures === 1 ? "run" : `${alert.failures} runs`} failed; it pauses after repeated failures.</p>}
-      {alert.deferred_at && <p className="banner banner--warn" role="status">Deferred: the daily limit of alert runs was reached; it runs at the next slot.</p>}
+      {!alert.paused_reason && alert.failures > 0 && <p className="banner banner--warn" role="status">The last {alert.failures === 1 ? "search" : `${alert.failures} searches`} failed; it pauses after repeated failures.</p>}
+      {alert.deferred_at && <p className="banner banner--warn" role="status">Deferred: the daily limit of alert searches was reached; it searches at the next slot.</p>}
       <form className="alert-form" onSubmit={submit} aria-label="Alert settings">
         <label className="check alert-switch">
           <input type="checkbox" role="switch" checked={form.enabled} disabled={!editable || save.isPending} onChange={(e) => toggle(e.target.checked)} />
@@ -115,11 +115,11 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
             <option value="worth_a_look">Read first + Worth a look</option>
           </select>
         </label>
-        <label>Max new papers per run{" "}
+        <label>Max new papers per search{" "}
           <input type="number" min={1} max={200} value={form.max_new} disabled={!editable} onChange={(e) => update({ max_new: Number(e.target.value) })} />
           <Tooltip trigger="?" triggerLabel="About max new papers" tip="Only new papers are reviewed, and each review costs model calls. Papers over the limit are counted in the digest but not reviewed." />
         </label>
-        {capped && <p className="sub" role="note">This deployment reviews at most {alert.effective_max_new} papers per run, so each alert run reviews up to {alert.effective_max_new}.</p>}
+        {capped && <p className="sub" role="note">This deployment reviews at most {alert.effective_max_new} papers per search, so each alert search reviews up to {alert.effective_max_new}.</p>}
         <label>Years back{" "}
           <input type="number" min={0} max={10} value={form.years_back} disabled={!editable} onChange={(e) => update({ years_back: Number(e.target.value) })} />
           <Tooltip trigger="?" triggerLabel="About years back" tip="How many years before this one the search covers; 0 means this year only." />
@@ -130,15 +130,15 @@ function AlertForm({ alert, fieldId, archived, demo }: { alert: AlertOut; fieldI
       {alert.exists && (
         <dl className="alert-facts">
           <dt>Schedule</dt><dd>{scheduleText(alert)}</dd>
-          <dt>Next run</dt><dd>{alert.next_run_at ? <time dateTime={alert.next_run_at}>{new Date(alert.next_run_at).toLocaleString()}</time> : "none (alert off)"}</dd>
-          <dt>Last run</dt><dd>{lastRun ? <Link to={`/screening/${lastRun}`}>{startedRun ? "started just now" : (alert.last_run_status ?? "open")}</Link> : "not run yet"}</dd>
+          <dt>Next search</dt><dd>{alert.next_run_at ? <time dateTime={alert.next_run_at}>{new Date(alert.next_run_at).toLocaleString()}</time> : "none (alert off)"}</dd>
+          <dt>Last search</dt><dd>{lastRun ? <Link to={`/screening/${lastRun}`}>{startedRun ? "started just now" : (alert.last_run_status ?? "open")}</Link> : "not searched yet"}</dd>
         </dl>
       )}
       {alert.exists && alert.id && (
         <div className="actions">
           {alert.can_edit && !archived && (
             <span className="check-with-term">
-              <button type="button" onClick={start} disabled={runNow.isPending}>{demo ? "Run now (demo)" : "Run now"}</button>
+              <button type="button" onClick={start} disabled={runNow.isPending}>{demo ? "Search now (demo)" : "Search now"}</button>
               {demo && <TermHint k="demo_mode" />}
             </span>
           )}

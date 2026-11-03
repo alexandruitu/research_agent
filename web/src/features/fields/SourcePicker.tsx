@@ -17,7 +17,7 @@ export function SourcePicker({ sources, chosen, disabled = false, onToggle, requ
       <p className="hint">Only sources an admin enabled in Settings → Sources can be chosen.</p>
       {onRequire && (
         <p className="hint">
-          A source that fails during a run is skipped with a warning (partial search). Mark it <strong>Required</strong> to stop the run instead; Europe PMC is a good candidate.
+          A source that fails during a search is skipped with a warning (partial search). Mark it <strong>Required</strong> to stop the search instead; Europe PMC is a good candidate.
         </p>
       )}
       {groups.map((group) => (
@@ -33,7 +33,7 @@ export function SourcePicker({ sources, chosen, disabled = false, onToggle, requ
                   {source.label}{why ? ` (${why})` : ""}
                 </label>
                 {onRequire && checked && (
-                  <label className="check source-required" title="Stop the run when this source fails, instead of skipping it with a warning">
+                  <label className="check source-required" title="Stop the search when this source fails, instead of skipping it with a warning">
                     <input type="checkbox" checked={required.includes(source.name)} disabled={disabled} onChange={(e) => onRequire(source.name, e.target.checked)} aria-label={`${source.label} required`} />
                     Required
                   </label>

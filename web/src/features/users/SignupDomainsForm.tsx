@@ -22,7 +22,7 @@ export function SignupDomainsForm() {
       const out = await patch.mutateAsync({ signup_domains: domains });
       setNotice((out.signup_domains ?? []).length ? "Saved. People with these email domains can create an account." : "Saved. Sign-up is off.");
     } catch (error) {
-      setProblem(error instanceof ApiError ? (error.fields?.[0]?.message ?? error.message) : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? (error.fields?.[0]?.message ?? error.message) : "Could not reach the server. Check your connection and try again.");
     }
   };
   return (

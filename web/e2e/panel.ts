@@ -4,10 +4,10 @@ import { expect, type Page } from "@playwright/test";
 export async function startDemoRunAndOpenPapers(page: Page, papers = 3) {
   await page.goto("/screening");
   await page.getByRole("combobox", { name: "Topic", exact: true }).selectOption({ index: 1 });
-  await page.getByLabel("Papers to screen").fill(String(papers));
+  await page.getByLabel(/Papers to review/).fill(String(papers));
   await page.getByLabel(/Demo mode/).check();
-  await page.getByRole("button", { name: "Start run" }).click();
-  await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 150_000 });
+  await page.getByRole("button", { name: "Start a search" }).click();
+  await expect(page.getByRole("status", { name: "Search progress" })).toContainText("Done", { timeout: 150_000 });
   await page.locator("table.runs tbody tr").filter({ hasText: "research" }).first().getByRole("link", { name: /^Results of / }).click();
   await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
   await page.getByRole("combobox", { name: "Group by" }).selectOption({ label: "None (flat list)" });

@@ -92,7 +92,7 @@ export function SaveDialog({ runId, paperIds, titles = {}, onSave, onClose }: Pr
   const blockedReason = checking
     ? "Checking which papers have full text…"
     : eligibility.isError
-      ? "Could not check whether these papers have full text."
+      ? "Could not check whether these papers have full text. Reload the page to try again."
       : abstractOnly.length === paperIds.length
         ? `${paperIds.length === 1 ? "This paper has" : "These papers have"} only an abstract. The Company library keeps papers with full text.`
         : `${abstractOnly.length} of these ${paperIds.length} papers ${abstractOnly.length === 1 ? "has" : "have"} only an abstract. The Company library keeps papers with full text.`;

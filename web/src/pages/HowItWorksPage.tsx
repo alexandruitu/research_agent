@@ -121,6 +121,7 @@ export function HowItWorksPage() {
   return (
     <article className="how-it-works">
       <h1>How it works</h1>
+      <p className="lede">What happens inside a run (a search), step by step, for people checking the pipeline. Start with the execution flow below.</p>
       <nav aria-label="On this page" className="hiw-toc">
         <a href="#hiw-flow">Execution flow</a> <a href="#hiw-anatomy">Anatomy of one agent</a> <a href="#hiw-skill">Example skill</a> <a href="#hiw-arch">Architecture</a>
       </nav>

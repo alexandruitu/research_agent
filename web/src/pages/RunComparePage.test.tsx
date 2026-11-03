@@ -35,6 +35,6 @@ describe("compare runs", () => {
   it("asks for two runs when fewer are given", async () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("viewer") }, "GET /api/v1/runs": { body: [] } });
     renderWithProviders(<RunComparePage />, { route: "/screening/compare" });
-    expect(await screen.findByText(/Choose two runs/)).toBeInTheDocument();
+    expect(await screen.findByText(/Choose two searches/)).toBeInTheDocument();
   });
 });

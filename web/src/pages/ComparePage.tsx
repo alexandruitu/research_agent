@@ -48,14 +48,14 @@ export function ComparePage() {
   const back = <nav aria-label="Breadcrumb" className="crumbs"><Link to="/validation/evals">← All evaluations</Link></nav>;
   if (ids.length < 2) return <section>{back}<p role="alert" className="form-error">Pick 2 or 3 reports on the Evals page to compare them.</p></section>;
   if (compare.isLoading) return <section>{back}<Skeleton label="the comparison" rows={6} /></section>;
-  if (compare.isError || !compare.data) return <section>{back}<p role="alert" className="form-error">{compare.error instanceof ApiError ? compare.error.message : "Could not compare these reports."}</p></section>;
+  if (compare.isError || !compare.data) return <section>{back}<p role="alert" className="form-error">{compare.error instanceof ApiError ? compare.error.message : "Could not compare these reports. Reload the page to try again."}</p></section>;
   const { reports, metrics, config } = compare.data;
   const differing = metrics.filter((m) => m.differs).length + config.filter((m) => m.differs).length;
   return (
     <section className="compare-page">
       {back}
       <h1>Compare {reports.length} reports</h1>
-      <p className="lede">{differing} of {metrics.length + config.length} rows differ. Differing rows are shaded and marked “differs”. </p>
+      <p className="lede">Reports side by side: {differing} of {metrics.length + config.length} rows differ. Differing rows are shaded and marked “differs”; check the settings first.</p>
       <p className="compare-links">{reports.map((r, i) => <Link key={r.id} to={`/validation/evals/${r.id}`}>Open report {String.fromCharCode(65 + i)}<span className="sr-only">: {KIND_LABEL[kindOf(r.kind)]} · {reportTitle(r)}</span></Link>)}</p>
       <Rows label="Metrics side by side" rows={metrics} reports={reports} />
       <h2>Configuration</h2>

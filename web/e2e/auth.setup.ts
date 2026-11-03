@@ -9,6 +9,10 @@ for (const role of ROLES) {
     await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+    // the other specs start past the first-use guide (welcome.spec.ts covers it); the choice is in localStorage
+    await page.goto("/topics");
+    await page.getByRole("button", { name: "Hide this guide" }).click();
+    await expect(page.getByRole("region", { name: /From a question to papers/ })).toHaveCount(0);
     await page.context().storageState({ path: auth(role) });
   });
 }

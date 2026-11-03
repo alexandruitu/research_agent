@@ -8,7 +8,7 @@ import { GENERAL_LABEL, TOOL_LABEL } from "./ReaderNotes";
 import { RelatedCard } from "./ReaderRelated";
 import { MAX_SELECTION } from "./segments";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 function Answer({ result }: { result: ReaderResult }) {
   return (
@@ -163,10 +163,10 @@ export function ReaderTools({ runId, paperId, selection, drawer }: { runId: stri
       <section aria-labelledby="reader-related-heading" className="tool-group">
         <h3 id="reader-related-heading">Explore</h3>
         <ul className="tool-tiles">
-          <Tile id="tool-related" icon="⌕" title="Find related" blurb="Papers on the same key terms in the sources, the library and past runs." ready={selected} readyWord={onSelection} waitWord="Uses the paper's title" disabled={running || tooLong} onRun={() => void search("related")} />
+          <Tile id="tool-related" icon="⌕" title="Find related" blurb="Papers on the same key terms in the sources, the library and past searches." ready={selected} readyWord={onSelection} waitWord="Uses the paper's title" disabled={running || tooLong} onRun={() => void search("related")} />
           <Tile id="tool-earlier" icon="↶" title="Earlier work" blurb="The same search, sorted by year around this paper's own." ready={selected} readyWord={onSelection} waitWord="Uses the paper's title" disabled={running || tooLong} onRun={() => void search("earlier")} />
         </ul>
-        <p className="sub">Searches the enabled sources (10 results each), the team library and past runs for the key terms of {selection ? "the selection" : "the paper's title"}.</p>
+        <p className="sub">Searches the enabled sources (10 results each), the team library and past searches for the key terms of {selection ? "the selection" : "the paper's title"}.</p>
       </section>
 
       <section aria-labelledby="tools-coming" className="tool-group tool-group--coming">

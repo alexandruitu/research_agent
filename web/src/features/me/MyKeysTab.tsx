@@ -6,8 +6,8 @@ import { useCheckKey, useDeleteKey, useMyKeys, useSaveKey } from "../../api/meHo
 import type { KeyOut } from "../../api/types";
 
 const GROUPS: { kind: string; title: string; intro: string }[] = [
-  { kind: "model", title: "AI models", intro: "Searches and the Reader call these with your key. Add at least one to run live searches." },
-  { kind: "jev", title: "Screening tier (Jev)", intro: "Optional: a fast first screening pass before the AI model." },
+  { kind: "model", title: "AI models", intro: "Searches and the Reader call these with your key. Add at least one to start real (not demo) searches." },
+  { kind: "jev", title: "Screening tier (Jev)", intro: "Optional: Jev, a small fast model, makes a first pass that keeps or drops the clear cases before the larger AI model; it saves cost." },
   { kind: "source", title: "Search sources", intro: "Optional for most sources; IEEE, Springer, CORE and Scopus need a key to be searched." },
 ];
 
@@ -37,7 +37,7 @@ function KeyRow({ entry }: { entry: KeyOut }) {
     if (done) void keys.refetch();
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fail = (error: unknown) => setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+  const fail = (error: unknown) => setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setProblem(null);
@@ -102,7 +102,7 @@ export function MyKeysTab() {
   return (
     <section>
       <h2>My keys</h2>
-      <p className="sub">Your searches run with your own keys. A saved key is encrypted and never shown again: you see only its last 4 characters.</p>
+      <p className="intro">The provider keys your searches use. Add a key for at least one AI model below to start real searches. A saved key is encrypted and never shown again: you see only its last 4 characters.</p>
       {GROUPS.map((group) => {
         const rows = (keys.data ?? []).filter((k) => k.kind === group.kind);
         return (

@@ -861,6 +861,7 @@ table.runs--ledger th[scope="row"] { font-weight: 400; min-width: 28ch; max-widt
 .runs__name { font: 600 16px/1.3 var(--serif); color: var(--ink); text-decoration: none; }
 .runs__name:hover { text-decoration: underline; }
 .runs__mark { margin-left: 6px; font-size: 12px; }
+.runs__summary { display: block; font-size: 13px; color: var(--ink); margin-top: 2px; overflow-wrap: anywhere; }
 .runs__sub, .runs__note, .runs__error { display: block; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
 .runs__note { font-style: italic; font-family: var(--serif); font-size: 13px; }
 .runs__note::before { content: "“"; } .runs__note::after { content: "”"; }
@@ -1327,3 +1328,21 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
 .pane-text-origin { margin: 4px 0 8px; font-size: 13px; color: var(--ink-2); }
 .note-save { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .segmented-radios { border: 0; padding: 0; margin: 0; display: inline-flex; gap: 12px; }
+
+/* First-use guide: three numbered steps on top of the landing pages, dismissible, done steps marked in words */
+.welcome { margin: 0 0 var(--s5); padding: var(--s4) var(--s5) var(--s5); background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: var(--r3); box-shadow: var(--shadow); }
+.welcome__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s4); flex-wrap: wrap; }
+.welcome__head h2 { margin: 0 0 4px; font: 600 21px/1.25 var(--serif); }
+.welcome__head .sub { margin: 0; }
+.welcome__close { white-space: nowrap; }
+.welcome__steps { list-style: none; margin: var(--s4) 0 0; padding: 0; display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.welcome__steps li { position: relative; padding: var(--s4) var(--s4) var(--s4) calc(var(--s4) + 40px); border: 1px solid var(--rule); border-radius: var(--r2); background: var(--paper); }
+.welcome__steps li.is-done { background: var(--ok-bg); border-color: var(--ok-line); }
+.welcome__num { position: absolute; left: var(--s4); top: var(--s4); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 600 15px/1 var(--serif); }
+.welcome__steps li.is-done .welcome__num { background: var(--ok-fg); color: var(--ok-bg); }
+.welcome__steps h3 { margin: 2px 0 4px; font-size: 16px; }
+.welcome__state { font-weight: 500; color: var(--ok-fg); font-size: 13px; }
+.welcome__steps p { margin: 0 0 var(--s2); color: var(--ink-2); }
+.welcome__steps li.is-done p { color: var(--ok-fg); }
+.how-link { margin-right: var(--s2); }
+.page-intro { margin: 0 0 var(--s4); color: var(--ink-2); max-width: 72ch; }

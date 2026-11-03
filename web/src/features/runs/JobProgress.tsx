@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { keys, useJob } from "../../api/hooks";
 
-const WORDS: Record<string, string> = { queued: "queued", running: "running", done: "done", failed: "failed" };
+const WORDS: Record<string, string> = { queued: "Waiting to start", running: "Searching…", done: "Done: the results are ready", failed: "Stopped with an error" };
 
 /** Follows one job. `useJob` polls every 2 seconds until the job is done or failed. */
 export function JobProgress({ jobId }: { jobId: string }) {
@@ -14,13 +14,13 @@ export function JobProgress({ jobId }: { jobId: string }) {
   useEffect(() => {
     if (finished) void client.invalidateQueries({ queryKey: keys.runs });
   }, [finished, client]);
-  if (job.isError) return <p role="alert" className="form-error">Could not read the job status.</p>;
+  if (job.isError) return <p role="alert" className="form-error">Could not read the progress of this search. It keeps going on the server: reload the page to see it in Your searches.</p>;
   const stages = Object.entries((job.data?.progress as { stages?: Record<string, string> } | undefined)?.stages ?? {});
   return (
     // One stable wrapper, so the element a screen reader is on does not get replaced when data arrives.
-    <div role="status" aria-label="Run progress" className="job">
+    <div role="status" aria-label="Search progress" className="job">
       {!job.data ? (
-        <p>Waiting for the worker…</p>
+        <p>Waiting for the server to pick up the search…</p>
       ) : (
         <>
           <p><strong>{WORDS[job.data.status] ?? job.data.status}</strong>{job.data.attempts > 1 ? ` · attempt ${job.data.attempts}` : ""}</p>

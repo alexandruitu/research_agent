@@ -22,7 +22,7 @@ export function download(url: string) {
 
 type Pending = { kind: "cancel" | "delete"; runs: RunOut[] } | { kind: "rename"; run: RunOut } | null;
 
-const message = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const message = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 /**
  * Every action on a run, as menu items, with the dialogs they need (confirm cancel/delete, rename) and toasts.
@@ -45,7 +45,7 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
     try {
       const started = await rerun.mutateAsync({ runId: run.id, config });
       toast.show({
-        text: config === "same" ? `Started again with the same configuration: ${runLabel(run)}.` : `Started again with current settings: ${runLabel(run)}.`,
+        text: config === "same" ? `Searching again with the same settings: ${runLabel(run)}.` : `Searching again with the current settings: ${runLabel(run)}.`,
         action: { label: "Open", run: () => navigate(`/screening/${started.run_id}`) },
       });
     } catch (error) {
@@ -56,10 +56,10 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
   const doResume = async (run: RunOut) => {
     try {
       await resume.mutateAsync(run.id);
-      toast.show({ text: `Resuming ${runLabel(run)} from its checkpoint.` });
+      toast.show({ text: `Resuming ${runLabel(run)} where it stopped.` });
     } catch (error) {
       if (error instanceof ApiError && error.code === "prompt_version_changed") {
-        toast.show({ tone: "bad", text: error.message, action: { label: "Run again (same configuration)", run: () => void runAgain(run, "same") } });
+        toast.show({ tone: "bad", text: error.message, action: { label: "Search again (same settings)", run: () => void runAgain(run, "same") } });
       } else {
         toast.show({ tone: "bad", text: message(error) });
       }
@@ -79,7 +79,7 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
     for (const run of runs) {
       try {
         const out = await cancel.mutateAsync(run.id);
-        toast.show({ text: out.status === "cancelled" ? `Cancelled ${runLabel(run)}.` : `Stopping ${runLabel(run)}; its checkpoint is kept.` });
+        toast.show({ text: out.status === "cancelled" ? `Cancelled ${runLabel(run)}.` : `Stopping ${runLabel(run)}; what it did so far is kept.` });
       } catch (error) {
         toast.show({ tone: "bad", text: message(error) });
       }
@@ -90,7 +90,7 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
   const confirmDelete = async (runs: RunOut[]) => {
     try {
       const out = await remove.mutateAsync(runs.map((r) => r.id));
-      if (out.deleted.length) toast.show({ text: out.deleted.length === 1 ? `Deleted ${runLabel(runs.find((r) => r.id === out.deleted[0]) ?? runs[0]!)}; its folder is in the trash.` : `Deleted ${out.deleted.length} runs; their folders are in the trash.` });
+      if (out.deleted.length) toast.show({ text: out.deleted.length === 1 ? `Deleted ${runLabel(runs.find((r) => r.id === out.deleted[0]) ?? runs[0]!)}; its folder is in the trash.` : `Deleted ${out.deleted.length} searches; their folders are in the trash.` });
       for (const refusal of out.refused) toast.show({ tone: "bad", text: `${runLabel(runs.find((r) => r.id === refusal.id) ?? runs[0]!)}: ${refusal.message}` });
       onDeleted?.(out.deleted);
     } catch (error) {
@@ -105,11 +105,11 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
     const list: MenuItem[] = [];
     if (open) list.push({ label: "Open", onSelect: () => navigate(`/screening/${run.id}`) });
     if (member && research) {
-      list.push({ label: "Run again (same configuration)", onSelect: () => void runAgain(run, "same") });
-      list.push({ label: "Run again with current settings", onSelect: () => void runAgain(run, "current") });
+      list.push({ label: "Search again (same settings)", onSelect: () => void runAgain(run, "same") });
+      list.push({ label: "Search again with current settings", onSelect: () => void runAgain(run, "current") });
     }
-    if (manage && research && ["failed", "cancelled"].includes(run.status)) list.push({ label: "Resume", onSelect: () => void doResume(run) });
-    if (manage && research && isActive(run.status)) list.push({ label: "Cancel run…", onSelect: () => setPending({ kind: "cancel", runs: [run] }), danger: true });
+    if (manage && research && ["failed", "cancelled"].includes(run.status)) list.push({ label: "Resume the search", onSelect: () => void doResume(run) });
+    if (manage && research && isActive(run.status)) list.push({ label: "Cancel the search…", onSelect: () => setPending({ kind: "cancel", runs: [run] }), danger: true });
     list.push({ label: "Export CSV", onSelect: () => download(runExportUrl(run.id, "csv")) });
     list.push({ label: "Export bundle (zip)", onSelect: () => download(runExportUrl(run.id, "bundle")) });
     if (manage) {
@@ -124,16 +124,16 @@ export function useRunActions({ onDeleted }: { onDeleted?: (ids: string[]) => vo
   if (pending?.kind === "delete") {
     const n = pending.runs.length;
     dialog = (
-      <ConfirmDialog title={n === 1 ? `Delete ${runLabel(pending.runs[0]!)}?` : `Delete ${n} runs?`} confirmLabel={n === 1 ? "Delete run" : `Delete ${n} runs`}
+      <ConfirmDialog title={n === 1 ? `Delete ${runLabel(pending.runs[0]!)}?` : `Delete ${n} searches?`} confirmLabel={n === 1 ? "Delete search" : `Delete ${n} searches`}
         busy={remove.isPending} onCancel={() => setPending(null)} onConfirm={() => void confirmDelete(pending.runs)}>
-        <p>The run's screenings, reviews and rankings are removed from the database. Library items saved from it keep their evidence snapshot. The run folder moves to the trash on the server; nothing is erased from disk.</p>
+        <p>The search's screening decisions, reviews and rankings are removed from the database. Papers saved to a library from it keep their evidence. Its folder moves to the trash on the server; nothing is erased from disk.</p>
       </ConfirmDialog>
     );
   } else if (pending?.kind === "cancel") {
     dialog = (
-      <ConfirmDialog title={`Cancel ${runLabel(pending.runs[0]!)}?`} confirmLabel="Cancel run" busy={cancel.isPending}
+      <ConfirmDialog title={`Cancel ${runLabel(pending.runs[0]!)}?`} confirmLabel="Cancel the search" busy={cancel.isPending}
         onCancel={() => setPending(null)} onConfirm={() => void confirmCancel(pending.runs)}>
-        <p>A queued run never starts. A running one stops at the worker's next check; its checkpoint is kept and you can resume it later.</p>
+        <p>A search that is waiting never starts. A running one stops at its next check; what it did so far is kept and you can resume it later.</p>
       </ConfirmDialog>
     );
   } else if (pending?.kind === "rename") {
@@ -161,7 +161,7 @@ function RenameDialog({ run, onClose }: { run: RunOut; onClose: () => void }) {
   };
   return (
     <div className="confirm-backdrop">
-      <form role="dialog" aria-modal="true" aria-label="Rename run" className="confirm confirm--plain" onSubmit={submit}
+      <form role="dialog" aria-modal="true" aria-label="Rename search" className="confirm confirm--plain" onSubmit={submit}
         onKeyDown={(event) => event.key === "Escape" && onClose()}>
         <h2>Name and note</h2>
         <label className="stack">Name <span className="hint">blank: show the topic and version</span>

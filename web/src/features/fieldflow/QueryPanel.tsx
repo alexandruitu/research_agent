@@ -28,7 +28,7 @@ export function QueryPanel({ form, onChange, disabled = false }: Props) {
                     {PLAIN_SOURCES.has(row.source) && !row.overridden && <span className="sub">No boolean search here: these words are sent as they are, and results are kept only if they match your keywords.</span>}
                   </>
                 ) : (
-                  <span className="sub">No keywords yet: at run time a model plans this query from the topic.</span>
+                  <span className="sub">No keywords yet: when the search starts, a model plans this query from the topic.</span>
                 )}
               </dd>
             </div>

@@ -76,7 +76,7 @@ export function CriteriaTestPanel({ jobId }: { jobId: string }) {
       <h2>Criteria test</h2>
       <p className="sub">Jev only, at most 20 papers from the topic's sources. Nothing is written to Results.</p>
       <p role="status">{job.isError ? "" : statusText(job.data?.status, progress)}</p>
-      {job.isError && <p role="alert" className="form-error">Could not read the test status.</p>}
+      {job.isError && <p role="alert" className="form-error">Could not read the test status. Reload the page to try again.</p>}
       {job.data?.status === "failed" && <p role="alert" className="form-error">The test failed: {job.data.error ?? "no details were stored."}</p>}
       {result && <TestResults result={result} />}
     </section>

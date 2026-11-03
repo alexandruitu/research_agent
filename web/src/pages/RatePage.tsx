@@ -77,7 +77,7 @@ function RateForm({ sampleId, next, onSubmitted }: { sampleId: string; next: Rat
       });
       onSubmitted(paper.paper_id);
     } catch (error) {
-      setProblem(error instanceof ApiError ? (error.status === 409 ? "You already rated this paper. Go to the next one." : error.message) : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? (error.status === 409 ? "You already rated this paper. Go to the next one." : error.message) : "Could not reach the server. Check your connection and try again.");
     }
   };
 
@@ -90,6 +90,7 @@ function RateForm({ sampleId, next, onSubmitted }: { sampleId: string; next: Rat
         <section aria-label="Paper text" className="reading-text rate-text" tabIndex={0}>{paper.text.content}</section>
       </article>
       <div className="rate-checklist">
+        <p className="page-intro">Rate this paper yourself, so the models' answers can be compared with a person's. Answer every item, then submit.</p>
         <p className="hint">Answer from the text only. Keys: <kbd>1</kbd> yes · <kbd>2</kbd> no · <kbd>3</kbd> unclear · <kbd>4</kbd> not reported, on the focused item; arrows move between answers. The models' answers stay hidden until you submit.</p>
         {next.reviewers.map((r) => (
           <section key={r.key} aria-label={`${r.name} checklist`} className="rate-reviewer">
@@ -140,7 +141,7 @@ export function RatePage() {
 
   let body;
   if (next.isLoading) body = <Skeleton label="the next paper" rows={6} />;
-  else if (next.isError || !next.data) body = <p role="alert" className="form-error">{next.error instanceof ApiError ? next.error.message : "Could not load the next paper."}</p>;
+  else if (next.isError || !next.data) body = <p role="alert" className="form-error">{next.error instanceof ApiError ? next.error.message : "Could not load the next paper. Reload the page to try again."}</p>;
   else if (revealed) {
     body = (
       <>

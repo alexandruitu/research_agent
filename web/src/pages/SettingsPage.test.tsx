@@ -54,7 +54,7 @@ describe("Settings tabs", () => {
 
   it("explains read-only mode to non-admins", async () => {
     setup("viewer", "/settings/sources");
-    expect(await screen.findByText(/Every run records the settings version it used/)).toBeInTheDocument();
+    expect(await screen.findByText(/Every search records the settings version it used/)).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Settings sections" })).queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
   });
 });
@@ -102,7 +102,7 @@ describe("Settings → Sources", () => {
 
   it("admins change max results, and a value outside 1 to 200 is refused before calling the server", async () => {
     const { calls } = setup("admin", "/settings/sources", { "PATCH /api/v1/sources/europepmc": { body: { ...sourceRows()[0], max_results: 50 } } });
-    const input = await screen.findByLabelText("Max results per run for Europe PMC");
+    const input = await screen.findByLabelText("Max results per search for Europe PMC");
     await userEvent.clear(input);
     await userEvent.type(input, "500");
     await userEvent.click(screen.getByRole("button", { name: "Save max results for Europe PMC" }));
@@ -169,7 +169,7 @@ const posted = (calls: { method: string; path: string; body: unknown }[]) => cal
 describe("Settings → Screening", () => {
   it("explains the bands in words and saves the four thresholds as the next version with a note", async () => {
     const { calls } = setup("admin", "/settings/screening", { "POST /api/v1/settings/review": savedEcho });
-    expect(await screen.findByText("Used by next run · v3")).toBeInTheDocument();
+    expect(await screen.findByText("Used by the next search · v3")).toBeInTheDocument();
     expect(screen.getByText(/≤ 0.05: dropped by Jev · between: the LLM decides · ≥ 0.80: kept by Jev/)).toBeInTheDocument();
     const keep = screen.getByLabelText("Keep from");
     await userEvent.clear(keep);

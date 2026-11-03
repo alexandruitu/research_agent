@@ -6,7 +6,7 @@ import type { CollectionOut } from "../../api/types";
 import { useToast } from "../../components/ui/Toast";
 
 const errorText = (error: unknown, name?: string) =>
-  error instanceof ApiError && error.code === "name_taken" ? `A collection called “${name}” exists already.` : error instanceof ApiError ? error.message : "Could not reach the server.";
+  error instanceof ApiError && error.code === "name_taken" ? `A collection called “${name}” exists already.` : error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.";
 
 function Row({ collection, admin, member }: { collection: CollectionOut; admin: boolean; member: boolean }) {
   const [editing, setEditing] = useState(false);

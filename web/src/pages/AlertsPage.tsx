@@ -10,15 +10,15 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { QualityCell } from "../features/papers/cells";
 import { useSaveFlow } from "../features/library/saveFlow";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 const MAX_ITEMS = 10;
 
 /** "14 found · 9 already seen · 5 new · 2 worth reading" (+ over the cap, deferred). */
 export function countsSentence(counts: DigestCounts, worth: number): string[] {
   const parts = [`${counts.found ?? 0} found`, `${counts.already_seen ?? 0} already seen`, `${counts.new ?? 0} new`, `${worth} worth reading`];
   const lines = [parts.join(" · ")];
-  if (counts.over_cap) lines.push(`${counts.over_cap} more not reviewed — run the topic to see them.`);
-  if (counts.deferred) lines.push("This run was deferred: the daily limit of alert runs was reached.");
+  if (counts.over_cap) lines.push(`${counts.over_cap} more not reviewed — search the topic again to see them.`);
+  if (counts.deferred) lines.push("This search was deferred: the daily limit of alert searches was reached.");
   return lines;
 }
 
@@ -105,12 +105,12 @@ export function AlertsPage() {
           </label>
         )}
       </div>
-      <p className="sub">What the alerts you follow found since their last run, newest first.</p>
+      <p className="sub">What the alerts you follow found since their last search, newest first. Open a paper to read it; to get more, turn on an alert on a topic's page.</p>
       {digests.isLoading ? <Skeleton label="the alerts" rows={4} />
         : digests.isError ? <p role="alert" className="form-error">{errorText(digests.error)}</p>
         : (digests.data?.digests ?? []).length === 0 ? (
           <EmptyState title="No alert digests yet">
-            Turn on an alert on a field page, or follow someone else’s; each alert run leaves a digest here.
+            Open a topic under Topics and turn on its alert, or follow someone else’s; each alert search leaves a digest here.
           </EmptyState>
         ) : (
           <div className="digest-list">

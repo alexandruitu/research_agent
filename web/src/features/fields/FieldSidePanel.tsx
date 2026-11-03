@@ -5,7 +5,7 @@ import type { FieldOut } from "../../api/types";
 import { shortDate } from "./labels";
 import { diffVersions, hasChanges } from "./versionDiff";
 
-const runCount = (n: number) => (n === 1 ? "1 run" : `${n} runs`);
+const runCount = (n: number) => (n === 1 ? "1 search" : `${n} searches`);
 
 /** Measured only when an eval exists for a run of this field at its current version. */
 function Measurement({ field }: { field: FieldOut }) {
@@ -34,7 +34,7 @@ function VersionDiff({ fieldId, versions }: { fieldId: string; versions: number[
         <label>to <select value={to} onChange={(e) => setTo(Number(e.target.value))}>{options}</select></label>
       </div>
       {before.isError || after.isError ? (
-        <p role="alert" className="form-error">Could not load a version.</p>
+        <p role="alert" className="form-error">Could not load a version. Reload the page to try again.</p>
       ) : !sections ? (
         <p className="sub">Loading…</p>
       ) : !hasChanges(sections) ? (

@@ -45,12 +45,12 @@ function MovedTo({ to }: { to: string }) {
 }
 
 /** "/": old Papers links (`/?run=…&paper=…`) go to Results with their query and hash; a bare visit lands on
- *  Results once any run exists, else on Topics, the first step. */
+ *  Results once any search exists, else on Topics, the first step. */
 function Home() {
   const { search, hash } = useLocation();
   const runs = useRuns();
   if (search || hash) return <Navigate to={`/results${search}${hash}`} replace />;
-  if (runs.isLoading) return <section><Skeleton label="the runs" rows={4} /></section>;
+  if (runs.isLoading) return <section><Skeleton label="your searches" rows={4} /></section>;
   return <Navigate to={(runs.data ?? []).length > 0 ? "/results" : "/topics"} replace />;
 }
 
@@ -69,6 +69,10 @@ export function App() {
             <Route path="/screening" element={<RunsPage />} />
             <Route path="/screening/compare" element={<RunComparePage />} />
             <Route path="/screening/:runId" element={<RunDetailPage />} />
+            {/* "/search" is the plain-language name of the same pages; links keep using /screening */}
+            <Route path="/search" element={<RunsPage />} />
+            <Route path="/search/compare" element={<RunComparePage />} />
+            <Route path="/search/:runId" element={<RunDetailPage />} />
             <Route path="/topics" element={<FieldsPage />} />
             {FEATURES.alerts && <Route path="/alerts" element={<AlertsPage />} />}
             <Route element={<RequireRole role="member" />}>
@@ -76,7 +80,7 @@ export function App() {
               <Route path="/rate/:sampleId" element={<RatePage />} />
             </Route>
             <Route path="/topics/:fieldId" element={<FieldEditorPage />} />
-            {/* the flow's old names: Fields → Topics, Runs → Screening, Papers → Results */}
+            {/* the flow's old names: Fields → Topics, Runs → Screening (shown as Search), Papers → Results */}
             <Route path="/fields/*" element={<MovedTo to="/topics" />} />
             <Route path="/runs/*" element={<MovedTo to="/screening" />} />
             <Route path="/papers/*" element={<MovedTo to="/results" />} />

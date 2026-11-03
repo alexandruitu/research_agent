@@ -18,12 +18,13 @@ export function SystemMapPage() {
   };
 
   if (stages.isLoading) return <p role="status">Loading…</p>;
-  if (stages.isError) return <p role="alert">{stages.error instanceof ApiError ? `${stages.error.message} (request ${stages.error.requestId})` : "Could not load the system map."}</p>;
+  if (stages.isError) return <p role="alert">{stages.error instanceof ApiError ? `${stages.error.message} (request ${stages.error.requestId})` : "Could not load the system map. Reload the page to try again."}</p>;
   const selected = stages.data?.find((stage) => stage.id === selectedId);
 
   return (
     <section>
       <h1>System map</h1>
+      <p className="lede">Every stage of the pipeline and whether it has been measured. Click a stage to see how it was checked.</p>
       <p className="sub">Each stage is teal only when a measurement exists. Amber means a caveat applies or nothing has measured it yet.</p>
       <p className="sub terms-line">Words used here: <Term k="recall" /> · <Term k="kappa" /> · <Term k="fleiss_kappa" /> · <Term k="gold_set" /> · <Term k="sr">SR</Term> · <Term k="jev" /> · <Term k="cached_call" /> · <Term k="prompt_version" /></p>
       <div className={`papers-layout ${selected ? "with-panel" : ""}`}>

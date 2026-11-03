@@ -12,7 +12,7 @@ export function PreviewPanel({ jobId }: { jobId: string }) {
   const result = status === "done" ? ((job.data?.progress ?? {}) as JobProgressData).result as PreviewResult | undefined : undefined;
   return (
     <section aria-label="Search preview" className="preview-panel">
-      {job.isError && <p role="alert" className="form-error">Could not read the preview status.</p>}
+      {job.isError && <p role="alert" className="form-error">Could not read the preview status. Reload the page to try again.</p>}
       {status === "failed" && <p role="alert" className="form-error">The preview failed: {job.data?.error ?? "no details were stored."}</p>}
       {!result && !job.isError && status !== "failed" && <Skeleton label="the preview" rows={3} />}
       {result && (

@@ -27,7 +27,7 @@ test.describe("admin", () => {
     await card.getByRole("button", { name: "Save alert" }).click();
     await expect(card.getByRole("switch")).toBeChecked();
     await expect(card.getByText(/Every day at/)).toBeVisible();
-    await card.getByRole("button", { name: "Run now (demo)" }).click();
+    await card.getByRole("button", { name: "Search now (demo)" }).click();
     await expect(card.getByRole("link", { name: "started just now" })).toBeVisible();
 
     const nav = page.getByRole("navigation", { name: "Main" });

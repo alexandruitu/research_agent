@@ -36,8 +36,8 @@ describe("AlertsPage", () => {
   it("writes the counts sentence", () => {
     expect(countsSentence({ found: 14, already_seen: 9, new: 5, over_cap: 2, deferred: true }, 2)).toEqual([
       "14 found · 9 already seen · 5 new · 2 worth reading",
-      "2 more not reviewed — run the topic to see them.",
-      "This run was deferred: the daily limit of alert runs was reached.",
+      "2 more not reviewed — search the topic again to see them.",
+      "This search was deferred: the daily limit of alert searches was reached.",
     ]);
   });
 

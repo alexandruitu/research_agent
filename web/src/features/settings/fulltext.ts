@@ -14,7 +14,7 @@ export const FULLTEXT_SOURCES: Resolver[] = [
   { key: "unpaywall", label: "Unpaywall (legal open-access copies)", source: "unpaywall", explain: "Looks up a legal open-access PDF or page by DOI. Unpaywall asks for a contact email.", licence: "Legal open-access copies; the licence Unpaywall reports, else “open access”." },
   { key: "ieee", label: "IEEE Xplore open access", source: "ieee", explain: "IEEE articles marked open access, as PDF. Needs IEEE_API_KEY in the worker.", licence: "Open-access articles only; subscription articles are never fetched." },
   { key: "sciencedirect", label: "ScienceDirect (institutional entitlement)", source: "sciencedirect", explain: "Elsevier full text only when Elsevier confirms your institution is entitled to it. Needs ELSEVIER_API_KEY and ELSEVIER_INSTTOKEN in the worker.", licence: "Publisher-licensed: reviewed under your entitlement, never exported or shared outside the team." },
-  { key: "upload", label: "PDFs uploaded by your team", source: null, explain: "Members can upload a PDF on a paper; the next run reviews it. Turn off to hide uploads.", licence: "Recorded as uploaded by your team." },
+  { key: "upload", label: "PDFs uploaded by your team", source: null, explain: "Members can upload a PDF on a paper; the next search reviews it. Turn off to hide uploads.", licence: "Recorded as uploaded by your team." },
 ];
 
 export const resolverInfo = (key: FulltextSource) => FULLTEXT_SOURCES.find((r) => r.key === key)!;

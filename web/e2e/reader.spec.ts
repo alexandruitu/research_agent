@@ -38,7 +38,7 @@ test.describe("member", () => {
     await expect(panel.getByText(/SIMULATED explanation from the paper text/)).toBeVisible({ timeout: 30_000 });
     await expect(panel.locator("q.reader-quote").first()).toHaveText(sentence);
     await panel.getByRole("button", { name: "Save as note" }).click();
-    await expect(panel.getByText("Note saved.")).toBeVisible();
+    await expect(panel.getByText(/^Note saved/)).toBeVisible();
     await expect(panel.locator(".reader-note-list")).toContainText(sentence);
   });
 
@@ -94,7 +94,7 @@ test.describe("member", () => {
     await expect(panel.getByRole("heading", { name: /^Related papers \(\d+\)$/ })).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/key terms \(code, no AI\)/)).toBeVisible();
     await expect(panel.locator(".reader-related-item").first()).toBeVisible();
-    await expect(panel.getByText(/seen in run/).first()).toBeVisible();
+    await expect(panel.getByText(/seen in search/).first()).toBeVisible();
     await expect(panel.locator(".reader-related-item", { hasText: paper.paper.title })).toHaveCount(0);
   });
 

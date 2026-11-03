@@ -48,7 +48,7 @@ describe("AlertCard", () => {
     const max = screen.getByLabelText(/Max new papers/);
     await userEvent.clear(max);
     await userEvent.type(max, "20");
-    expect(screen.queryByRole("button", { name: "Run now" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search now" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save alert" }));
     await waitFor(() => expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
       enabled: true, cadence: "daily", weekday: 0, hour: 7, max_new: 20, min_group: "read_first", years_back: 1,
@@ -58,10 +58,10 @@ describe("AlertCard", () => {
   it("shows the cap, a pause, the last run and follow state; Run now uses demo mode when chosen", async () => {
     const api = setup(alertOut({ max_new: 150, effective_max_new: 100, paused_reason: "3 failed runs in a row", failures: 3 }), { demo: true });
     expect(await screen.findByText(/Paused:/)).toBeInTheDocument();
-    expect(screen.getByText(/reviews at most 100 papers per run/)).toBeInTheDocument();
+    expect(screen.getByText(/reviews at most 100 papers per search/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "done" })).toHaveAttribute("href", `/screening/${RUN_ID}`);
     expect(screen.getByText(/2 people follow \(including you\)/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Run now (demo)" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search now (demo)" }));
     await waitFor(() => expect(api.calls.find((c) => c.path.endsWith("/run-now"))?.body).toEqual({ mode: "demo" }));
     expect(api.calls.find((c) => c.path.endsWith("/run-now"))?.headers.get("Idempotency-Key")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Unfollow" }));

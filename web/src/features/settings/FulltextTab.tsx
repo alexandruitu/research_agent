@@ -6,6 +6,7 @@ import { useReportDirty } from "./dirtyGuard";
 import { useSources } from "../../api/hooks";
 import { enabledOrder, moveResolver, resolverInfo, resolverList, validateFulltext, type ResolverEntry } from "./fulltext";
 import { keyStatusWords } from "./sources";
+import { Term } from "../../components/ui/Term";
 import { SettingsFrame } from "./SettingsFrame";
 import { errorText, useSettingsSave } from "./useSettingsSave";
 
@@ -39,7 +40,7 @@ function FulltextForm({ data, admin, saver }: { data: ReviewSettingsOut; admin: 
   return (
     <SettingsFrame
       id="fulltext" title="Full text" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving}
-      intro="Reviewers read the full paper when one of these sources has it, in this order; otherwise they read the abstract, and items the abstract cannot answer count as “not reported”, never as “no”."
+      intro={<>Where reviewers get the <Term k="full_text" /> of a paper. They try these sources in this order; when none has it the paper is reviewed on its <Term k="abstract_only">abstract only</Term>, and items the abstract cannot answer count as “not reported”, never as “no”. Turn sources on or off and reorder them below.</>}
       onSave={onSave} onReset={reset} stale={saver.stale} onReload={saver.reload} problem={saver.problem} message={saver.message} errors={errors}
     >
       <fieldset>

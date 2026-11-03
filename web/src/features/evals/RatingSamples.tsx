@@ -9,7 +9,7 @@ import { dateText } from "./words";
 
 function SampleRow({ id }: { id: string }) {
   const sample = useRatingSample(id);
-  if (!sample.data) return <li>{sample.isError ? "Could not load this sample." : "Loading sample…"}</li>;
+  if (!sample.data) return <li>{sample.isError ? "Could not load this sample. Reload the page to try again." : "Loading sample…"}</li>;
   const s = sample.data;
   const left = s.papers.filter((p) => !p.rated_by_me).length;
   return (
@@ -33,7 +33,7 @@ export function RatingSamples({ evalId, sampleIds, allowCreate = true }: { evalI
     try {
       await create.mutateAsync({ size: Number(size) || 20, seed: 0 });
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
     }
   };
   return (

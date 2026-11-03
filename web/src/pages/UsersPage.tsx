@@ -25,16 +25,17 @@ export function UsersPage() {
     try {
       await patch.mutateAsync({ id, ...body });
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
     }
   };
   const close = () => setOpen(null);
 
   if (users.isLoading) return <p role="status">Loading…</p>;
-  if (users.isError) return <p role="alert">Could not load the users.</p>;
+  if (users.isError) return <p role="alert">Could not load the users. Reload the page to try again.</p>;
   return (
     <section>
       <h2>Users</h2>
+      <p className="intro">Who can sign in and what each person may do. Invite someone or allow a sign-up domain below, then change roles in the table.</p>
       <SignupDomainsForm />
       <InviteForm />
       {problem && <p role="alert" className="form-error">{problem}</p>}

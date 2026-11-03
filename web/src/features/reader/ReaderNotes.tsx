@@ -35,7 +35,7 @@ export function ReaderNotes({ paperId, headingLevel = 3 }: { paperId: string; he
     <section aria-labelledby={`notes-${paperId}`} className="reader-notes">
       <Heading id={`notes-${paperId}`}>Reader notes</Heading>
       {notes.isLoading && <p role="status">Loading notes…</p>}
-      {notes.isError && <p role="alert" className="form-error">{notes.error instanceof ApiError ? notes.error.message : "Could not load the notes."}</p>}
+      {notes.isError && <p role="alert" className="form-error">{notes.error instanceof ApiError ? notes.error.message : "Could not load the notes. Reload the page to try again."}</p>}
       {notes.data && notes.data.length === 0 && <p className="sub">No notes yet. Save an answer from the Reader to keep it here.</p>}
       {notes.data && notes.data.length > 0 && <ul className="reader-note-list">{notes.data.map((n) => <Note key={n.id} note={n} />)}</ul>}
     </section>

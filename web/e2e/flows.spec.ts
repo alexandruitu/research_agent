@@ -29,7 +29,7 @@ test.describe("viewer", () => {
     await expect(page.getByRole("heading", { name: "Not allowed" })).toBeVisible();
     await page.goto("/screening");
     await expect(page.getByRole("table")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start run" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start a search" })).toHaveCount(0);
   });
 
   test("the paper the screen dropped: filter, open, read the story, all from the keyboard", async ({ page }) => {
@@ -130,10 +130,10 @@ test.describe("member", () => {
     test.setTimeout(150_000);
     await page.goto("/screening");
     await page.getByRole("combobox", { name: "Topic", exact: true }).selectOption({ index: 1 });
-    await page.getByLabel("Papers to screen").fill("3");
+    await page.getByLabel(/Papers to review/).fill("3");
     await page.getByLabel(/Demo mode/).check();
-    await page.getByRole("button", { name: "Start run" }).click();
-    await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
+    await page.getByRole("button", { name: "Start a search" }).click();
+    await expect(page.getByRole("status", { name: "Search progress" })).toContainText("Done", { timeout: 120_000 });
     const row = page.locator("table.runs tbody tr").filter({ hasText: "research" }).filter({ has: page.locator("td", { hasText: /^3$/ }) });
     await row.first().getByRole("link", { name: /^Results of / }).click(); // newest first; other tests start 3-paper runs too
     await expect(page.locator("table.papers tbody tr")).toHaveCount(3);
@@ -168,13 +168,13 @@ test.describe("member", () => {
     await expect(results.getByRole("table")).toBeVisible({ timeout: 60_000 });
 
     await page.goto("/topics");
-    await page.getByRole("link", { name: "Start run for E2E plaque" }).click();
-    await page.getByLabel("Papers to screen").fill("3");
+    await page.getByRole("link", { name: "Start a search for E2E plaque" }).click();
+    await page.getByLabel(/Papers to review/).fill("3");
     await page.getByLabel(/Demo mode/).check();
-    await page.getByRole("button", { name: "Start run" }).click();
-    await expect(page.getByRole("status", { name: "Run progress" })).toContainText("done", { timeout: 120_000 });
+    await page.getByRole("button", { name: "Start a search" }).click();
+    await expect(page.getByRole("status", { name: "Search progress" })).toContainText("Done", { timeout: 120_000 });
     await page.locator("table.runs tbody tr").filter({ hasText: "E2E plaque" }).first().getByRole("link", { name: /^Results of / }).click();
-    await expect(page.getByRole("combobox", { name: "Run" })).toContainText("E2E plaque v1");
+    await expect(page.getByRole("combobox", { name: "Search" })).toContainText("E2E plaque v1");
     await page.getByRole("button", { name: "Detailed", exact: true }).click(); // Simple is the default view
     await expect(page.locator("table.papers tbody tr").first()).toContainText(/all met|dropped by (incl|excl) \d|no single criterion decided/);
 
@@ -271,7 +271,7 @@ test.describe("member", () => {
     await page.goto("/topics/new");
     await page.getByLabel("Name", { exact: true }).fill("Unsaved");
     page.once("dialog", (dialog) => void dialog.dismiss());
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Step 2: Screening" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Step 2: Search" }).click();
     await expect(page).toHaveURL(/\/topics\/new/);
   });
 });

@@ -81,3 +81,29 @@ export function runOption(run: Pick<RunOut, "name" | "field_name" | "field_versi
   const text = clip(full, max);
   return { text, title: run.topic ? `${full} — ${run.topic}` : full };
 }
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * A search in one plain line, built from its data: "Searched 6 sources for 'CCTA plaque' · reviewed 5 papers
+ * · 2 worth reading". Running, failed, cancelled and partial searches say so; unknown parts are left out
+ * rather than shown as zero. `kept` comes from the search's counts when the caller has them (detail page).
+ */
+export function searchSummary(
+  run: Pick<RunOut, "status" | "topic" | "field_name" | "paper_count" | "coverage" | "search_warnings">,
+  kept?: number | null,
+): string {
+  const what = (run.topic?.trim() || run.field_name).replace(/\s+/g, " ");
+  const subject = `'${clip(what, 60)}'`;
+  const sources = run.coverage?.searched.length ?? 0;
+  const searched = sources > 0 ? `Searched ${plural(sources, "source")} for ${subject}` : `Searched for ${subject}`;
+  const skipped = run.coverage?.skipped?.length ?? run.search_warnings?.length ?? 0;
+  const partial = skipped > 0 ? ` (${plural(skipped, "source")} did not answer)` : "";
+  if (run.status === "queued") return `Waiting to start: a search for ${subject}`;
+  if (run.status === "running") return `${sources > 0 ? searched : `Searching for ${subject}`}${partial} · in progress, the results appear when it finishes`;
+  if (run.status === "failed") return `${searched}${partial} · stopped with an error before it finished${run.paper_count ? ` (${plural(run.paper_count, "paper")} so far)` : ""}`;
+  if (run.status === "cancelled") return `${searched}${partial} · cancelled${run.paper_count ? ` after ${plural(run.paper_count, "paper")}` : ""}`;
+  const parts = [`${searched}${partial}`, run.paper_count === 0 ? "found no papers to review" : `reviewed ${plural(run.paper_count, "paper")}`];
+  if (kept != null && run.paper_count > 0) parts.push(`${kept} worth reading`);
+  return parts.join(" · ");
+}

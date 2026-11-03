@@ -17,6 +17,7 @@ import { activeFilterChips, clearPaperFilters } from "../features/papers/activeF
 import { HomeEmpty } from "./HomeEmpty";
 import { StartPoint } from "../features/papers/StartPoint";
 import { AxesLegend } from "../features/papers/AxesLegend";
+import { TermsLine } from "../components/ui/Term";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { isFieldCriterion } from "../features/fields/labels";
 import { isPanelRun, screenKeys } from "../features/papers/cells";
@@ -37,7 +38,7 @@ import { AuthorFilter } from "../features/authors/AuthorFilter";
 import { MatchFilter } from "../features/authors/MatchedBy";
 import { identityWords } from "../features/authors/authors";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? `${error.message} (request ${error.requestId})` : "Could not reach the server. Check your connection and try again.");
 
 export const PAPERS_SHORTCUTS = [
   { keys: ["j", "k"], what: "Next / previous paper" },
@@ -105,7 +106,7 @@ export function PapersPage() {
     if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-open-paper="${open}"]`)?.focus());
   };
 
-  if (runs.isLoading) return <section><h1>Results</h1><Skeleton label="the runs" rows={6} /></section>;
+  if (runs.isLoading) return <section><h1>Results</h1><Skeleton label="your searches" rows={6} /></section>;
   if (runs.isError) return <p role="alert">{errorText(runs.error)}</p>;
   if (!runId) return <HomeEmpty member={member} hasRuns={(runs.data ?? []).length > 0} />;
 
@@ -186,11 +187,12 @@ export function PapersPage() {
         <h1>Results</h1>
         <button type="button" className="kbd-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts"><kbd aria-hidden="true">?</kbd></button>
       </div>
+      <p className="page-intro">The papers one search found, best first, each with the reason in one sentence. Choose the search below, open a paper to read it, and save the good ones to a library.</p>
       {/* runs come newest first: the first one names the last used field */}
       <StartPoint member={member} lastFieldId={runs.data?.[0]?.field_id} />
       <div className="toolbar">
         <label>
-          Run
+          Search
           <select className="run-picker" value={runId} title={selected ? runOption(selected).title : undefined} onChange={(e) => change({ run: e.target.value })}>
             {newestFirst(runs.data ?? []).map((r) => {
               const option = runOption(r, [`${r.paper_count} papers`, ...(r.gold_set_name ? [r.gold_set_name] : [])]);
@@ -218,6 +220,7 @@ export function PapersPage() {
         )}
       </div>
       <AxesLegend />
+      <TermsLine keys={["screening", "panel", "red_flag", "coverage", "provisional", "full_text", "abstract_only", "jev"]} />
       {selected && <PartialSearchBanner key={runId} runId={runId} warnings={selected.search_warnings} />}
       {member && selectedIds.size > 0 && (
         <div className="selection-bar" role="region" aria-label="Selection">
@@ -244,7 +247,7 @@ export function PapersPage() {
       )}
       <p className="trust-link"><Link to="/validation">How do we know this is right? <span aria-hidden="true">→</span></Link></p>
       <p className="pipeline-note">
-        <Link to="/validation/system">Pipeline measured on CT-FFR reviews → System map</Link> <span>(how well each step works in general, not a measure of this run)</span>
+        <Link to="/validation/system">Pipeline measured on CT-FFR reviews → System map</Link> <span>(how well each step works in general, not a measure of this search)</span>
       </p>
       <div className={`papers-layout ${panelOpen ? "with-panel" : ""}`}>
         <div className="papers-main">
@@ -272,7 +275,7 @@ export function PapersPage() {
                 Remove a filter above, or clear them all.
               </EmptyState>
             ) : (
-              <EmptyState title="This run has no papers yet">If it is still running, its papers appear when it finishes (see Screening).</EmptyState>
+              <EmptyState title="This search has no papers yet">If it is still working, its papers appear here when it finishes (see Search). If it finished, choose another search above or start a new one.</EmptyState>
             )
           ) : (
             <ErrorBoundary label="the paper table">

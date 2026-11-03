@@ -21,7 +21,7 @@ export function SettingsFrame({ id, title, intro, admin, version, dirty, saving,
     <section aria-labelledby={`${id}-heading`} className="settings-tab">
       <div className="tab-head">
         <h2 id={`${id}-heading`}>{title}</h2>
-        {version !== null && <span className="pill pill--measured">Used by next run · v{version}</span>}
+        {version !== null && <span className="pill pill--measured">Used by the next search · v{version}</span>}
       </div>
       <p className="intro">{intro}</p>
       <form onSubmit={submit} aria-label={title} noValidate>

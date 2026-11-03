@@ -14,7 +14,7 @@ function Row({ row }: { row: RelatedPaper }) {
       {" "}
       {row.in_library && <span className="chip">in library</span>}
       {seen && row.paper_id && (
-        <span className="chip">seen in run <Link to={`/read/${seen.id}/${row.paper_id}`}>{seen.name}</Link>{row.seen_in_runs.length > 1 ? ` +${row.seen_in_runs.length - 1}` : ""}</span>
+        <span className="chip">seen in search <Link to={`/read/${seen.id}/${row.paper_id}`}>{seen.name}</Link>{row.seen_in_runs.length > 1 ? ` +${row.seen_in_runs.length - 1}` : ""}</span>
       )}
     </li>
   );
@@ -44,7 +44,7 @@ function Results({ result }: { result: RelatedResult }) {
         </div>
       )}
       {result.results.length === 0 ? (
-        <p>No matching papers in the sources, the team library or past runs.</p>
+        <p>No matching papers in the sources, the team library or past searches. Select a shorter passage, or try Earlier work.</p>
       ) : result.mode === "earlier" ? (
         <>
           {own == null ? <p className="sub">This paper's year is unknown, so all results are listed by year.</p> : (

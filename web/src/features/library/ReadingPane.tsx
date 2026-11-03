@@ -18,7 +18,7 @@ import { ReaderNotes } from "../reader/ReaderNotes";
 import { SnapshotView } from "./SnapshotView";
 import { StatusControl } from "./StatusControl";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 const list = (value: unknown) => (Array.isArray(value) && value.length ? value.join(", ") : null);
 
 /** One history event in words. */
@@ -117,9 +117,9 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
     if (!data) return;
     try {
       await snapshot.mutateAsync({ id: data.id, runId });
-      toast.show({ text: "Evidence updated from the newer run" });
+      toast.show({ text: "Evidence updated from the newer search" });
     } catch (error) {
-      toast.show({ tone: "bad", text: error instanceof ApiError && error.code === "not_in_run" ? "This paper is not in the newer run, so its evidence stays as saved." : errorText(error) });
+      toast.show({ tone: "bad", text: error instanceof ApiError && error.code === "not_in_run" ? "This paper is not in the newer search, so its evidence stays as saved." : errorText(error) });
     }
   };
 
@@ -145,7 +145,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             {[data.paper.year, data.paper.source_id, data.paper.doi && `doi ${data.paper.doi}`].filter(Boolean).join(" · ")}
             <br />
             Saved by {data.added_by_name ?? "unknown"} on {shortDate(data.added_at)}{data.field ? ` from ${data.field.name}${data.field.version ? ` v${data.field.version}` : ""}` : ""}
-            {data.run_id && <> · <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
+            {data.run_id && <> · <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>open in its search results</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
           </p>
           <p className="pane-text-origin">
             <span className="chip">{data.scope === "personal" ? "My library" : "Company library"}</span>{" "}
@@ -170,7 +170,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
               <ReaderNotes paperId={data.paper.id} />
               <section aria-labelledby="files-title">
                 <h3 id="files-title">Files</h3>
-                {data.files.length === 0 ? <p className="sub">No PDF uploaded. Upload one from the paper in its run.</p> : (
+                {data.files.length === 0 ? <p className="sub">No PDF uploaded. Upload one from the paper in its search results.</p> : (
                   <ul className="file-list">
                     {data.files.map((f) => (
                       <li key={f.id}><span className="file-name">{f.filename}</span>{canEdit && <a href={`/api/v1/papers/${data.paper.id}/files/${f.id}`} download={f.filename}>Download{" "}<span className="sr-only">{f.filename}</span></a>}</li>
@@ -184,8 +184,8 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             <>
               {newer && canEdit && (
                 <div className="banner">
-                  <p>A newer run of this topic finished on {shortDate(newer.created_at)}.</p>
-                  <button type="button" onClick={() => void refresh(newer.id)} disabled={snapshot.isPending}>Update evidence from the newer run</button>
+                  <p>A newer search of this topic finished on {shortDate(newer.created_at)}.</p>
+                  <button type="button" onClick={() => void refresh(newer.id)} disabled={snapshot.isPending}>Update evidence from the newer search</button>
                 </div>
               )}
               <SnapshotView snapshot={data.snapshot} />

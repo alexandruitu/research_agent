@@ -31,18 +31,20 @@ function setup(role: "viewer" | "member" = "member", extra: Parameters<typeof mo
 describe("RunsPage list", () => {
   it("each run row explains its coverage on hover, focus or tap", async () => {
     setup("viewer", { "GET /api/v1/runs": { body: [runOut({ coverage: { searched: ["europepmc", "openalex"], skipped: [], max_papers: 12, full_text: 3, abstract_only: 7 } })] } });
-    const trigger = await screen.findByRole("button", { name: /Coverage of/ });
+    const trigger = await screen.findByRole("button", { name: /What was searched for/ });
     await userEvent.click(trigger);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Searched: Europe PMC, OpenAlex · Skipped: none · Max papers: 12 · Text: 3 full text / 7 abstract only");
+    // each row says what the search did in one plain line
+    expect(screen.getByText(/^Searched 2 sources for '.+' · reviewed \d+ papers?$/)).toBeInTheDocument();
   });
 
-  it("is step 2 of the flow, with the runs under History; an alert run keeps its label", async () => {
+  it("is step 2 of the flow, with the runs under Your searches; an alert run keeps its label", async () => {
     setup("viewer", { "GET /api/v1/runs": { body: [runOut({ trigger: "alert" })] } });
     const table = await screen.findByRole("table");
-    expect(screen.getByRole("heading", { level: 1, name: "Screening" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Search" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Your searches" })).toBeInTheDocument();
     const steps = screen.getByRole("navigation", { name: "Research steps" });
-    expect(within(steps).getByText("Screening").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    expect(within(steps).getByText("Search").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
     expect(within(steps).getByRole("link", { name: "Step 1: Topics" })).toHaveAttribute("href", "/topics");
     expect(within(table).getByText("alert")).toBeInTheDocument();
   });
@@ -71,7 +73,7 @@ describe("RunsPage list", () => {
   it("viewers get no start form and a menu with only Open and Export", async () => {
     setup("viewer");
     await screen.findByRole("table");
-    expect(screen.queryByRole("button", { name: "Start run" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start a search" })).not.toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
     const menu = screen.getByRole("menu");
     expect(within(menu).getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Open", "Export CSV", "Export bundle (zip)"]);
@@ -82,7 +84,7 @@ describe("RunsPage list", () => {
     await screen.findByRole("table");
     await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
     const names = within(screen.getByRole("menu")).getAllByRole("menuitem").map((i) => i.textContent);
-    expect(names).toEqual(expect.arrayContaining(["Resume", "Run again (same configuration)", "Run again with current settings", "Rename or add a note…", "Pin to top", "Delete…"]));
+    expect(names).toEqual(expect.arrayContaining(["Resume the search", "Search again (same settings)", "Search again with current settings", "Rename or add a note…", "Pin to top", "Delete…"]));
   });
 
   it("sends the filters to the server and keeps them in the URL", async () => {
@@ -96,7 +98,7 @@ describe("RunsPage list", () => {
 
   it("says so when there are no runs", async () => {
     setup("viewer", { "GET /api/v1/runs": { body: [] } });
-    expect(await screen.findByText("No runs yet")).toBeInTheDocument();
+    expect(await screen.findByText("No searches yet")).toBeInTheDocument();
   });
 });
 
@@ -108,13 +110,13 @@ describe("bulk actions", () => {
       "POST /api/v1/runs/delete": { body: { deleted: [FAILED.id], refused: [{ id: mine.id, code: "referenced_by_eval", message: "1 evaluation report(s) were computed from this run" }] } },
     });
     await screen.findByRole("table");
-    await userEvent.click(screen.getByLabelText("Select every run shown"));
-    const bar = screen.getByRole("region", { name: "Selected runs" });
+    await userEvent.click(screen.getByLabelText("Select every search shown"));
+    const bar = screen.getByRole("region", { name: "Selected searches" });
     expect(within(bar).getByRole("link", { name: "Compare" })).toHaveAttribute("href", `/screening/compare?ids=${FAILED.id},${mine.id}`);
     await userEvent.click(within(bar).getByRole("button", { name: /Delete/ }));
-    const dialog = screen.getByRole("alertdialog", { name: "Delete 2 runs?" });
+    const dialog = screen.getByRole("alertdialog", { name: "Delete 2 searches?" });
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Delete 2 runs" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete 2 searches" }));
     await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/runs/delete")?.body).toEqual({ ids: [FAILED.id, mine.id] }));
     const notes = screen.getByRole("region", { name: "Notifications" });
     await waitFor(() => expect(notes).toHaveTextContent("its folder is in the trash"));
@@ -130,13 +132,13 @@ describe("starting and following a run", () => {
     });
     await screen.findByRole("table");
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
-    await userEvent.clear(screen.getByLabelText("Papers to screen"));
-    await userEvent.type(screen.getByLabelText("Papers to screen"), "5");
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
+    await userEvent.clear(screen.getByLabelText(/Papers to review/));
+    await userEvent.type(screen.getByLabelText(/Papers to review/), "5");
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
     const post = calls.find((c) => c.method === "POST" && c.path === "/api/v1/runs")!;
     expect(post.body).toEqual({ field_id: FIELD_ID, max_papers: 5, mode: "live" });
     expect(post.headers.get("Idempotency-Key")).toBeTruthy();
-    const progress = await screen.findByRole("status", { name: "Run progress" });
+    const progress = await screen.findByRole("status", { name: "Search progress" });
     await waitFor(() => expect(progress).toHaveTextContent("running"));
     expect(progress).toHaveTextContent("plan: completed");
     expect(progress).toHaveTextContent("search: running");
@@ -150,7 +152,7 @@ describe("starting and following a run", () => {
     await screen.findByRole("table");
     const before = calls.filter((c) => c.method === "GET" && c.path === "/api/v1/runs").length;
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
     await waitFor(() => expect(calls.filter((c) => c.method === "GET" && c.path === "/api/v1/runs").length).toBeGreaterThan(before + 1));
   });
 
@@ -159,7 +161,7 @@ describe("starting and following a run", () => {
     await screen.findByRole("table");
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
     await userEvent.click(screen.getByLabelText(/Demo mode/));
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
     await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/runs")?.body).toMatchObject({ mode: "demo" }));
   });
 
@@ -167,9 +169,9 @@ describe("starting and following a run", () => {
     const { calls } = setup();
     await screen.findByRole("table");
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
-    await userEvent.clear(screen.getByLabelText("Papers to screen"));
-    await userEvent.type(screen.getByLabelText("Papers to screen"), "13");
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
+    await userEvent.clear(screen.getByLabelText(/Papers to review/));
+    await userEvent.type(screen.getByLabelText(/Papers to review/), "13");
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
     expect(await screen.findByText("Choose between 1 and 12 papers.")).toBeInTheDocument();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
@@ -178,7 +180,7 @@ describe("starting and following a run", () => {
     setup("member", { "POST /api/v1/runs": { status: 429, body: { code: "too_many_active_runs", message: "You already have the maximum number of active runs", request_id: "r-1" } } });
     await screen.findByRole("table");
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
     expect(await screen.findByText(/maximum number of active runs/)).toBeInTheDocument();
   });
 
@@ -189,8 +191,8 @@ describe("starting and following a run", () => {
     });
     await screen.findByRole("table");
     await userEvent.selectOptions(screen.getByLabelText("Topic"), FIELD_ID);
-    await userEvent.click(screen.getByRole("button", { name: "Start run" }));
-    const progress = await screen.findByRole("status", { name: "Run progress" });
+    await userEvent.click(screen.getByRole("button", { name: "Start a search" }));
+    const progress = await screen.findByRole("status", { name: "Search progress" });
     await waitFor(() => expect(progress).toHaveTextContent("failed at stage 'search'"));
   });
 
@@ -203,14 +205,14 @@ describe("starting and following a run", () => {
 
   it("explains a field whose sources are all disabled", async () => {
     setup("member", { "POST /api/v1/runs": { status: 422, body: { code: "no_enabled_source", message: "None of this field's sources is enabled", request_id: "r" } } }, `/screening?field=${FIELD_ID}`);
-    await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start a search" }));
     expect(await screen.findByText(/Settings → Sources/)).toHaveClass("form-error");
   });
 
   it("shows the refusal for an archived field", async () => {
     setup("member", { "POST /api/v1/runs": { status: 409, body: { code: "archived", message: "This topic is archived; restore it first", request_id: "r" } } }, `/screening?field=${FIELD_ID}`);
-    await userEvent.click(await screen.findByRole("button", { name: "Start run" }));
-    expect(await screen.findByText("This topic is archived; restore it first")).toHaveAttribute("role", "alert");
+    await userEvent.click(await screen.findByRole("button", { name: "Start a search" }));
+    expect(await screen.findByText(/This topic is archived; restore it first\. Fix that/)).toHaveAttribute("role", "alert");
   });
 });
 
@@ -219,7 +221,7 @@ describe("resume", () => {
     const { calls } = setup("member", { "POST /api/v1/runs/:id/resume": { status: 202, body: { job: jobOut(), run_id: FAILED.id } } });
     await screen.findByRole("table");
     await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
-    await userEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Resume the search" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === `/api/v1/runs/${FAILED.id}/resume`)).toBe(true));
     expect(await screen.findByText(/Resuming/)).toBeInTheDocument();
   });
@@ -231,8 +233,8 @@ describe("resume", () => {
     });
     await screen.findByRole("table");
     await userEvent.click(screen.getAllByRole("button", { name: /Actions for ML CT-FFR/ })[0]!);
-    await userEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Run again (same configuration)" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Resume the search" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Search again (same settings)" }));
     await waitFor(() => expect(calls.find((c) => c.method === "POST" && c.path.endsWith("/rerun"))?.body).toEqual({ config: "same" }));
   });
 });

@@ -32,7 +32,7 @@ export function EvalReportPage() {
     return (
       <section>
         <Link to="/validation/evals">← All evaluations</Link>
-        <p role="alert" className="form-error">{detail.error instanceof ApiError ? `${detail.error.message} (request ${detail.error.requestId})` : "Could not load this report."}</p>
+        <p role="alert" className="form-error">{detail.error instanceof ApiError ? `${detail.error.message} (request ${detail.error.requestId})` : "Could not load this report. Reload the page to try again."}</p>
       </section>
     );
   }

@@ -45,7 +45,7 @@ export function EvalsHomePage() {
       {reports.isLoading ? (
         <Skeleton label="the evaluations" rows={4} />
       ) : reports.isError ? (
-        <p role="alert" className="form-error">Could not load the evaluations.</p>
+        <p role="alert" className="form-error">Could not load the evaluations. Reload the page to try again.</p>
       ) : !reports.data?.length ? (
         <EmptyState title={kind ? `No ${KIND_LABEL[kind].toLowerCase()} evaluations yet` : "No evaluations yet"} action={newButton}>
           <dl className="kind-guide">

@@ -31,8 +31,8 @@ export function SnapshotView({ snapshot }: { snapshot: Record<string, unknown> }
   return (
     <div className="snapshot">
       <p className="hint">
-        Frozen {when(s.taken_at)} from {s.field?.name ?? "a run"}{s.field?.version ? ` v${s.field.version}` : ""}
-        {s.run?.id && <> · <Link to={`/results?run=${s.run.id}`}>open that run</Link></>}
+        Frozen {when(s.taken_at)} from {s.field?.name ?? "a search"}{s.field?.version ? ` v${s.field.version}` : ""}
+        {s.run?.id && <> · <Link to={`/results?run=${s.run.id}`}>open that search</Link></>}
       </p>
       <section className="snap-block">
         <h3>Screening</h3>
@@ -69,7 +69,7 @@ export function SnapshotView({ snapshot }: { snapshot: Record<string, unknown> }
       ) : (
         <section className="snap-block">
           <h3>Ranking</h3>
-          <p>{s.rank ? `Rank ${s.rank.position} · score ${Math.round(s.rank.score ?? 0)}` : "Not ranked in that run."}</p>
+          <p>{s.rank ? `Rank ${s.rank.position} · score ${Math.round(s.rank.score ?? 0)}` : "Not ranked in that search."}</p>
         </section>
       )}
     </div>

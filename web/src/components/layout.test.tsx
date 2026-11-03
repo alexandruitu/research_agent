@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, setCsrfToken } from "../api/client";
 import { createQueryClient } from "../api/queryClient";
 import { App } from "../App";
-import { session } from "../test/fixtures";
+import { fieldDetail, session } from "../test/fixtures";
 import { mockApi } from "../test/mockApi";
 import { renderWithProviders } from "../test/render";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -47,7 +47,7 @@ describe("routing and navigation", () => {
     expect(links.map((link) => link.getAttribute("href"))).toEqual(["/topics", "/screening", "/results", "/library", "/settings", "/validation"]);
     // the step number is in words for screen readers, not only a badge
     expect(within(nav).getByRole("link", { name: "Step 1: Topics" })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: "Step 2: Screening" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Step 2: Search" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Step 3: Results" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Step 5: Library" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("link", { name: "Validation" })).toHaveClass("nav-quiet");
@@ -166,7 +166,7 @@ describe("Layout", () => {
         </Routes>,
       );
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong in this page");
-      await userEvent.click(screen.getByRole("link", { name: "Step 2: Screening" }));
+      await userEvent.click(screen.getByRole("link", { name: "Step 2: Search" }));
       expect(await screen.findByText("screening page")).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     } finally {
@@ -196,7 +196,7 @@ describe("unsaved-changes guard", () => {
     const confirm = vi.fn(() => false);
     vi.stubGlobal("confirm", confirm);
     renderEditing();
-    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Screening" }));
+    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Search" }));
     expect(confirm).toHaveBeenCalledWith("You have unsaved changes on this page. Discard them?");
     expect(screen.getByText("editing")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
@@ -208,7 +208,7 @@ describe("unsaved-changes guard", () => {
     mockApi({ "GET /api/v1/auth/me": { body: session("member") } });
     vi.stubGlobal("confirm", vi.fn(() => true));
     renderEditing();
-    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Screening" }));
+    await userEvent.click(await screen.findByRole("link", { name: "Step 2: Search" }));
     expect(await screen.findByText("screening page")).toBeInTheDocument();
   });
 });
@@ -236,5 +236,38 @@ describe("StaleBanner", () => {
     failing = false;
     await userEvent.click(screen.getByRole("button", { name: "refetch" }));
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  });
+});
+
+describe("first-use guide", () => {
+  afterEach(() => window.localStorage.clear());
+
+  it("shows the 3 steps on the landing page with done states from the data, hides on request and comes back from How it works", async () => {
+    mockApi({
+      "GET /api/v1/auth/me": { body: session("member") },
+      "GET /api/v1/fields": { body: [fieldDetail()] },
+      "GET /api/v1/runs": { body: [] },
+    });
+    renderApp("/topics");
+    const guide = await screen.findByRole("region", { name: /From a question to papers worth reading/ });
+    await waitFor(() => expect(within(guide).getByText("1 of 3 done. Each step links to the place where you do it.")).toBeInTheDocument());
+    expect(within(guide).getByRole("heading", { name: /Create a topic.*done/ })).toBeInTheDocument();
+    expect(within(guide).getByRole("link", { name: "Start a search" })).toHaveAttribute("href", "/screening");
+    expect(within(guide).getByRole("link", { name: "Read the results" })).toHaveAttribute("href", "/results");
+
+    await userEvent.click(within(guide).getByRole("button", { name: "Hide this guide" }));
+    expect(screen.queryByRole("region", { name: /From a question/ })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(`welcome-dismissed:${session("member").user.id}`)).toBe("1");
+
+    await userEvent.click(screen.getByRole("button", { name: "How it works" }));
+    expect(await screen.findByRole("region", { name: /From a question/ })).toBeInTheDocument();
+  });
+
+  it("stays hidden once dismissed in this browser, and is not shown on other pages", async () => {
+    window.localStorage.setItem(`welcome-dismissed:${session("member").user.id}`, "1");
+    mockApi({ "GET /api/v1/auth/me": { body: session("member") }, "GET /api/v1/fields": { body: [] }, "GET /api/v1/runs": { body: [] } });
+    renderApp("/topics");
+    expect(await screen.findByRole("heading", { level: 1, name: "Topics" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /From a question/ })).not.toBeInTheDocument();
   });
 });

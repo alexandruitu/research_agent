@@ -208,7 +208,7 @@ describe("ReaderPage", () => {
       "GET /api/v1/jobs/:id": { body: jobOut({ kind: "reader_related", run_id: null, status: "done", progress: { result: related({ results: [], warnings: [] }) } }) },
     });
     await userEvent.click(await screen.findByRole("button", { name: "Find related" }));
-    expect(await screen.findByText("No matching papers in the sources, the team library or past runs.")).toBeInTheDocument();
+    expect(await screen.findByText(/No matching papers in the sources, the team library or past searches\./)).toBeInTheDocument();
   });
 
   it("goes back to the paper in Results by default", async () => {
@@ -231,7 +231,7 @@ describe("ReaderPage", () => {
     setup("member");
     const steps = await screen.findByRole("navigation", { name: "Research steps" });
     expect(within(steps).getByText("Read").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
-    const strip = screen.getByText("In this run").closest("details")!;
+    const strip = screen.getByText("In this search").closest("details")!;
     expect(strip).not.toHaveAttribute("open");
     expect(within(strip).getByText(/Team status: Not in the library/)).toBeInTheDocument();
     expect(within(strip).getByRole("heading", { name: "Quotes from this run (1)" })).toBeInTheDocument();

@@ -6,7 +6,7 @@ import { hasRole, type PaperFileOut } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 
 export const sizeText = (bytes: number) => (bytes >= 1 << 20 ? `${(bytes / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 /** Checks the browser can make before sending: a PDF, not empty, under the limit. The server checks again. */
 export function checkFile(file: File, limitMb: number): string | null {
@@ -45,7 +45,7 @@ export function PaperFiles({ paperId, initial, abstractOnly }: Props) {
     setProgress({ name: file.name, fraction: 0 });
     try {
       const row = await upload.mutateAsync({ file, onProgress: (fraction) => setProgress({ name: file.name, fraction }) });
-      setMessage(`Uploaded ${row.filename}. The next run that reviews this paper reads it.`);
+      setMessage(`Uploaded ${row.filename}. The next search that reviews this paper reads it.`);
     } catch (error) {
       setProblem(errorText(error));
     } finally {
@@ -59,7 +59,7 @@ export function PaperFiles({ paperId, initial, abstractOnly }: Props) {
     void send(event.dataTransfer.files[0]);
   };
   const del = async (file: PaperFileOut) => {
-    if (!window.confirm(`Delete ${file.filename}? Runs that already used it keep their copy.`)) return;
+    if (!window.confirm(`Delete ${file.filename}? Searches that already used it keep their copy.`)) return;
     setProblem(null);
     setMessage(null);
     try {
@@ -73,7 +73,7 @@ export function PaperFiles({ paperId, initial, abstractOnly }: Props) {
   return (
     <section className={`step step--${abstractOnly && list.length === 0 ? "warn" : "neutral"} paper-files`} aria-labelledby="files-heading">
       <h3 id="files-heading">{abstractOnly && list.length === 0 && member && enabled ? "Upload full text (PDF)" : "Full-text PDFs"}</h3>
-      {abstractOnly && list.length === 0 && <p>Only the abstract was reviewed, so items it cannot answer count as not reported.{member && enabled ? " Upload the paper's PDF and the next run reviews the full text." : ""}</p>}
+      {abstractOnly && list.length === 0 && <p>Only the abstract was reviewed, so items it cannot answer count as not reported.{member && enabled ? " Upload the paper's PDF and the next search reviews the full text." : ""}</p>}
       {list.length > 0 && (
         <ul className="file-list">
           {list.map((file) => (

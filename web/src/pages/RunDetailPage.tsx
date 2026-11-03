@@ -10,10 +10,15 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { useRunActions } from "../features/runs/RunActions";
 import { RunStatus } from "../features/runs/RunList";
 import { SearchWarningPanel } from "../features/runs/SearchWarnings";
-import { coverageLine, formatSeconds, formatUsd, runLabel } from "../features/runs/runWords";
-import { Term } from "../components/ui/Term";
+import { coverageLine, formatSeconds, formatUsd, runLabel, searchSummary } from "../features/runs/runWords";
+import { Term, TermsLine } from "../components/ui/Term";
 
-/** One run: what it was started with, how long each stage took, what it found and cost, and its log. */
+const RESUME = "Resume the search";
+const CANCEL = "Cancel the search…";
+const SAME = "Search again (same settings)";
+const CURRENT = "Search again with current settings";
+
+/** One search (a run): what it was started with, how long each stage took, what it found and cost, and its log. */
 export function RunDetailPage() {
   const { runId = "" } = useParams();
   const { user } = useAuth();
@@ -22,23 +27,23 @@ export function RunDetailPage() {
   const actions = useRunActions({ onDeleted: (ids) => ids.includes(runId) && navigate("/screening") });
   const member = hasRole(user, "member");
 
-  if (run.isLoading) return <section><h1>Run</h1><Skeleton label="the run" rows={6} /></section>;
-  if (run.isError || !run.data) return <section><h1>Run</h1><p role="alert">Could not load this run. It may have been deleted. <Link to="/screening">Back to Screening</Link></p></section>;
+  if (run.isLoading) return <section><h1>Search</h1><Skeleton label="the search" rows={6} /></section>;
+  if (run.isError || !run.data) return <section><h1>Search</h1><p role="alert">Could not load this search. It may have been deleted. <Link to="/screening">Go back to your searches</Link> and open another one.</p></section>;
   const data = run.data;
   const asRow: RunOut = data;
   const label = runLabel(data);
   const research = data.kind === "research";
-  const menu = actions.items(asRow, { open: false }).filter((item) => !["Resume", "Cancel run…", "Run again (same configuration)", "Run again with current settings"].includes(item.label));
+  const menu = actions.items(asRow, { open: false }).filter((item) => ![RESUME, CANCEL, SAME, CURRENT].includes(item.label));
   const find = (name: string) => actions.items(asRow).find((item) => item.label === name);
-  const resume = find("Resume");
-  const cancel = find("Cancel run…");
-  const same = find("Run again (same configuration)");
-  const current = find("Run again with current settings");
+  const resume = find(RESUME);
+  const cancel = find(CANCEL);
+  const same = find(SAME);
+  const current = find(CURRENT);
 
   return (
     <article className="run-detail">
       <FlowStepper current={2} next={data.status === "done" && research ? <Link className="button-link" to={`/results?run=${data.id}`}>Next: see results</Link> : undefined} />
-      <p className="crumbs"><Link to="/screening">Screening</Link> <span aria-hidden="true">/</span></p>
+      <p className="crumbs"><Link to="/screening">Search</Link> <span aria-hidden="true">/</span></p>
       <header className="run-detail__head">
         <div>
           <h1>{label}{data.pinned && <span className="runs__mark"><span aria-hidden="true">📌</span><span className="sr-only"> pinned</span></span>}</h1>
@@ -46,44 +51,47 @@ export function RunDetailPage() {
             <RunStatus status={data.status} /> · {data.kind} · {data.field_name}{data.field_version ? ` v${data.field_version}` : ""} · started by {data.created_by_name ?? "import"} · <time dateTime={data.created_at}>{new Date(data.created_at).toLocaleString()}</time>
             {isActive(data.status) && <span className="sr-only"> (updates every few seconds)</span>}
           </p>
+          <p className="lede run-detail__summary">{searchSummary(data, data.counts.kept)}</p>
+          <p className="sub">This page shows what the search did, step by step, and what it cost. {data.status === "done" && research ? "To read its papers, open its results." : isActive(data.status) ? "It updates by itself while the search works." : ""}</p>
           {coverageLine(data.coverage) && <p className="run-detail__coverage">{coverageLine(data.coverage)}</p>}
           {data.note && <p className="run-detail__note">{data.note}</p>}
         </div>
         <div className="run-detail__actions">
-          {resume && data.resume?.allowed && <button type="button" className="primary" onClick={resume.onSelect}>Resume</button>}
-          {cancel && <button type="button" className="danger-quiet" onClick={cancel.onSelect}>Cancel run…</button>}
-          {same && <button type="button" onClick={same.onSelect}>Run again (same configuration)</button>}
-          {current && <button type="button" onClick={current.onSelect}>Run again with current settings</button>}
+          {resume && data.resume?.allowed && <button type="button" className="primary" onClick={resume.onSelect}>Resume the search</button>}
+          {cancel && <button type="button" className="danger-quiet" onClick={cancel.onSelect}>Cancel the search…</button>}
+          {same && <button type="button" onClick={same.onSelect}>Search again (same settings)</button>}
+          {current && <button type="button" onClick={current.onSelect}>Search again with current settings</button>}
           <MenuButton label="More actions" items={menu} />
         </div>
       </header>
 
       <SearchWarningPanel warnings={data.search_warnings} failed={data.status === "failed" && !data.timeline?.stages?.some((s) => s.name === "discover" && s.status === "completed")} />
-      {data.status === "failed" && <div role="alert" className="banner banner--bad"><p><strong>The run failed.</strong> {data.error ?? "No details were stored."}</p></div>}
-      {data.status === "cancelled" && <div className="banner"><p><strong>Cancelled.</strong> The checkpoint is kept{data.can_manage && data.resume?.allowed ? "; Resume continues where it stopped." : "."}</p></div>}
+      {data.status === "failed" && <div role="alert" className="banner banner--bad"><p><strong>The search stopped with an error.</strong> {data.error ?? "No details were stored."} {data.can_manage && data.resume?.allowed ? "Press Resume the search to continue where it stopped, or search again." : "Search again, or ask the person who started it."}</p></div>}
+      {data.status === "cancelled" && <div className="banner"><p><strong>Cancelled.</strong> What it did so far is kept{data.can_manage && data.resume?.allowed ? "; press Resume the search to continue where it stopped." : "; search again to start over."}</p></div>}
       {data.resume?.code === "prompt_version_changed" && (
         <div className="banner banner--warn" role="note">
           <p><strong>Resume is not possible.</strong> {data.resume.reason}</p>
-          {same && <button type="button" onClick={same.onSelect}>Run again (same configuration)</button>}
+          {same && <button type="button" onClick={same.onSelect}>Search again (same settings)</button>}
         </div>
       )}
 
       <section aria-labelledby="counts-h" className="run-detail__block">
-        <h2 id="counts-h">Results</h2>
+        <h2 id="counts-h">Search results</h2>
         <dl className="figures">
-          <div><dt>Screened</dt><dd>{data.counts.screened}</dd></div>
+          <div><dt><Term k="screening">Screened</Term></dt><dd>{data.counts.screened}</dd></div>
           <div><dt>Kept</dt><dd>{data.counts.kept}</dd></div>
           <div><dt>Dropped</dt><dd>{data.counts.dropped}</dd></div>
           <div><dt><Term k="escalated">Sent to the LLM</Term></dt><dd>{data.counts.escalated}</dd></div>
-          <div><dt>Wall time</dt><dd>{formatSeconds(data.wall_seconds)}</dd></div>
+          <div><dt>Time taken</dt><dd>{formatSeconds(data.wall_seconds)}</dd></div>
         </dl>
         <p className="run-detail__links">
-          <Link to={`/results?run=${data.id}`}>See the papers</Link>
+          <Link to={`/results?run=${data.id}`}>Read the papers in Results</Link>
           {(data.links?.evals ?? []).map((e) => <Link key={e.id} to={`/validation/evals/${e.id}`}>{e.kind} evaluation of {new Date(e.created_at).toLocaleDateString()}</Link>)}
           {(data.links?.library_count ?? 0) > 0 && <Link to="/library">{data.links!.library_count} saved to the library</Link>}
         </p>
       </section>
 
+      <TermsLine keys={["search", "screening", "jev", "coverage", "full_text", "abstract_only", "panel", "editor"]} />
       <Timeline data={data} />
       <Config data={data} />
       {member && research && <Calls runId={data.id} />}
@@ -107,10 +115,10 @@ function Timeline({ data }: { data: RunDetailOut }) {
   const longest = Math.max(1, ...stages.map((s) => s.seconds ?? 0));
   return (
     <section aria-labelledby="timeline-h" className="run-detail__block">
-      <h2 id="timeline-h">Stages</h2>
-      {stages.length === 0 ? <p className="hint">No stage has been recorded yet.</p> : (
+      <h2 id="timeline-h">Steps</h2>
+      {stages.length === 0 ? <p className="hint">No step has been recorded yet; they appear here as the search works.</p> : (
         <>
-          {!data.timeline?.recorded && <p className="hint">Times per stage were not recorded for this run (runs started before stage timing existed); the wall time comes from the run's start and last update.</p>}
+          {!data.timeline?.recorded && <p className="hint">Times per step were not recorded for this search (it ran before step timing existed); the wall time comes from its start and last update.</p>}
           <ol className="timeline">
             {stages.map((stage) => (
               <li key={stage.name} className={`timeline__stage timeline__stage--${stage.status}`}>
@@ -137,7 +145,7 @@ function Config({ data }: { data: RunDetailOut }) {
   const rows: [React.ReactNode, React.ReactNode][] = [
     [<Term key="f" k="field_version">Topic</Term>, <>{c.field_name}{c.field_version ? ` · version ${c.field_version}` : ""}</>],
     ["Topic", c.topic || missing],
-    ["Sources", c.sources.length ? c.sources.map((s) => `${s.name} (up to ${s.max_results})`).join(", ") : <span className="hint">Europe PMC (legacy topic run)</span>],
+    ["Sources", c.sources.length ? c.sources.map((s) => `${s.name} (up to ${s.max_results})`).join(", ") : <span className="hint">Europe PMC (older topic search)</span>],
     ["Review settings", c.settings_version ? `version ${c.settings_version}` : <span className="hint">none (legacy A/B review)</span>],
     ["Panel", c.panel.length ? c.panel.map((p) => `${p.name ?? p.key} v${p.version ?? "?"}`).join(", ") : <span className="hint">none</span>],
     [<Term key="m" k="demo_mode">Mode</Term>, c.mode ?? missing],
@@ -146,7 +154,7 @@ function Config({ data }: { data: RunDetailOut }) {
   ];
   return (
     <section aria-labelledby="config-h" className="run-detail__block">
-      <h2 id="config-h">Frozen configuration</h2>
+      <h2 id="config-h">Settings it used</h2>
       <dl className="config-list">
         {rows.map(([term, value], i) => <div key={i}><dt>{term}</dt><dd>{value}</dd></div>)}
         <div><dt>Models</dt><dd>{Object.keys(c.models).length ? (
@@ -162,7 +170,7 @@ function Calls({ runId }: { runId: string }) {
   return (
     <section aria-labelledby="calls-h" className="run-detail__block">
       <h2 id="calls-h">Model calls and cost <span className="chip chip--warn">estimate</span></h2>
-      {calls.isLoading ? <Skeleton label="the calls" rows={2} /> : calls.isError || !calls.data ? <p className="hint">The calls could not be read.</p> : !calls.data.recorded ? <p className="hint">This run has no call cache on the server.</p> : (
+      {calls.isLoading ? <Skeleton label="the calls" rows={2} /> : calls.isError || !calls.data ? <p className="hint">The model calls could not be read. Reload the page to try again.</p> : !calls.data.recorded ? <p className="hint">This search kept no record of its model calls on the server, so its cost cannot be shown.</p> : (
         <>
           <p>{calls.data.totals.calls} distinct calls · estimated {formatUsd(calls.data.totals.cost_usd)}
             {calls.data.providers.length > 0 && ` (${calls.data.providers.map((p) => `${p.provider}: ${p.calls} calls, ${formatUsd(p.cost_usd)}`).join("; ")})`}</p>
@@ -188,7 +196,7 @@ function Log({ runId, active }: { runId: string; active: boolean }) {
       <h2 id="log-h">Worker log</h2>
       <details onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
         <summary>Show the last 300 lines{active ? " (refresh the page for newer lines)" : ""}</summary>
-        {log.isLoading ? <Skeleton label="the log" rows={4} /> : log.isError || !log.data ? <p className="hint">The log could not be read.</p> : (
+        {log.isLoading ? <Skeleton label="the log" rows={4} /> : log.isError || !log.data ? <p className="hint">The log could not be read. Close and open this section to try again.</p> : (
           <>
             {log.data.failed_stage && <p className="form-error">Failed at stage <strong>{log.data.failed_stage}</strong>{log.data.reason ? `: ${log.data.reason}` : ""}</p>}
             {log.data.attempts.length > 0 && (
@@ -199,7 +207,7 @@ function Log({ runId, active }: { runId: string; active: boolean }) {
                 <p className="hint">Secrets are replaced by ***. {log.data.truncated ? "Earlier lines are left out." : ""} <a href={`/api/v1/runs/${runId}/log?download=true`} download>Download the log</a></p>
                 <pre className="log" tabIndex={0} aria-label="Worker log lines">{log.data.text}</pre>
               </>
-            ) : <p className="hint">No worker.log in the run folder (runs imported from the command line have none).</p>}
+            ) : <p className="hint">No worker.log in the run folder (searches imported from the command line have none).</p>}
           </>
         )}
       </details>

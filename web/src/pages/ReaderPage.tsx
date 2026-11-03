@@ -7,6 +7,7 @@ import { usePaper, useReader } from "../api/hooks";
 import { hasRole, type ReaderHighlight, type ReaderOut } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { FlowStepper } from "../components/FlowStepper";
+import { TermsLine } from "../components/ui/Term";
 import { Skeleton } from "../components/ui/Skeleton";
 import { statusMeta } from "../components/ui/StatusMark";
 import { QualityCell } from "../features/papers/cells";
@@ -143,7 +144,7 @@ export function ReaderPage() {
   if (reader.isError || !reader.data) {
     return (
       <div className="reader">
-        <p role="alert" className="form-error">{reader.error instanceof ApiError ? reader.error.message : "Could not load this paper."}</p>
+        <p role="alert" className="form-error">{reader.error instanceof ApiError ? reader.error.message : "Could not load this paper. Reload the page to try again."}</p>
         <p><Link to={back.to}>{back.word}</Link></p>
       </div>
     );
@@ -164,11 +165,13 @@ export function ReaderPage() {
         <p className="reader-back"><Link to={back.to}><span aria-hidden="true">←</span> {back.word}</Link>{data.run_name ? <span className="sub"> · {data.run_name}</span> : null}</p>
         <h1 ref={heading} tabIndex={-1}>{data.paper.title}</h1>
         <AuthorDetails authors={data.authors} />
+        <p className="page-intro reader-intro">Read the paper with its evidence beside it. Select a passage to explain it or find related work, and save the paper to a library when it is worth keeping.</p>
         <p className="sub">{data.paper.year ?? ""}{data.paper.doi ? ` · ${data.paper.doi}` : ""} · {data.paper.source_id} · <Link to="/validation">How do we know this is right?</Link></p>
       </header>
+      <TermsLine keys={["quality", "red_flag", "panel", "editor", "full_text", "abstract_only"]} />
       <details className="reader-strip">
         <summary>
-          <span className="strip-title">In this run</span>
+          <span className="strip-title">In this search</span>
           <span className="strip-item">Quality: <QualityCell group={data.group ?? null} /></span>
           <span className="strip-item">{flags.length ? <><span aria-hidden="true">⚑</span> {flags.length} red flag{flags.length === 1 ? "" : "s"}</> : "No red flags"}</span>
           <span className="strip-item">Team status: {inLibrary ? statusMeta(inLibrary.status).word : "Not in the library"}</span>
@@ -178,7 +181,7 @@ export function ReaderPage() {
         <div className="strip-body">
           <section aria-labelledby="reader-context-heading" className="reader-context">
             <h2 id="reader-context-heading">Why it is here</h2>
-            {drawer ? <p className="drawer-why"><span className="sr-only">Why: </span>{drawerWhy(drawer)}</p> : <p className="sub">Loading the run's verdict…</p>}
+            {drawer ? <p className="drawer-why"><span className="sr-only">Why: </span>{drawerWhy(drawer)}</p> : <p className="sub">Loading the reviewers' verdict…</p>}
             {flags.length > 0 && (
               <>
                 <h3>Red flags</h3>
@@ -186,7 +189,7 @@ export function ReaderPage() {
               </>
             )}
             <p className="strip-links">
-              <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>The paper in its run</Link>
+              <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>The paper in its search results</Link>
               {inLibrary && <> · <Link to={`/library?item=${inLibrary.item_id}`}>Library details (note, tags, history)</Link></>}
             </p>
           </section>

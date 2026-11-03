@@ -19,11 +19,12 @@ export function RunComparePage() {
 
   return (
     <section className="run-compare">
-      <p className="crumbs"><Link to="/screening">Screening</Link> <span aria-hidden="true">/</span></p>
-      <h1>Compare two runs</h1>
-      <form className="toolbar" aria-label="Choose runs" onSubmit={(e) => e.preventDefault()}>
+      <p className="crumbs"><Link to="/screening">Search</Link> <span aria-hidden="true">/</span></p>
+      <h1>Compare two searches</h1>
+      <p className="lede">Pick two searches to see which settings differ and which papers each one found. Choose them below, or tick two in Your searches and press Compare.</p>
+      <form className="toolbar" aria-label="Choose searches" onSubmit={(e) => e.preventDefault()}>
         {([0, 1] as const).map((which) => (
-          <label key={which}>Run {which === 0 ? "A" : "B"}
+          <label key={which}>Search {which === 0 ? "A" : "B"}
             <select className="run-picker" value={(which === 0 ? a : b) ?? ""} onChange={(e) => choose(which, e.target.value)}>
               <option value="">Choose…</option>
               {newestFirst(runs.data ?? []).map((run) => {
@@ -34,10 +35,10 @@ export function RunComparePage() {
           </label>
         ))}
       </form>
-      {!a || !b ? <p className="hint">Choose two runs (or tick two in the runs list and press Compare).</p>
-        : a === b ? <p role="alert" className="form-error">Choose two different runs.</p>
+      {!a || !b ? <p className="hint">Choose two searches above (or tick two in Your searches and press Compare).</p>
+        : a === b ? <p role="alert" className="form-error">Choose two different searches.</p>
         : compare.isLoading ? <Skeleton label="the comparison" rows={6} />
-        : compare.isError || !compare.data ? <p role="alert">Could not compare these runs.</p>
+        : compare.isError || !compare.data ? <p role="alert">Could not compare these searches. Reload the page or choose others.</p>
         : <Comparison data={compare.data} />}
     </section>
   );
@@ -80,7 +81,7 @@ function Comparison({ data }: { data: RunCompareOut }) {
           <PaperList title="Only in B" papers={data.only_in_b} empty="Every paper of B was also screened in A." />
         </div>
         <h3>Score changes <span className="count">{data.score_changes.length}</span></h3>
-        {data.score_changes.length === 0 ? <p className="hint">No paper scored differently in both runs.</p> : (
+        {data.score_changes.length === 0 ? <p className="hint">No paper scored differently in both searches.</p> : (
           <table className="runs compact">
             <thead><tr><th scope="col">Paper</th><th scope="col">A</th><th scope="col">B</th><th scope="col">Change</th></tr></thead>
             <tbody>{data.score_changes.map((c) => (

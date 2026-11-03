@@ -24,7 +24,7 @@ export function InviteForm() {
       setName("");
       setPassword("");
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the server.");
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
     }
   };
 

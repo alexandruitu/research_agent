@@ -42,11 +42,11 @@ export function SearchWarningPanel({ warnings, failed = false }: { warnings: Run
     <section className="search-warnings" role="status" aria-labelledby="search-warnings-title">
       <h2 id="search-warnings-title"><span aria-hidden="true">⚠</span> {failed ? "No search source answered" : <Term k="partial_search">Partial search</Term>}</h2>
       {failed ? (
-        <p>Every source failed, so the run stopped at the search. Fix one of them and resume the run.</p>
+        <p>Every source failed, so the search stopped. Fix one of them in Settings → Sources, then resume the search.</p>
       ) : (
         <p>
           {one ? "One source" : `${warnings.length} sources`} did not answer and {one ? "was" : "were"} skipped;
-          the run went on with the others. Results may be missing papers from {one ? "this source" : "these sources"}.
+          the search went on with the others. Results may be missing papers from {one ? "this source" : "these sources"}.
         </p>
       )}
       <ul>
@@ -57,7 +57,7 @@ export function SearchWarningPanel({ warnings, failed = false }: { warnings: Run
         ))}
       </ul>
       <p className="hint">
-        Check the sources in <Link to="/settings/sources">Settings → Sources</Link>; mark a source Required in the topic to stop the run when it fails.
+        Check the sources in <Link to="/settings/sources">Settings → Sources</Link>; mark a source Required in the topic to stop the search when it fails.
       </p>
     </section>
   );

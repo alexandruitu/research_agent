@@ -37,7 +37,7 @@ describe("FieldsPage", () => {
     expect(row).toHaveTextContent("2 incl · 1 excl");
     expect(row).toHaveTextContent("Europe PMC");
     expect(row).toHaveTextContent("done · research · v2");
-    expect(within(row).getByRole("link", { name: "Start run for ML CT-FFR" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
+    expect(within(row).getByRole("link", { name: "Start a search for ML CT-FFR" })).toHaveAttribute("href", `/screening?field=${FIELD_ID}`);
     expect(within(row).getByRole("link", { name: "ML CT-FFR" })).toHaveAttribute("href", `/topics/${FIELD_ID}`);
     expect(screen.getByRole("row", { name: /Legacy topic/ })).toHaveTextContent("topic match (legacy)");
     expect(screen.getByRole("link", { name: "New topic" })).toHaveAttribute("href", "/topics/new");

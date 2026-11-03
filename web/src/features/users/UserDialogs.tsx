@@ -5,7 +5,7 @@ import { useDeleteUser, usePatchUser, useResetPassword, useUserReferences } from
 import type { UserDeleteOut, UserOut } from "../../api/types";
 import { MIN_PASSWORD_LENGTH } from "./InviteForm";
 
-const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 /** A modal <dialog>: focus goes to the first field, Escape closes, focus returns to the opener. */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: (titleId: string) => ReactNode }) {

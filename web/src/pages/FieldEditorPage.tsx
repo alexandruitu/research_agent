@@ -29,7 +29,7 @@ import { TermHint } from "../components/ui/Term";
 import { ResearcherPanel } from "../features/authors/ResearcherPanel";
 import type { AuthorSearch } from "../api/types";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 
 export function FieldEditorPage() {
   const { fieldId } = useParams();
@@ -180,7 +180,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
 
   return (
     <section className="field-editor">
-      <FlowStepper current={1} next={field && !archived && member ? <Link className="button-link" to={`/screening?field=${field.id}`}>Next: run screening</Link> : undefined} />
+      <FlowStepper current={1} next={field && !archived && member ? <Link className="button-link" to={`/screening?field=${field.id}`}>Next: start a search</Link> : undefined} />
       <div className="page-head">
         <h1>{field ? `${field.name} (v${field.current_version ?? 1})` : "New topic"}</h1>
         <div className="actions">
@@ -189,6 +189,7 @@ function FieldEditor({ field, sources, onReload }: { field: FieldOut | null; sou
         </div>
       </div>
       {archived && <p className="banner banner--warn">This topic is archived: it cannot be edited, tested or run. {admin ? "Restore it to change it." : "An admin can restore it."}</p>}
+      <p className="page-intro">{field ? "Edit this topic in three steps, then save a new version; start a search when it is ready." : "Describe your research question, check the keywords and criteria we suggest, preview what the sources return, then save."}</p>
       {!member && <p className="sub">Read-only: members and admins edit topics.</p>}
       <Stepper step={step} done={done} onStep={goTo} />
       <div className="editor-layout">

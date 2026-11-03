@@ -44,7 +44,7 @@ function Band({ low, high, lowWord, highWord }: { low: number; high: number; low
 function latestRecommendation(evals: ReturnType<typeof useEvals>["data"]): { pair: Pair; gold: string; when: string } | null {
   const found = [...(evals ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)).find((e) => e.headline.recommended);
   const rec = found?.headline.recommended;
-  return found && rec ? { pair: { include: rec.min_confidence, exclude: rec.exclude_min_confidence }, gold: found.gold_set?.name ?? "a run", when: new Date(found.created_at).toLocaleDateString() } : null;
+  return found && rec ? { pair: { include: rec.min_confidence, exclude: rec.exclude_min_confidence }, gold: found.gold_set?.name ?? "a search", when: new Date(found.created_at).toLocaleDateString() } : null;
 }
 
 function EvalsHint({ admin, values, onApply }: { admin: boolean; values: ScreeningIO; onApply: (patch: Partial<ScreeningIO>) => void }) {
@@ -80,7 +80,7 @@ function ScreeningForm({ data, admin, saver }: { data: ReviewSettingsOut; admin:
   return (
     <SettingsFrame
       id="screening" title="Screening" admin={admin} version={data.current.version} dirty={dirty} saving={saver.saving}
-      intro="Jev scores every criterion of every paper with a probability. Confident scores decide on their own; everything in between goes to the LLM. Wider middle bands cost more LLM calls but lose fewer papers."
+      intro={<>How <Term k="screening" /> decides which papers to keep. <Term k="jev" /> scores every criterion of every paper with a probability; confident scores decide on their own, everything in between goes to the <Term k="llm" />. Move the <Term k="threshold">thresholds</Term> below and save: wider middle bands cost more LLM calls but lose fewer papers.</>}
       onSave={onSave} onReset={() => setValues(data.defaults.screening)} stale={saver.stale} onReload={saver.reload} problem={saver.problem} message={saver.message} errors={errors}
     >
       <div className="screening-layout">

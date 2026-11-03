@@ -98,7 +98,7 @@ describe("LibraryPage", () => {
     expect(search.get("collection_id")).toBeNull();  // collections belong to one library
     expect(calls.some((c) => c.path === "/api/v1/library/collections" && new URLSearchParams(c.search).get("scope") === "personal")).toBe(true);
     expect(screen.getByRole("link", { name: "Export CSV" }).getAttribute("href")).toContain("scope=personal");
-    expect(screen.getByText("Papers you keep for yourself: only you see them.")).toBeInTheDocument();
+    expect(screen.getByText(/Papers you keep for yourself; only you see them\./)).toBeInTheDocument();
   });
 
   it("opens on My library from the URL and flags abstract-only Company items", async () => {
@@ -206,7 +206,7 @@ describe("LibraryPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
     const pane = await screen.findByRole("complementary", { name: "Reading pane" });
     await userEvent.click(await within(pane).findByRole("button", { name: "Evidence" }));
-    await userEvent.click(await within(pane).findByRole("button", { name: "Update evidence from the newer run" }));
+    await userEvent.click(await within(pane).findByRole("button", { name: "Update evidence from the newer search" }));
     await waitFor(() => expect(calls.find((c) => c.path.endsWith("/snapshot"))?.body).toEqual({ run_id: NEWER }));
   });
 

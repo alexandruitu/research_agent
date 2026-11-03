@@ -119,8 +119,8 @@ export function LibraryPage() {
           <h1>Library</h1>
           <p className="lede">
             {tab === "mine"
-              ? "Papers you keep for yourself: only you see them."
-              : "Papers kept for everyone in the company, with full text and their evidence frozen at the time they were saved."}
+              ? "Papers you keep for yourself; only you see them. Open one to read it and set its status, or add papers from Results with Save to library."
+              : "Papers kept for everyone in the company, with full text and their evidence frozen when they were saved. Open one to read it and add notes, or add papers from Results."}
           </p>
         </div>
         <div className="actions">
@@ -210,7 +210,7 @@ export function LibraryPage() {
           {library.isLoading ? (
             <Skeleton label="the library" rows={6} />
           ) : library.isError ? (
-            <p role="alert" className="form-error">{library.error instanceof ApiError ? library.error.message : "Could not load the library."}</p>
+            <p role="alert" className="form-error">{library.error instanceof ApiError ? library.error.message : "Could not load the library. Reload the page to try again."}</p>
           ) : items.length === 0 ? (
             chips.length > 0 ? (
               <EmptyState title="Nothing matches these filters" action={<button type="button" onClick={() => setSearch(clearFilters(search))}>Clear all filters</button>}>
@@ -218,7 +218,7 @@ export function LibraryPage() {
               </EmptyState>
             ) : (
               <EmptyState title={tab === "mine" ? "My library is empty" : "The Company library is empty"} action={<Link className="button-link" to="/results">Go to Results</Link>}>
-                <p>Open a run in Results, tick the papers worth keeping and press <strong>Save to library</strong>, then choose {tab === "mine" ? <strong>My library</strong> : <strong>Company library</strong>}.</p>
+                <p>Open a search in Results, tick the papers worth keeping and press <strong>Save to library</strong>, then choose {tab === "mine" ? <strong>My library</strong> : <strong>Company library</strong>}.</p>
                 <p>{tab === "mine"
                   ? "They arrive here with their screening and review evidence; only you see them."
                   : "Only papers with full text (found by the review or an uploaded PDF) go here, ready for everyone to read, tag and rate."}</p>

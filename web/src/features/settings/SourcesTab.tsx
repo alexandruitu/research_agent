@@ -8,7 +8,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { backfillWords, type BackfillSummary } from "./backfill";
 import { authWords, enableBlocked, groupSources, keyStatusWords, keyTone, rateWords, searchable } from "./sources";
 
-const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server.");
+const errorText = (error: unknown) => (error instanceof ApiError ? error.message : "Could not reach the server. Check your connection and try again.");
 const seconds = (ms: number | null) => (ms === null ? "" : ` · ${(ms / 1000).toFixed(1)} s`);
 
 function lastCheck(source: SourceOut): string {
@@ -78,7 +78,7 @@ function SourceRow({ source, admin, jobId, onPatch, onCheck }: RowProps) {
       <td>
         {!canSearch ? <span className="na">–</span> : admin ? (
           <form className="inline" onSubmit={saveMax} noValidate>
-            <label><span className="sr-only">Max results per run for {label}</span>
+            <label><span className="sr-only">Max results per search for {label}</span>
               <input type="number" min={1} max={200} value={max} onChange={(e) => setMax(e.target.value)} />
             </label>
             <button type="submit">Save{" "}<span className="sr-only">max results for {label}</span></button>
@@ -127,7 +127,7 @@ function AlertsLimitForm({ admin, value }: { admin: boolean; value: number }) {
   const [limit, setLimit] = useState(String(value));
   const [message, setMessage] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  if (!admin) return <p>Alert runs per day (whole deployment): at most {value}</p>;
+  if (!admin) return <p>Alert searches per day (whole deployment): at most {value}</p>;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setMessage(null);
@@ -142,10 +142,10 @@ function AlertsLimitForm({ admin, value }: { admin: boolean; value: number }) {
     }
   };
   return (
-    <form className="inline" onSubmit={submit} noValidate aria-label="Alert runs per day">
-      <label>Alert runs per day (whole deployment) <input type="number" min={0} max={100} value={limit} onChange={(e) => setLimit(e.target.value)} /></label>
+    <form className="inline" onSubmit={submit} noValidate aria-label="Alert searches per day">
+      <label>Alert searches per day (whole deployment) <input type="number" min={0} max={100} value={limit} onChange={(e) => setLimit(e.target.value)} /></label>
       <button type="submit" disabled={patch.isPending}>Save limit</button>
-      <span className="sub">Alerts due after the limit wait for the next day. 0 stops scheduled alert runs.</span>
+      <span className="sub">Alerts due after the limit wait for the next day. 0 stops scheduled alert searches.</span>
       {message && <span role="status">{message}</span>}
       {problem && <span role="alert" className="form-error">{problem}</span>}
     </form>
@@ -217,7 +217,7 @@ export function SourcesTab() {
   return (
     <section aria-labelledby="sources-heading">
       <h2 id="sources-heading">Sources</h2>
-      <p className="intro">Where a topic can search. A topic picks among the enabled sources. Keys live only in the worker’s environment and are never shown here; this page says whether the worker has them.</p>
+      <p className="intro">Where a topic can search for papers. A topic picks among the enabled sources; press Test to check one. Keys live only in the worker’s environment and are never shown here; this page says whether the worker has them.</p>
       {problem && <p role="alert" className="form-error">{problem}</p>}
       {groupSources(sources.data ?? []).map((group) => (
         <section key={group.key} className="source-group" aria-labelledby={`group-${group.key}`}>
@@ -226,7 +226,7 @@ export function SourcesTab() {
           <div className="table-scroll">
             <table className="runs sources-table" aria-labelledby={`group-${group.key}`}>
               <thead>
-                <tr><th scope="col">Source</th><th scope="col">Access</th><th scope="col">Status</th><th scope="col">Max results per run</th><th scope="col">Rate limit</th><th scope="col">Last check</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+                <tr><th scope="col">Source</th><th scope="col">Access</th><th scope="col">Status</th><th scope="col">Max results per search</th><th scope="col">Rate limit</th><th scope="col">Last check</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {group.sources.map((source) => (
