@@ -104,7 +104,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
     }
   };
   const del = async () => {
-    if (!data || !window.confirm(`Remove “${data.paper.title}” from the library? Its note, tags and history are deleted too.`)) return;
+    if (!data || !window.confirm(`Remove “${data.paper.title}” from ${data.scope === "personal" ? "My library" : "the Company library"}? Its note, tags and history are deleted too.`)) return;
     try {
       await remove.mutateAsync([data.id]);
       toast.show({ text: "Removed from the library" });
@@ -133,7 +133,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
         {data && (
           <div className="pane-tools" ref={statusRef}>
             <StatusControl value={data.status} disabled={!canEdit} onChange={(to) => status.change(data.id, data.status, to)} />
-            {data.can_delete && <button type="button" className="danger-quiet" onClick={del}>Remove from library</button>}
+            {data.can_delete && <button type="button" className="danger-quiet" onClick={del}>Remove from {data.scope === "personal" ? "My library" : "the Company library"}</button>}
           </div>
         )}
       </div>
@@ -147,6 +147,12 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             Saved by {data.added_by_name ?? "unknown"} on {shortDate(data.added_at)}{data.field ? ` from ${data.field.name}${data.field.version ? ` v${data.field.version}` : ""}` : ""}
             {data.run_id && <> · <Link to={`/results?run=${data.run_id}&paper=${data.paper.id}`}>open in its run</Link> · <Link to={`/read/${data.run_id}/${data.paper.id}`}>Read the paper</Link></>}
           </p>
+          <p className="pane-text-origin">
+            <span className="chip">{data.scope === "personal" ? "My library" : "Company library"}</span>{" "}
+            {data.has_full_text
+              ? <>Full text{data.text_source ? ` from ${data.text_source === "upload" ? "an uploaded PDF" : data.text_source}` : ""}{data.text_licence ? ` · licence ${data.text_licence}` : " · licence not known"}</>
+              : <span className="chip chip--warn">Abstract only</span>}
+          </p>
           <AuthorDetails authors={data.authors} />
           <div role="group" aria-label="Reading pane sections" className="sections">
             <button type="button" aria-pressed={tab === "overview"} onClick={() => setTab("overview")}>Overview</button>
@@ -157,7 +163,7 @@ export function ReadingPane({ itemId, onClose, statusRef }: Props) {
             <>
               <section aria-label="Abstract" className="reading-text">{data.abstract || <span className="sub">No abstract available.</span>}</section>
               <div className="pane-grid">
-                <CollectionsEditor value={data.collections} disabled={!canEdit} onChange={(ids) => void update({ collection_ids: ids }, "Collections updated")} />
+                <CollectionsEditor scope={data.scope ?? "company"} value={data.collections} disabled={!canEdit} onChange={(ids) => void update({ collection_ids: ids }, "Collections updated")} />
                 <TagInput label="Tags" tags={data.tags} disabled={!canEdit} onChange={(tags) => void update({ tags }, "Tags updated")} placeholder={canEdit ? "Add a tag and press Enter" : undefined} />
               </div>
               <NoteEditor key={data.updated_at} item={data} canEdit={canEdit} />

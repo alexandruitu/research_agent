@@ -4,24 +4,24 @@ import { ApiError } from "../../api/client";
 import { useCollections, useCreateCollection } from "../../api/hooks";
 import type { CollectionRef } from "../../api/types";
 
-type Props = { value: CollectionRef[]; onChange: (ids: string[]) => void; disabled?: boolean; legend?: string };
+type Props = { scope: "personal" | "company"; value: CollectionRef[]; onChange: (ids: string[]) => void; disabled?: boolean; legend?: string };
 
 /** Pick collections by checkbox; a new one can be created on the spot and is picked at once. */
-export function CollectionsEditor({ value, onChange, disabled = false, legend = "Collections" }: Props) {
-  const collections = useCollections();
+export function CollectionsEditor({ scope, value, onChange, disabled = false, legend = "Collections" }: Props) {
+  const collections = useCollections(false, scope);
   const create = useCreateCollection();
   const [name, setName] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
   const chosen = new Set(value.map((c) => c.id));
   const all = [...(collections.data ?? [])];
-  for (const c of value) if (!all.some((x) => x.id === c.id)) all.push({ ...c, description: "", archived_at: null, item_count: 0, created_by_name: null, created_at: "" });
+  for (const c of value) if (!all.some((x) => x.id === c.id)) all.push({ ...c, scope, description: "", archived_at: null, item_count: 0, created_by_name: null, created_at: "" });
   const toggle = (id: string, on: boolean) => onChange(on ? [...chosen, id] : [...chosen].filter((c) => c !== id));
   const add = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!name.trim()) return;
     setProblem(null);
     try {
-      const made = await create.mutateAsync({ name: name.trim() });
+      const made = await create.mutateAsync({ name: name.trim(), scope });
       setName("");
       onChange([...chosen, made.id]);
     } catch (error) {

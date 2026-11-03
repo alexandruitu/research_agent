@@ -226,7 +226,7 @@ export function PapersPage() {
           <button type="button" onClick={() => setSelected(new Set())}>Clear selection</button>
         </div>
       )}
-      {saving && <SaveDialog count={Math.max(1, selectedIds.size)} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
+      {saving && <SaveDialog runId={runId} paperIds={[...selectedIds]} titles={Object.fromEntries(rows.map((r) => [r.paper.id, r.paper.title]))} onSave={(choice) => void doSave(choice)} onClose={() => setSaving(false)} />}
       {help && <ShortcutsHelp title="Results shortcuts" items={PAPERS_SHORTCUTS} onClose={() => setHelp(false)} />}
       <FilterBar view={view} showSr={hasGoldSet} showPanel={selected?.settings_version != null || isPanelRun(rows)} legacy={legacy} criteria={criteria} onChange={(changes) => change(changes)}>
         <AuthorFilter authorId={view.params.author_id} authorName={view.params.author_name} scope={{ run_id: runId }} onChange={(next) => change(next)} />

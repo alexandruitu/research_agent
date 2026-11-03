@@ -28,13 +28,27 @@ function setup(role: "viewer" | "member" = "member", extra: Record<string, MockH
     "GET /api/v1/stages": { body: STAGES },
     "GET /api/v1/runs/:id/papers": { body: page([paperRow(), lostRow()]) },
     "GET /api/v1/library/collections": { body: [collectionOut()] },
+    "POST /api/v1/library/eligibility": eligibility([PAPER_ID]),
     ...extra,
   });
   renderWithProviders(<Routes><Route path="/results" element={<PapersPage />} /></Routes>, { route: flat(route) });
   return api;
 }
 
-const saved = (paperId: string, itemId: string) => libraryItem({ id: itemId, paper: { ...libraryItem().paper, id: paperId } });
+const saved = (paperId: string, itemId: string, scope: "personal" | "company" = "personal") =>
+  libraryItem({ id: itemId, scope, paper: { ...libraryItem().paper, id: paperId } });
+
+/** The eligibility answer: these papers have full text (an upload), the others only an abstract. */
+function eligibility(withText: string[]): MockHandler {
+  return ({ body }) => ({
+    body: {
+      papers: (body as { paper_ids: string[] }).paper_ids.map((id) => ({
+        paper_id: id, has_full_text: withText.includes(id), text_source: withText.includes(id) ? "upload" : null, text_licence: withText.includes(id) ? "user_upload" : null,
+      })),
+    },
+  });
+}
+const saves = (calls: { method: string; path: string; body?: unknown }[]) => calls.filter((c) => c.method === "POST" && c.path === "/api/v1/library").map((c) => c.body);
 
 describe("saving papers to the library", () => {
   it("select two rows, choose a new collection, tags and status; the rows say In library before the server answers", async () => {
@@ -55,11 +69,11 @@ describe("saving papers to the library", () => {
     await userEvent.click(within(dialog).getByRole("radio", { name: /Useful/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Save to library" }));
     expect(await screen.findAllByText("Saving to library…")).toHaveLength(2);
-    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
-      run_id: RUN_ID, paper_ids: [PAPER_ID, LOST_ID], collection_ids: [], new_collection: { name: "Friday", description: "" }, tags: ["ffr"], status: "relevant", note: "",
+    expect(saves(calls)[0]).toEqual({
+      run_id: RUN_ID, paper_ids: [PAPER_ID, LOST_ID], scope: "personal", collection_ids: [], new_collection: { name: "Friday", description: "", scope: "personal" }, tags: ["ffr"], status: "relevant", note: "",
     });
     answer(null);
-    expect(await screen.findByText("Saved 2 papers to Friday")).toBeInTheDocument();
+    expect(await screen.findByText("Saved 2 papers to My library (Friday)")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
   });
 
@@ -72,8 +86,8 @@ describe("saving papers to the library", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: /Plaque reading list/ }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save to library" }));
-    expect(await screen.findByText("Saved 1 paper to the chosen collections (1 already there)")).toBeInTheDocument();
-    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ collection_ids: [COLLECTION_ID], new_collection: null });
+    expect(await screen.findByText("Saved 2 papers to My library (1 already there)")).toBeInTheDocument();
+    expect(saves(calls)[0]).toMatchObject({ collection_ids: [COLLECTION_ID], new_collection: null });
     await userEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual([`/api/v1/library/${ITEM_ID}`]));
   });
@@ -84,7 +98,57 @@ describe("saving papers to the library", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
     await userEvent.type(within(screen.getByRole("dialog")).getByLabelText("New collection (optional)"), "plaque READING list");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save to library" }));
-    await waitFor(() => expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ collection_ids: [COLLECTION_ID], new_collection: null }));
+    await waitFor(() => expect(saves(calls)[0]).toMatchObject({ collection_ids: [COLLECTION_ID], new_collection: null }));
+  });
+
+  it("the Company library is off for abstract-only papers, with the reason and an Upload the PDF action", async () => {
+    setup("member");
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Select all papers on this page" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
+    const dialog = screen.getByRole("dialog", { name: "Save 2 papers to the library" });
+    expect(within(dialog).getByRole("checkbox", { name: /My library/ })).toBeChecked();
+    const company = within(dialog).getByRole("checkbox", { name: /Company library/ });
+    await waitFor(() => expect(within(dialog).getByText("1 of these 2 papers has only an abstract. The Company library keeps papers with full text.")).toBeInTheDocument());
+    expect(company).toBeDisabled();
+    expect(company).toHaveAccessibleDescription(/only an abstract/);
+    const upload = within(dialog).getAllByRole("button", { name: /Upload the PDF/ });
+    expect(upload).toHaveLength(1);
+    expect(upload[0]).toHaveAccessibleName(/Change in CT-Derived/);  // the abstract-only one, by title
+  });
+
+  it("saving to both libraries sends one request per library, each with its own collections", async () => {
+    const { calls } = setup("member", {
+      "POST /api/v1/library/eligibility": eligibility([PAPER_ID]),
+      "POST /api/v1/library": ({ body }) => {
+        const scope = (body as { scope: "personal" | "company" }).scope;
+        const id = scope === "company" ? ITEM_ID : "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+        return { status: 201, body: { created: [id], existing: [], items: [saved(PAPER_ID, id, scope)], collection: null } };
+      },
+    });
+    await userEvent.click(await screen.findByRole("checkbox", { name: /Select Diagnostic accuracy/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
+    const dialog = screen.getByRole("dialog");
+    const company = within(dialog).getByRole("checkbox", { name: /Company library/ });
+    await waitFor(() => expect(company).toBeEnabled());
+    await userEvent.click(company);
+    const companyPicks = within(dialog).getByRole("group", { name: "Collections in Company library" });
+    await userEvent.click(within(companyPicks).getByRole("checkbox", { name: /Plaque reading list/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save to library" }));
+    expect(await screen.findByText("Saved 1 paper to My library and the Company library")).toBeInTheDocument();
+    expect(saves(calls).map((b) => [(b as { scope: string }).scope, (b as { collection_ids: string[] }).collection_ids])).toEqual([
+      ["personal", []],
+      ["company", [COLLECTION_ID]],
+    ]);
+  });
+
+  it("no library chosen: nothing to save", async () => {
+    setup("member");
+    await userEvent.click(await screen.findByRole("checkbox", { name: /Select Diagnostic accuracy/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save to library…" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: /My library/ }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Choose at least one library.");
+    expect(within(dialog).getByRole("button", { name: "Save to library" })).toBeDisabled();
   });
 
   it("a refused save rolls the rows back and says why", async () => {
@@ -99,8 +163,14 @@ describe("saving papers to the library", () => {
 
   it("rows already saved show their status and link to the library", async () => {
     setup("member", { "GET /api/v1/runs/:id/papers": { body: page([paperRow({ library: { item_id: ITEM_ID, status: "relevant", collections: [] } })]) } });
-    const badge = await screen.findByRole("link", { name: /In library · Useful/ });
+    const badge = await screen.findByRole("link", { name: /In library · Useful · Company/ });
     expect(badge).toHaveAttribute("href", `/library?item=${ITEM_ID}`);
+  });
+
+  it("a row saved only in My library links to the My library tab", async () => {
+    setup("member", { "GET /api/v1/runs/:id/papers": { body: page([paperRow({ library: { item_id: ITEM_ID, scope: "personal", status: "to_read", collections: [], company_item_id: null, personal_item_id: ITEM_ID } })]) } });
+    const badge = await screen.findByRole("link", { name: /In library · To read · My library/ });
+    expect(badge).toHaveAttribute("href", `/library?lib=mine&item=${ITEM_ID}`);
   });
 
   it("viewers get no checkboxes", async () => {

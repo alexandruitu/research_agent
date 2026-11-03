@@ -1318,3 +1318,12 @@ main.main--wide { max-width: none; padding-left: clamp(12px, 2vw, 32px); padding
 .search-kind__option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
 .search-kind__option[aria-pressed="true"] strong::before { content: "✓ "; }
 .search-kind__option:hover { border-color: var(--accent); }
+
+/* two libraries */
+.library-tabs { margin: 4px 0 14px; }
+.library-choice .check { display: block; }
+.company-reason { margin: 6px 0 0 24px; }
+.company-reason .upload-list { list-style: none; padding: 0; margin: 4px 0; display: grid; gap: 4px; }
+.pane-text-origin { margin: 4px 0 8px; font-size: 13px; color: var(--ink-2); }
+.note-save { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.segmented-radios { border: 0; padding: 0; margin: 0; display: inline-flex; gap: 12px; }

@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, uploadFile } from "./client";
 import type {
   AuthorSuggestionOut, BackfillStatusOut,
-  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
+  AlertIn, AlertOut, DigestListOut, DigestOut, SubscriptionOut, BulkDeleteOut, CallOut, CallsSummaryOut, CancelOut, CollectionOut, DeleteOut, EligibilityOut, RunCompareOut, RunLogOut, RunPatch, DrawerOut, KeywordsIO, LibraryItemDetail, LibraryPage, LibraryPatch, LibrarySaveOut, LibrarySaveRequest, QueryOverrideIO, ModelsAvailableOut, PaperFileOut, PaperMapStateOut, ReaderAskIn, ReaderRelatedIn, ReaderNoteOut, ReaderOut, ReviewerCreate, ReviewerOut, ReviewerSave, ReviewSettingsContent, ReviewSettingsOut, EvalDetailOut, EvalSummaryOut, FieldDraft, FieldOut, FieldVersionOut, JobOut, PaperGroupOut, PaperPage, RunDetailOut, RunOut,
   CompareOut, EstimateOut, EvalJobOut, EvalKind, EvalRequest, GoldSetOut, GoldSetRequest, RatingNextOut, RatingSampleOut, RatingSubmitIn, RatingSubmitOut, RevealOut,
   AuthorSearch, MatchKind, ReviewerVersionOut, SettingsOut, SourceOut, StageOut, StartRunOut, UserDeleteOut, UserOut, UserReferencesOut, WorkerStatusOut,
 } from "./types";
@@ -62,7 +62,8 @@ export const keys = {
   library: (params: LibraryParams) => ["library", "list", params] as const,
   libraryItem: (id: string) => ["library", "item", id] as const,
   allCollections: ["collections"] as const,
-  collections: (archived: boolean) => ["collections", { archived }] as const,
+  collections: (archived: boolean, scope: string) => ["collections", { archived, scope }] as const,
+  eligibility: (runId: string, paperIds: string[]) => ["library", "eligibility", runId, paperIds] as const,
   alert: (fieldId: string) => ["alert", fieldId] as const,
   digests: ["digests"] as const,
   digestList: (scope: "following" | "all") => ["digests", "list", scope] as const,
@@ -76,10 +77,11 @@ export const keys = {
   authorsBackfill: ["authors", "backfill"] as const,
 };
 
-/** Where the typeahead counts papers: one run (Results), the team library, or everything stored. */
-export type AuthorScope = { run_id?: string; library?: boolean };
+/** Where the typeahead counts papers: one run (Results), a library (`scope`: one of them), or everything stored. */
+export type AuthorScope = { run_id?: string; library?: boolean; scope?: "personal" | "company" };
 
 export type LibraryParams = {
+  scope?: "personal" | "company";
   q?: string; collection_id?: string; status?: string; tag?: string; field_id?: string; min_score?: number; has_red_flags?: boolean;
   author_id?: string; author_name?: string;
   sort?: string; direction?: "asc" | "desc"; page?: number; page_size?: number;
@@ -368,6 +370,7 @@ export function useUploadPaperFile(paperId: string) {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.paperFiles(paperId) });
       void client.invalidateQueries({ queryKey: ["paper"] });
+      void client.invalidateQueries({ queryKey: ["library", "eligibility"] });  // it may have full text now
     },
   });
 }
@@ -408,8 +411,14 @@ export const useLibrary = (params: LibraryParams) =>
   useQuery({ queryKey: keys.library(params), placeholderData: keepPreviousData, queryFn: () => api.get<LibraryPage>("/library", params) });
 export const useLibraryItem = (id: string | null) =>
   useQuery({ queryKey: keys.libraryItem(id ?? ""), enabled: !!id, queryFn: () => api.get<LibraryItemDetail>(`/library/${id}`) });
-export const useCollections = (archived = false) =>
-  useQuery({ queryKey: keys.collections(archived), queryFn: () => api.get<CollectionOut[]>("/library/collections", { archived }) });
+export const useCollections = (archived = false, scope: "personal" | "company" = "company", enabled = true) =>
+  useQuery({ queryKey: keys.collections(archived, scope), enabled, queryFn: () => api.get<CollectionOut[]>("/library/collections", { archived, scope }) });
+/** Which papers can go into the Company library (full text stored or uploaded); the save checks again. */
+export const useEligibility = (runId: string, paperIds: string[]) =>
+  useQuery({
+    queryKey: keys.eligibility(runId, paperIds), enabled: !!runId && paperIds.length > 0,
+    queryFn: () => api.post<EligibilityOut>("/library/eligibility", { body: { run_id: runId, paper_ids: paperIds } }),
+  });
 
 /** Everything that shows library state: the library itself, collections (counts) and paper rows/drawers. */
 function refreshLibrary(client: ReturnType<typeof useQueryClient>) {
@@ -458,7 +467,7 @@ export function useSnapshotItem() {
 export function useCreateCollection() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; description?: string }) => api.post<CollectionOut>("/library/collections", { body }),
+    mutationFn: (body: { name: string; description?: string; scope: "personal" | "company" }) => api.post<CollectionOut>("/library/collections", { body }),
     onSettled: () => void client.invalidateQueries({ queryKey: keys.allCollections }),
   });
 }
@@ -611,7 +620,8 @@ export const usePaperNotes = (paperId: string | null) =>
 export function useSaveNote(runId: string, paperId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (jobId: string) => api.post<ReaderNoteOut>(`/runs/${runId}/papers/${paperId}/notes`, { body: { job_id: jobId } }),
+    mutationFn: ({ jobId, visibility }: { jobId: string; visibility: "private" | "company" }) =>
+      api.post<ReaderNoteOut>(`/runs/${runId}/papers/${paperId}/notes`, { body: { job_id: jobId, visibility } }),
     onSuccess: () => void client.invalidateQueries({ queryKey: keys.paperNotes(paperId) }),
   });
 }

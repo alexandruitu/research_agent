@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { AuthorLine } from "../authors/AuthorList";
 import { MatchedBy } from "../authors/MatchedBy";
+import { libraryLink } from "../library/libraryState";
 
 import type { PaperRow } from "../../api/types";
 import { statusMeta } from "../../components/ui/StatusMark";
@@ -21,9 +22,10 @@ export function LibraryBadge({ library }: { library: PaperRow["library"] }) {
   if (!library) return null;
   const { icon, word } = statusMeta(library.status);
   if (library.item_id.startsWith("pending-")) return <span className="lib-badge is-pending">Saving to library…</span>;
+  const where = library.company_item_id && library.personal_item_id ? "Company + mine" : library.scope === "personal" ? "My library" : "Company";
   return (
-    <Link className="lib-badge" to={`/library?item=${library.item_id}`} onClick={(e) => e.stopPropagation()}>
-      In library · <span aria-hidden="true">{icon}</span> {word}
+    <Link className="lib-badge" to={libraryLink(library.scope === "personal" ? "personal" : "company", library.item_id)} onClick={(e) => e.stopPropagation()}>
+      In library · <span aria-hidden="true">{icon}</span> {word} <span className="sub-inline">· {where}</span>
     </Link>
   );
 }

@@ -15,6 +15,7 @@ export function LibraryList({ items, openId, cursorId, onOpen, onDetails }: Prop
               <StatusMark status={item.status} />
               {item.score != null && <span className="score tnum">score {Math.round(item.score)}</span>}
               {item.red_flag_count ? <span className="flag-word"><span aria-hidden="true">⚑</span> {item.red_flag_count} red flag{item.red_flag_count === 1 ? "" : "s"}</span> : null}
+              {item.scope === "company" && item.has_full_text === false && <span className="chip chip--warn">Abstract only</span>}
             </span>
             <span className="card-title" id={`card-title-${item.id}`}>{item.paper.title}</span>
             <AuthorLine authors={item.authors} count={item.author_count} />

@@ -163,12 +163,13 @@ test.describe("library and saving", () => {
     await audit(page);
     await page.getByRole("dialog").getByLabel("New collection (optional)").fill(`A11y ${Date.now()}`);
     await page.getByRole("dialog").getByRole("button", { name: "Save to library" }).click();
-    await expect(page.getByText(/Saved 1 paper|already in the library/)).toBeVisible();
+    await expect(page.getByText(/Saved 1 paper|already in My library/)).toBeVisible();
     await page.locator("[data-open-paper]").first().click();
     await expect(page.getByRole("complementary", { name: "Paper details" })).toBeVisible();
     await audit(page);
 
-    await page.goto("/library");
+    await page.goto("/library?lib=mine");
+    await expect(page.getByRole("tab", { name: "My library" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("list", { name: "Saved papers" })).toBeVisible();
     await audit(page);
     await page.getByRole("list", { name: "Saved papers" }).getByRole("button", { name: "Details" }).first().click();
@@ -180,7 +181,7 @@ test.describe("library and saving", () => {
       await audit(page);
     }
     await page.getByRole("button", { name: "Manage collections" }).click();
-    await expect(page.getByRole("region", { name: "Collections" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Collections in My library" })).toBeVisible();
     await audit(page);
     await page.keyboard.press("?");
     await expect(page.getByRole("dialog", { name: "Library shortcuts" })).toBeVisible();

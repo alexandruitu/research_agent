@@ -203,6 +203,23 @@ saved papers get the collections and tags merged). Search `q` is ILIKE over titl
 read and export (CSV, injection-safe; BibTeX, escaped); members save and edit; the adder or an admin deletes;
 admins archive collections. Paper rows and the drawer carry `library: {item_id, status, collections} | null`.
 
+**Two libraries** (migration 0018): every item and collection has a `scope`, `personal` (My library: its
+`owner_id` only; admins included, anyone else gets 404) or `company` (the Company library: everyone signed in).
+A paper can be in both (one item per library). Every list takes `scope` (default `company`): `GET /library`,
+`/library/export`, `/library/collections`, and `/authors?library=true&scope=` (without `scope`: every library
+the user sees). `POST /library` saves into one `scope` (default `personal`); the Company library takes only
+papers with full text — the panel reviewed full text of the paper in some run, or someone uploaded its PDF —
+else 422 `needs_full_text` (nothing saved). `POST /library/eligibility {run_id, paper_ids}` answers per paper
+`{has_full_text, text_source, text_licence}` for the save dialog. Items record `has_full_text`, `text_source`
+and `text_licence`; items migrated from the old team library became Company items, and those without full text
+stay, flagged abstract only. Collections are per library (names unique within one); a save's collections must
+be of its library (422 `wrong_library`). Removal: personal items by their owner; Company items by the adder or
+an admin; Company collections are archived by admins, personal ones by their owner. Paper rows and the drawer
+carry `library: {item_id, scope, status, collections, company_item_id, personal_item_id} | null` (the Company
+item leads). Reader notes have `visibility`: `private` (default; its author only) or `company`; notes from
+before 0018 became company notes. The Library page has the tabs My library / Company library (`lib=mine` in
+the URL; Company is the default).
+
 ## More sources (slice 5)
 
 The `sources` table has a row per `research_agent.sources.REGISTRY` entry (14; migration 0006; only Europe PMC

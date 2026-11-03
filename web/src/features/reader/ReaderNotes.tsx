@@ -11,6 +11,7 @@ function Note({ note }: { note: ReaderNoteOut }) {
       <p className="sub">
         {TOOL_LABEL[note.tool] ?? note.tool} · {note.created_by_name ?? "Someone"} · <time dateTime={note.created_at}>{new Date(note.created_at).toLocaleDateString()}</time>
         {note.model ? ` · ${note.model}` : ""}
+        {" · "}<span className="note-visibility">{note.visibility === "private" ? "Only you" : "Company"}</span>
       </p>
       {note.selection && <blockquote className="reader-note-selection">“{note.selection}”</blockquote>}
       {note.question && <p><strong>Q:</strong> {note.question}</p>}
@@ -26,7 +27,7 @@ function Note({ note }: { note: ReaderNoteOut }) {
   );
 }
 
-/** The team's Reader notes on one paper (Reader and Library item). */
+/** The Reader notes on one paper the user may see: everyone's company notes and their own private ones. */
 export function ReaderNotes({ paperId, headingLevel = 3 }: { paperId: string; headingLevel?: 2 | 3 }) {
   const notes = usePaperNotes(paperId);
   const Heading = headingLevel === 2 ? "h2" : "h3";

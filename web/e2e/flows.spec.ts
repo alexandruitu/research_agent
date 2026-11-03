@@ -189,9 +189,14 @@ test.describe("member", () => {
     await dialog.getByLabel("New collection (optional)").fill(collection);
     await dialog.getByLabel("Tags", { exact: true }).fill("e2e");
     await dialog.getByLabel("Tags", { exact: true }).press("Enter");
+    // demo papers have only an abstract: the Company library is off, with the reason and an upload action
+    await expect(dialog.getByRole("checkbox", { name: /Company library/ })).toBeDisabled();
+    await expect(dialog.getByText(/only an abstract/)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /Upload the PDF/ }).first()).toBeVisible();
+    await expect(dialog.getByRole("checkbox", { name: /My library/ })).toBeChecked();
     await dialog.getByRole("button", { name: "Save to library" }).click();
     // other tests may have saved one of these demo papers already: it is merged into the new collection
-    await expect(page.getByRole("region", { name: "Notifications" })).toContainText(new RegExp(`Saved [12] papers? to ${collection}`));
+    await expect(page.getByRole("region", { name: "Notifications" })).toContainText(new RegExp(`Saved 2 papers to My library \\(${collection}\\)|already in My library`));
     await expect(rows.nth(0).getByRole("link", { name: /In library · To read/ })).toBeVisible();
 
     await rows.nth(0).locator("[data-open-paper]").click();
@@ -200,6 +205,8 @@ test.describe("member", () => {
     await expect(page.getByText("Marked useful")).toBeVisible();
 
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Step 5: Library" }).click();
+    await page.getByRole("tab", { name: "My library" }).click();
+    await expect(page).toHaveURL(/lib=mine/);
     await page.getByLabel("Collection").selectOption({ label: `${collection} (2)` });
     const list = page.getByRole("list", { name: "Saved papers" });
     await expect(list.getByRole("listitem")).toHaveCount(2);
@@ -214,6 +221,7 @@ test.describe("member", () => {
 
     const href = await page.getByRole("link", { name: "Export CSV" }).getAttribute("href");
     expect(href).toContain("status=relevant");
+    expect(href).toContain("scope=personal");
     const response = await page.request.get(href!);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("text/csv");
@@ -245,7 +253,7 @@ test.describe("member", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    await page.goto("/library");
+    await page.goto("/library?lib=mine");
     const list = page.getByRole("list", { name: "Saved papers" });
     if (await list.count()) {
       await page.locator("h1").click();

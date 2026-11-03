@@ -11,7 +11,7 @@ import { ShortcutsHelp } from "../components/ui/ShortcutsHelp";
 import { Skeleton } from "../components/ui/Skeleton";
 import { LIBRARY_STATUSES, STATUS_META, statusMeta } from "../components/ui/StatusMark";
 import { CollectionsManager } from "../features/library/CollectionsManager";
-import { clearFilters, LIBRARY_PAGE_SIZE, parseLibraryView, patchLibraryView, type LibraryChange } from "../features/library/libraryState";
+import { clearFilters, LIBRARY_PAGE_SIZE, parseLibraryView, patchLibraryView, switchTab, tabOf, type LibraryChange, type LibraryTab } from "../features/library/libraryState";
 import { LibraryList } from "../features/library/LibraryList";
 import { useStatusChange } from "../features/library/optimistic";
 import { ReadingPane } from "../features/library/ReadingPane";
@@ -40,8 +40,10 @@ export function LibraryPage() {
   const navigate = useNavigate();
   const view = parseLibraryView(search);
   const { params } = view;
+  const tab = tabOf(search);
+  const scope = params.scope ?? "company";
   const library = useLibrary(params);
-  const collections = useCollections();
+  const collections = useCollections(false, scope);
   const fields = useFields();
   const status = useStatusChange();
   const author = useAuthor(params.author_id);
@@ -108,12 +110,18 @@ export function LibraryPage() {
   const tags = [...new Set(items.flatMap((i) => i.tags))].sort();
   if (params.tag && !tags.includes(params.tag)) tags.unshift(params.tag);
 
+  const TABS: { key: LibraryTab; label: string }[] = [{ key: "mine", label: "My library" }, { key: "company", label: "Company library" }];
+  const pickTab = (key: LibraryTab) => setSearch(switchTab(search, key));
   return (
     <section className="library-page">
       <div className="page-head">
         <div>
           <h1>Library</h1>
-          <p className="lede">Papers the team chose to keep, with their evidence frozen at the time they were saved.</p>
+          <p className="lede">
+            {tab === "mine"
+              ? "Papers you keep for yourself: only you see them."
+              : "Papers kept for everyone in the company, with full text and their evidence frozen at the time they were saved."}
+          </p>
         </div>
         <div className="actions">
           <a className="button-link button-link--quiet" href={exportUrl(params, "csv")} download>Export CSV</a>
@@ -122,7 +130,23 @@ export function LibraryPage() {
           <button type="button" className="kbd-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts"><kbd aria-hidden="true">?</kbd></button>
         </div>
       </div>
-      {manage && <CollectionsManager admin={admin} member={member} />}
+      <div role="tablist" aria-label="Libraries" className="reader-tabs library-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" className="reader-tab" id={`tab-${t.key}`} aria-selected={tab === t.key} aria-controls="library-panel" tabIndex={tab === t.key ? 0 : -1}
+            onClick={() => pickTab(t.key)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                const next = TABS[(TABS.findIndex((x) => x.key === t.key) + 1) % TABS.length]!;
+                pickTab(next.key);
+                requestAnimationFrame(() => document.getElementById(`tab-${next.key}`)?.focus());
+              }
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id="library-panel" aria-labelledby={`tab-${tab}`}>
+      {manage && <CollectionsManager key={scope} admin={admin} member={member} scope={scope} />}
       <form className="library-toolbar" role="search" onSubmit={(e) => { e.preventDefault(); change({ q: q.trim() || null }); }}>
         <label className="search-box">
           <span className="sr-only">Search title, abstract and note</span>
@@ -168,7 +192,7 @@ export function LibraryPage() {
           <input type="number" min={0} max={100} step={5} value={params.min_score ?? ""} onChange={(e) => change({ min: e.target.value === "" ? null : Number(e.target.value) })} />
         </label>
         <button type="button" aria-pressed={!!params.has_red_flags} onClick={() => change({ flags: params.has_red_flags ? null : true })}><span aria-hidden="true">⚑</span> Has red flags</button>
-        <AuthorFilter authorId={params.author_id} authorName={params.author_name} scope={{ library: true }} onChange={(next) => change(next)} />
+        <AuthorFilter authorId={params.author_id} authorName={params.author_name} scope={{ library: true, scope }} onChange={(next) => change(next)} />
       </div>
       {chips.length > 0 && (
         <div className="active-filters" role="group" aria-label="Active filters">
@@ -193,9 +217,11 @@ export function LibraryPage() {
                 Try fewer filters or other words.
               </EmptyState>
             ) : (
-              <EmptyState title="The library is empty" action={<Link className="button-link" to="/results">Go to Results</Link>}>
-                <p>Open a run in Results, tick the papers worth keeping and press <strong>Save to library</strong>.</p>
-                <p>They arrive here with their screening and review evidence, ready for the team to read, tag and rate.</p>
+              <EmptyState title={tab === "mine" ? "My library is empty" : "The Company library is empty"} action={<Link className="button-link" to="/results">Go to Results</Link>}>
+                <p>Open a run in Results, tick the papers worth keeping and press <strong>Save to library</strong>, then choose {tab === "mine" ? <strong>My library</strong> : <strong>Company library</strong>}.</p>
+                <p>{tab === "mine"
+                  ? "They arrive here with their screening and review evidence; only you see them."
+                  : "Only papers with full text (found by the review or an uploaded PDF) go here, ready for everyone to read, tag and rate."}</p>
               </EmptyState>
             )
           ) : (
@@ -213,6 +239,7 @@ export function LibraryPage() {
           )}
         </div>
         {view.itemId && <ReadingPane key={view.itemId} itemId={view.itemId} onClose={close} />}
+      </div>
       </div>
       {help && <ShortcutsHelp title="Library shortcuts" items={LIBRARY_SHORTCUTS} onClose={() => setHelp(false)} />}
     </section>

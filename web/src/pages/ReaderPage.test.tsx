@@ -122,10 +122,12 @@ describe("ReaderPage", () => {
     const ask = api.calls.find((c) => c.method === "POST" && c.path.endsWith("/reader/ask"))!;
     expect(ask.body).toEqual({ tool: "explain", selection: "The test set was external", question: "" });
     expect(screen.getByText("Data were split at patient level.", { selector: "q" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Only me" })).toBeChecked();  // a note is private unless shared
+    await userEvent.click(screen.getByRole("radio", { name: "Everyone in the company" }));
     await userEvent.click(screen.getByRole("button", { name: "Save as note" }));
-    expect(await screen.findByText("Note saved.")).toBeInTheDocument();
-    expect(api.calls.find((c) => c.path.endsWith("/notes") && c.method === "POST")!.body).toEqual({ job_id: JOB_ID });
-    expect(screen.getByRole("button", { name: "Save it to the library too" })).toBeInTheDocument();
+    expect(await screen.findByText("Note saved for the company.")).toBeInTheDocument();
+    expect(api.calls.find((c) => c.path.endsWith("/notes") && c.method === "POST")!.body).toEqual({ job_id: JOB_ID, visibility: "company" });
+    expect(screen.getByRole("button", { name: "Save it to My library too" })).toBeInTheDocument();
   });
 
   it("shows a failed answer as an error, nothing kept", async () => {

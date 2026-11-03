@@ -32,7 +32,7 @@ describe("library hooks", () => {
     const { client, wrapper } = wrap();
     const spy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useSaveToLibrary(), { wrapper });
-    await result.current.mutateAsync({ run_id: "r", paper_ids: ["p"], collection_ids: [], tags: [], note: "", status: "to_read" });
+    await result.current.mutateAsync({ run_id: "r", scope: "personal", paper_ids: ["p"], collection_ids: [], tags: [], note: "", status: "to_read" });
     const invalidated = spy.mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey));
     expect(invalidated).toEqual(expect.arrayContaining([JSON.stringify(keys.allLibrary), JSON.stringify(keys.allCollections), '["papers"]', '["paper"]']));
   });

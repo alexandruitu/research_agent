@@ -85,10 +85,32 @@ describe("LibraryPage", () => {
     await waitFor(() => expect(lastSearch(calls).get("q")).toBeNull());
   });
 
+  it("has My library and Company library tabs; the tab is in the URL and keeps the filters", async () => {
+    const { calls } = setup("member", {}, "/library?status=relevant&collection=" + COLLECTION_ID);
+    const company = await screen.findByRole("tab", { name: "Company library" });
+    expect(company).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(lastSearch(calls).get("scope")).toBe("company"));
+    await userEvent.click(screen.getByRole("tab", { name: "My library" }));
+    expect(screen.getByRole("tab", { name: "My library" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(lastSearch(calls).get("scope")).toBe("personal"));
+    const search = lastSearch(calls);
+    expect(search.get("status")).toBe("relevant");  // the same filters
+    expect(search.get("collection_id")).toBeNull();  // collections belong to one library
+    expect(calls.some((c) => c.path === "/api/v1/library/collections" && new URLSearchParams(c.search).get("scope") === "personal")).toBe(true);
+    expect(screen.getByRole("link", { name: "Export CSV" }).getAttribute("href")).toContain("scope=personal");
+    expect(screen.getByText("Papers you keep for yourself: only you see them.")).toBeInTheDocument();
+  });
+
+  it("opens on My library from the URL and flags abstract-only Company items", async () => {
+    setup("member", { "GET /api/v1/library": { body: page([libraryItem({ scope: "company", has_full_text: false })]) } }, "/library?lib=mine");
+    expect(await screen.findByRole("tab", { name: "My library" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("Abstract only")).toBeInTheDocument();
+  });
+
   it("export links carry the current filters", async () => {
     setup("member", {}, "/library?status=relevant&q=plaque&page=2");
     await screen.findByRole("list", { name: "Saved papers" });
-    expect(screen.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/v1/library/export?format=csv&sort=added_at&direction=desc&q=plaque&status=relevant");
+    expect(screen.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/v1/library/export?format=csv&scope=company&sort=added_at&direction=desc&q=plaque&status=relevant");
     expect(screen.getByRole("link", { name: "Export BibTeX" }).getAttribute("href")).toContain("format=bibtex");
   });
 
@@ -170,7 +192,7 @@ describe("LibraryPage", () => {
     vi.stubGlobal("confirm", confirm);
     const { calls } = setup("member", { "DELETE /api/v1/library/:id": { status: 204 } });
     await userEvent.click(await screen.findByRole("button", { name: "Details", description: /Diagnostic accuracy/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Remove from library" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove from the Company library" }));
     expect(confirm).toHaveBeenCalled();
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.path.endsWith(ITEM_ID))).toBe(true));
   });
@@ -220,7 +242,7 @@ describe("LibraryPage", () => {
 
   it("an empty library says how to fill it", async () => {
     setup("member", { "GET /api/v1/library": { body: page([]) } });
-    expect(await screen.findByText("The library is empty")).toBeInTheDocument();
+    expect(await screen.findByText("The Company library is empty")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Results" })).toHaveAttribute("href", "/results");
   });
 
@@ -241,14 +263,14 @@ describe("LibraryPage", () => {
       "PATCH /api/v1/library/collections/:id": { body: collectionOut({ name: "Plaque, must read" }) },
     });
     await userEvent.click(await screen.findByRole("button", { name: "Manage collections" }));
-    const manager = screen.getByRole("region", { name: "Collections" });
+    const manager = screen.getByRole("region", { name: "Collections in the Company library" });
     await userEvent.type(within(manager).getByLabelText("New collection"), "Plaque reading list");
     await userEvent.click(within(manager).getByRole("button", { name: "Create collection" }));
     expect(await within(manager).findByRole("alert")).toHaveTextContent("exists already");
     await userEvent.clear(within(manager).getByLabelText("New collection"));
     await userEvent.type(within(manager).getByLabelText("New collection"), "Screening Q4");
     await userEvent.click(within(manager).getByRole("button", { name: "Create collection" }));
-    await waitFor(() => expect(calls.filter((c) => c.method === "POST").map((c) => c.body)).toContainEqual({ name: "Screening Q4" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "POST").map((c) => c.body)).toContainEqual({ name: "Screening Q4", scope: "company" }));
     expect(within(manager).queryByRole("button", { name: /Archive/ })).not.toBeInTheDocument();
     await userEvent.click(within(manager).getByRole("button", { name: /Rename/ }));
     await userEvent.clear(within(manager).getByLabelText(/Name of/));
@@ -261,7 +283,7 @@ describe("LibraryPage", () => {
     vi.stubGlobal("confirm", vi.fn(() => true));
     const { calls } = setup("admin", { "POST /api/v1/library/collections/:id/archive": { body: collectionOut({ archived_at: "2026-09-30T12:00:00Z" }) } });
     await userEvent.click(await screen.findByRole("button", { name: "Manage collections" }));
-    await userEvent.click(within(screen.getByRole("region", { name: "Collections" })).getByRole("button", { name: /Archive/ }));
+    await userEvent.click(within(screen.getByRole("region", { name: "Collections in the Company library" })).getByRole("button", { name: /Archive/ }));
     await waitFor(() => expect(calls.some((c) => c.path.endsWith("/archive"))).toBe(true));
   });
 });

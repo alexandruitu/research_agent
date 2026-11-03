@@ -34,12 +34,13 @@ function AnswerCard({ jobId, runId, paperId, drawer }: { jobId: string; runId: s
   const [saved, setSaved] = useState(false);
   const [offerLibrary, setOfferLibrary] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<"private" | "company">("private");
   const status = job.data?.status;
   const result = status === "done" ? ((job.data!.progress as { result?: ReaderResult }).result ?? null) : null;
   const save = async () => {
     setProblem(null);
     try {
-      await saveNote.mutateAsync(jobId);
+      await saveNote.mutateAsync({ jobId, visibility });
       setSaved(true);
       setOfferLibrary(!drawer?.library);
     } catch (error) {
@@ -54,11 +55,20 @@ function AnswerCard({ jobId, runId, paperId, drawer }: { jobId: string; runId: s
         <>
           <h3>{TOOL_LABEL[result.tool] ?? result.tool}</h3>
           <Answer result={result} />
-          {saved ? <p role="status">Note saved.</p> : <button type="button" onClick={() => void save()} disabled={saveNote.isPending}>Save as note</button>}
+          {saved ? <p role="status">{visibility === "company" ? "Note saved for the company." : "Note saved (only you see it)."}</p> : (
+            <div className="note-save">
+              <fieldset className="segmented-radios">
+                <legend className="sr-only">Who sees the note</legend>
+                <label className="check"><input type="radio" name={`note-vis-${jobId}`} checked={visibility === "private"} onChange={() => setVisibility("private")} /> Only me</label>
+                <label className="check"><input type="radio" name={`note-vis-${jobId}`} checked={visibility === "company"} onChange={() => setVisibility("company")} /> Everyone in the company</label>
+              </fieldset>
+              <button type="button" onClick={() => void save()} disabled={saveNote.isPending}>Save as note</button>
+            </div>
+          )}
           {saved && offerLibrary && (
             <p className="reader-offer">
-              This paper is not in the library.{" "}
-              <button type="button" disabled={libraryFlow.pending} onClick={() => { setOfferLibrary(false); void libraryFlow.save(runId, [paperId], { status: "to_read", note: "" }); }}>Save it to the library too</button>
+              This paper is not in your libraries.{" "}
+              <button type="button" disabled={libraryFlow.pending} onClick={() => { setOfferLibrary(false); void libraryFlow.save(runId, [paperId], { scopes: ["personal"], status: "to_read", note: "" }); }}>Save it to My library too</button>
             </p>
           )}
         </>

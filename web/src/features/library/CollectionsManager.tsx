@@ -58,10 +58,11 @@ function Row({ collection, admin, member }: { collection: CollectionOut; admin: 
   );
 }
 
-/** Create and rename collections (members), archive and restore them (admins). */
-export function CollectionsManager({ admin, member }: { admin: boolean; member: boolean }) {
+/** The collections of one library: create and rename (members), archive and restore (admins in the Company
+ * library, the owner in My library). */
+export function CollectionsManager({ admin, member, scope = "company" }: { admin: boolean; member: boolean; scope?: "personal" | "company" }) {
   const [archived, setArchived] = useState(false);
-  const collections = useCollections(archived);
+  const collections = useCollections(archived, scope);
   const create = useCreateCollection();
   const toast = useToast();
   const [name, setName] = useState("");
@@ -69,7 +70,7 @@ export function CollectionsManager({ admin, member }: { admin: boolean; member: 
   const add = async () => {
     setProblem(null);
     try {
-      await create.mutateAsync({ name: name.trim() });
+      await create.mutateAsync({ name: name.trim(), scope });
       toast.show({ text: `Created ${name.trim()}` });
       setName("");
     } catch (error) {
@@ -78,11 +79,11 @@ export function CollectionsManager({ admin, member }: { admin: boolean; member: 
   };
   return (
     <section aria-labelledby="collections-title" className="collections-manager">
-      <h2 id="collections-title">Collections</h2>
+      <h2 id="collections-title">Collections in {scope === "personal" ? "My library" : "the Company library"}</h2>
       <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived collections</label>
       {collections.isLoading ? <p className="sub">Loading…</p> : (collections.data ?? []).length === 0 ? <p className="hint">No collections yet.</p> : (
         <ul className="collection-list">
-          {(collections.data ?? []).map((c) => <Row key={`${c.id}:${c.name}`} collection={c} admin={admin} member={member} />)}
+          {(collections.data ?? []).map((c) => <Row key={`${c.id}:${c.name}`} collection={c} admin={scope === "personal" ? member : admin} member={member} />)}
         </ul>
       )}
       {member && (
