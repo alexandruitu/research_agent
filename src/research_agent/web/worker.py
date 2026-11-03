@@ -20,7 +20,7 @@ from . import keyring
 from .alerts import finish_alert_run, record_failure, schedule_due, write_seen_file
 from .assist import assist_model, field_assist
 from .checks import check_keys, check_source_keys, criteria_test, source_check
-from .db.models import Alert, Job, Paper, Run, SourceRow, WorkerStatus
+from .db.models import Alert, Job, Paper, Run, SourceRow, User, WorkerStatus
 from .db.session import make_engine, make_session_factory
 from .fields import settings_row
 from .importer.common import ImportFailed
@@ -749,6 +749,7 @@ class Worker:
                     names=sorted(enabled_sources(db)),
                     make=make,
                     search_mode=search_mode,
+                    viewer=db.get(User, job.created_by) if job.created_by else None,
                 )
             except RelatedFailed as exc:
                 self._fail(db, job, str(exc))  # the message is the user's: no exception type prefix

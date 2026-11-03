@@ -92,13 +92,18 @@ def alert_years(years, years_back, this_year):
 
 
 def seen_records(db, field_id):
-    """Papers screened in any finished run of the field (any version) plus the team library."""
+    """Papers screened in any finished run of the field (any version) plus the Company library (a person's own
+    library never hides papers from the team's digests)."""
     finished = select(Run.id).where(Run.field_id == field_id, Run.status == "done")
     columns = (Paper.doi, Paper.source_id, Paper.title, Paper.year)
     screened = (
         select(*columns).join(Screening, Screening.paper_id == Paper.id).where(Screening.run_id.in_(finished))
     )
-    library = select(*columns).join(LibraryItem, LibraryItem.paper_id == Paper.id)
+    library = (
+        select(*columns)
+        .join(LibraryItem, LibraryItem.paper_id == Paper.id)
+        .where(LibraryItem.scope == "company")
+    )
     rows = db.execute(union(screened, library)).all()
     return [{"doi": r.doi or "", "source_id": r.source_id, "title": r.title, "year": r.year} for r in rows]
 

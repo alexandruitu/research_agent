@@ -147,13 +147,23 @@ def _score(paper, terms):
     return sum(1 for t in terms if t.casefold() in text)
 
 
-def search_local(db, terms, exclude_id, limit=LOCAL_LIMIT):
-    """Papers of the team library or seen in a run whose title or abstract contains the terms (at least two,
+def _library_items(viewer):
+    """Library items the viewer may know about: the Company library and, with a viewer, their own."""
+    if viewer is None:
+        return LibraryItem.scope == "company"
+    from .library import visible
+
+    return visible(viewer)
+
+
+def search_local(db, terms, exclude_id, limit=LOCAL_LIMIT, viewer=None):
+    """Papers of the libraries the viewer sees or seen in a run whose title or abstract contains the terms (at least two,
     or the only one)."""
     if not terms:
         return []
     known = or_(
-        exists().where(Screening.paper_id == Paper.id), exists().where(LibraryItem.paper_id == Paper.id)
+        exists().where(Screening.paper_id == Paper.id),
+        exists().where(LibraryItem.paper_id == Paper.id, _library_items(viewer)),
     )
     match = or_(*[c.ilike(f"%{t}%") for t in terms for c in (Paper.title, Paper.abstract)])
     rows = db.scalars(select(Paper).where(known, match, Paper.id != exclude_id).limit(500)).all()
@@ -206,13 +216,18 @@ def _known(db, papers):
     return rows
 
 
-def _badges(db, rows):
+def _badges(db, rows, viewer=None):
     """{paper uuid: {library_item_id, runs: [{id, name}]}} for the matched DB papers."""
     if not rows:
         return {}
     ids = [r.id for r in rows]
     out = {r.id: {"library_item_id": None, "runs": []} for r in rows}
-    for item in db.scalars(select(LibraryItem).where(LibraryItem.paper_id.in_(ids))):
+    items = db.scalars(
+        select(LibraryItem)
+        .where(LibraryItem.paper_id.in_(ids), _library_items(viewer))
+        .order_by(LibraryItem.scope.desc())  # personal first, so the Company item wins
+    )
+    for item in items:
         out[item.paper_id]["library_item_id"] = str(item.id)
     pairs = db.execute(
         select(Screening.paper_id, Run)
@@ -245,7 +260,7 @@ def search_keywords(selection, me):
     return keywords_for(key_terms(selection if (selection or "").strip() else me.title))
 
 
-def find_related(db, me, selection, mode, *, names, make, search_mode="live"):
+def find_related(db, me, selection, mode, *, names, make, search_mode="live", viewer=None):
     """The job result. `me` is the paper being read (a DB row); `names` the enabled search sources; `make(name)`
     their connector. Raises RelatedFailed when there is nothing to search or every source failed."""
     if mode not in MODES:
@@ -264,12 +279,12 @@ def find_related(db, me, selection, mode, *, names, make, search_mode="live"):
         listed = "; ".join(f"{w['source']}: {w['reason']}" for w in found["warnings"])
         raise RelatedFailed(f"No search source answered ({listed}). Nothing was searched; retry later.")
     query_text = " ".join(terms)
-    local = [_local_paper(r, query_text) for r in search_local(db, terms, me.id)]
+    local = [_local_paper(r, query_text) for r in search_local(db, terms, me.id, viewer=viewer)]
     merged = [p for p in deduplicate(found["papers"] + local) if not _is_self(p, me)]
     rows = _known(db, merged)
     by_source = {r.source_id: r for r in rows}
     by_doi = {normalize_doi(r.doi): r for r in rows if r.doi}
-    badges = _badges(db, rows)
+    badges = _badges(db, rows, viewer)
     results = []
     for paper in merged:
         row = by_source.get(paper.id) or (by_doi.get(paper.doi) if paper.doi else None)

@@ -113,8 +113,10 @@ def matrix(imported, paper_id, field_id):
         ("GET", "/library/collections", "viewer"),
         ("POST", "/library/collections", "member"),
         ("PATCH", f"/library/collections/{NIL}", "member"),
-        ("POST", f"/library/collections/{NIL}/archive", "admin"),
-        ("POST", f"/library/collections/{NIL}/restore", "admin"),
+        # members archive their own collections; a Company collection is checked in the handler (admins)
+        ("POST", f"/library/collections/{NIL}/archive", "member"),
+        ("POST", f"/library/collections/{NIL}/restore", "member"),
+        ("POST", "/library/eligibility", "viewer"),
         ("POST", "/evals", "member"),
         ("POST", "/evals/estimate", "member"),
         ("GET", "/evals/compare", "viewer"),

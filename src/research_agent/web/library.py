@@ -1,5 +1,11 @@
-"""The team library: papers saved from runs, with collections, tags, a note, a team status, a frozen snapshot
+"""The two libraries: papers saved from runs, with collections, tags, a note, a team status, a frozen snapshot
 of the evidence at save time, and a history of every change.
+
+Two libraries (`scope`): the Company library (`company`, everyone signed in) and each person's own library
+(`personal`, `owner_id`, visible to that person only: every query goes through `visible`/`in_library`). A paper
+can be in both. The Company library takes only papers with full text (`full_text`: the panel reviewed full text
+of the paper in some run, or someone uploaded its PDF); items migrated from the old team library may be
+abstract only and stay, flagged. Collections belong to one library too.
 
 Search (`q`) is ILIKE over title, abstract and note: every whitespace-separated word must match one of them.
 The library is small (hundreds to a few thousand items) and people type partial words in mixed languages, so
@@ -25,6 +31,7 @@ from .db.models import (
     LibraryTag,
     Paper,
     PaperFile,
+    PaperReview,
     Run,
     Screening,
     User,
@@ -32,6 +39,7 @@ from .db.models import (
 from .papers import paper_drawer
 
 STATUSES = ("to_read", "read", "relevant", "rejected")
+SCOPES = ("personal", "company")
 SORTS = ("added_at", "title", "year", "score", "status")
 PLAIN = re.compile(r"^[^\x00-\x1f\x7f]*$")
 EXPORT_MAX = 5000
@@ -45,6 +53,7 @@ class LibraryError(Exception):
 
 @dataclass
 class LibraryQuery:
+    scope: str = "company"  # which library: company | personal (the signed-in user's)
     q: str | None = None
     collection_id: object = None
     status: str | None = None
@@ -58,6 +67,65 @@ class LibraryQuery:
     direction: str = "desc"
     page: int = 1
     page_size: int = 50
+
+
+def visible(user, model=LibraryItem):
+    """Items (or collections) `user` may see: the Company library and their own."""
+    return or_(model.scope == "company", and_(model.scope == "personal", model.owner_id == user.id))
+
+
+def in_library(scope, user, model=LibraryItem):
+    """Items (or collections) of one library as `user` sees it."""
+    if scope == "company":
+        return model.scope == "company"
+    if scope == "personal":
+        return and_(model.scope == "personal", model.owner_id == user.id)
+    raise ValueError(f"unknown library {scope!r}")
+
+
+def can_see(user, row):
+    return row.scope == "company" or (row.scope == "personal" and row.owner_id == user.id)
+
+
+def can_remove(user, item):
+    """Personal items: their owner. Company items: who added it, or an admin."""
+    if item.scope == "personal":
+        return item.owner_id == user.id
+    return user.role == "admin" or item.added_by == user.id
+
+
+def full_text(db, run, paper_id):
+    """{text_source, text_licence} of the full text available for a paper, or None (abstract only): the text
+    the panel reviewed in `run`, else in any other run, else the paper's latest uploaded PDF."""
+    reviews = db.execute(
+        select(PaperReview.run_id, PaperReview.text_source, PaperReview.text_licence)
+        .where(PaperReview.paper_id == paper_id, PaperReview.text_source != "abstract")
+        .order_by(PaperReview.id)
+    ).all()
+    if reviews:
+        mine = [r for r in reviews if run is not None and r.run_id == run.id]
+        best = (mine or reviews)[0]
+        return {"text_source": best.text_source, "text_licence": best.text_licence}
+    upload = db.scalar(select(PaperFile.id).where(PaperFile.paper_id == paper_id).limit(1))
+    if upload is not None:
+        return {"text_source": "upload", "text_licence": "user_upload"}
+    return None
+
+
+def eligibility(db, run, paper_ids):
+    """Per paper of the run: whether it can go into the Company library, and the text it would rest on."""
+    out = []
+    for pid in dict.fromkeys(paper_ids):
+        text = full_text(db, run, pid)
+        out.append(
+            {
+                "paper_id": pid,
+                "has_full_text": text is not None,
+                "text_source": text["text_source"] if text else None,
+                "text_licence": text["text_licence"] if text else None,
+            }
+        )
+    return out
 
 
 def _jsonable(value):
@@ -139,6 +207,12 @@ def _apply_snapshot(item, run, snapshot):
     item.red_flag_count = panel.get("red_flag_count") if panel else None
 
 
+def _set_text(item, text):
+    item.has_full_text = text is not None
+    item.text_source = text["text_source"] if text else None
+    item.text_licence = text["text_licence"] if text else None
+
+
 def record(db, item, user, kind, detail=None):
     # clock_timestamp(): events of one transaction keep their order (now() is the transaction's start)
     db.add(
@@ -152,27 +226,50 @@ def record(db, item, user, kind, detail=None):
     )
 
 
-def load_collections(db, ids):
-    """Collections by id; unknown -> 422 unknown_collection, archived -> 422 archived_collection."""
+def load_collections(db, ids, scope, user):
+    """Collections by id in one library; unknown or not visible -> 422 unknown_collection, of the other
+    library -> 422 wrong_library, archived -> 422 archived_collection."""
     rows = (
-        {c.id: c for c in db.scalars(select(Collection).where(Collection.id.in_(list(ids))))} if ids else {}
+        {
+            c.id: c
+            for c in db.scalars(
+                select(Collection).where(Collection.id.in_(list(ids)), visible(user, Collection))
+            )
+        }
+        if ids
+        else {}
     )
     for cid in ids:
         if cid not in rows:
             raise LibraryError(422, "unknown_collection", "No such collection")
+        if rows[cid].scope != scope:
+            raise LibraryError(
+                422, "wrong_library", f"The collection “{rows[cid].name}” belongs to the other library"
+            )
         if rows[cid].archived_at is not None:
             raise LibraryError(422, "archived_collection", f"The collection “{rows[cid].name}” is archived")
     return [rows[cid] for cid in dict.fromkeys(ids)]
 
 
-def create_collection(db, user, name, description=""):
+def _name_taken(db, name, scope, owner_id, exclude=None):
+    stmt = select(Collection.id).where(func.lower(Collection.name) == name.lower(), Collection.scope == scope)
+    if scope == "personal":
+        stmt = stmt.where(Collection.owner_id == owner_id)
+    if exclude is not None:
+        stmt = stmt.where(Collection.id != exclude)
+    return db.scalar(stmt.limit(1)) is not None
+
+
+def create_collection(db, user, name, description="", scope="company"):
     name = " ".join(name.split())
     if not name:
         raise LibraryError(422, "validation_error", "A collection needs a name")
-    taken = db.scalar(select(Collection).where(func.lower(Collection.name) == name.lower()))
-    if taken is not None:
+    owner = user.id if scope == "personal" else None
+    if _name_taken(db, name, scope, owner):
         raise LibraryError(409, "name_taken", "A collection with this name already exists")
-    collection = Collection(name=name, description=description or "", created_by=user.id)
+    collection = Collection(
+        name=name, description=description or "", created_by=user.id, scope=scope, owner_id=owner
+    )
     db.add(collection)
     db.flush()
     return collection
@@ -181,14 +278,9 @@ def create_collection(db, user, name, description=""):
 def rename_collection(db, collection, name=None, description=None):
     if name is not None:
         name = " ".join(name.split())
-        taken = db.scalar(
-            select(Collection).where(
-                func.lower(Collection.name) == name.lower(), Collection.id != collection.id
-            )
-        )
         if not name:
             raise LibraryError(422, "validation_error", "A collection needs a name")
-        if taken is not None:
+        if _name_taken(db, name, collection.scope, collection.owner_id, exclude=collection.id):
             raise LibraryError(409, "name_taken", "A collection with this name already exists")
         collection.name = name
     if description is not None:
@@ -269,9 +361,16 @@ def _set_collections(db, item, collections, merge=False):
     return sorted(added), sorted(removed)
 
 
-def save(db, user, run, paper_ids, *, collections=(), tags=(), note="", status="to_read"):
-    """Save papers of `run`. New papers become items with a snapshot; papers already in the library keep
-    their status, note and snapshot, and get the collections and tags merged. Returns (created, existing)."""
+def find_item(db, scope, user, paper_id):
+    return db.scalar(select(LibraryItem).where(LibraryItem.paper_id == paper_id, in_library(scope, user)))
+
+
+def save(db, user, run, paper_ids, *, scope="personal", collections=(), tags=(), note="", status="to_read"):
+    """Save papers of `run` into one library. New papers become items with a snapshot; papers already in that
+    library keep their status, note and snapshot, and get the collections and tags merged. The Company library
+    refuses (422 needs_full_text) when any paper has only its abstract. Returns (created, existing)."""
+    if scope not in SCOPES:
+        raise LibraryError(422, "validation_error", "Unknown library")
     ids = list(dict.fromkeys(paper_ids))
     in_run = set(
         db.scalars(select(Screening.paper_id).where(Screening.run_id == run.id, Screening.paper_id.in_(ids)))
@@ -280,12 +379,32 @@ def save(db, user, run, paper_ids, *, collections=(), tags=(), note="", status="
     if missing:
         raise LibraryError(422, "not_in_run", f"{len(missing)} of these papers are not part of this run")
     tags = [normalize_tag(t) for t in tags]
+    texts = {pid: full_text(db, run, pid) for pid in ids}
+    if scope == "company":
+        abstract_only = [pid for pid in ids if texts[pid] is None]
+        if abstract_only:
+            n = len(abstract_only)
+            raise LibraryError(
+                422,
+                "needs_full_text",
+                f"{n} of these papers {'has' if n == 1 else 'have'} only an abstract: the Company library keeps "
+                "papers with full text. Upload the PDF first.",
+            )
     created, existing = [], []
     for pid in ids:
-        item = db.scalar(select(LibraryItem).where(LibraryItem.paper_id == pid))
+        item = find_item(db, scope, user, pid)
+        text = texts[pid]
         if item is None:
-            item = LibraryItem(paper_id=pid, status=status, note=note or "", added_by=user.id)
+            item = LibraryItem(
+                paper_id=pid,
+                status=status,
+                note=note or "",
+                added_by=user.id,
+                scope=scope,
+                owner_id=user.id if scope == "personal" else None,
+            )
             _apply_snapshot(item, run, build_snapshot(db, run, db.get(Paper, pid)))
+            _set_text(item, text)
             db.add(item)
             db.flush()
             _set_collections(db, item, collections)
@@ -297,6 +416,7 @@ def save(db, user, run, paper_ids, *, collections=(), tags=(), note="", status="
                 "added",
                 {
                     "run_id": str(run.id),
+                    "library": scope,
                     "status": status,
                     "collections": [c.name for c in collections],
                     "tags": sorted(set(tags)),
@@ -304,6 +424,10 @@ def save(db, user, run, paper_ids, *, collections=(), tags=(), note="", status="
             )
             created.append(item)
         else:
+            if (
+                text is not None and not item.has_full_text
+            ):  # e.g. a migrated abstract-only item, now with text
+                _set_text(item, text)
             c_added, _ = _set_collections(db, item, collections, merge=True)
             t_added, _ = _set_tags(db, item, tags, merge=True)
             if c_added or t_added:
@@ -344,6 +468,9 @@ def refresh_snapshot(db, item, run, user):
     snapshot = build_snapshot(db, run, paper)
     previous = item.run_id
     _apply_snapshot(item, run, snapshot)
+    text = full_text(db, run, item.paper_id)
+    if text is not None:
+        _set_text(item, text)
     record(
         db, item, user, "snapshot", {"from_run": str(previous) if previous else None, "to_run": str(run.id)}
     )
@@ -356,8 +483,12 @@ def _like(word):
     return "%" + word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _filtered(q):
-    stmt = select(LibraryItem, Paper).join(Paper, Paper.id == LibraryItem.paper_id)
+def _filtered(q, user):
+    stmt = (
+        select(LibraryItem, Paper)
+        .join(Paper, Paper.id == LibraryItem.paper_id)
+        .where(in_library(q.scope, user))
+    )
     for word in (q.q or "").split():
         pattern = _like(word)
         stmt = stmt.where(
@@ -414,9 +545,10 @@ def _order(q):
     return (key.desc().nulls_last() if q.direction == "desc" else key.asc().nulls_last()), LibraryItem.id
 
 
-def search(db, q, limit=None):
-    """(rows [(item, paper)], total) for one page, or every match up to `limit` when given (export)."""
-    stmt = _filtered(q)
+def search(db, q, user, limit=None):
+    """(rows [(item, paper)], total) of one library as `user` sees it, for one page, or every match up to
+    `limit` when given (export)."""
+    stmt = _filtered(q, user)
     total = db.scalar(select(func.count()).select_from(stmt.with_only_columns(LibraryItem.id).subquery()))
     stmt = stmt.order_by(*_order(q))
     if limit is not None:
@@ -458,12 +590,15 @@ def item_dicts(db, rows, user):
                 "run_id": item.run_id,
                 "score": item.score,
                 "red_flag_count": item.red_flag_count,
-                "text_source": panel.get("text_source"),
+                "scope": item.scope,
+                "has_full_text": item.has_full_text,
+                "text_source": item.text_source or panel.get("text_source"),
+                "text_licence": item.text_licence,
                 "editor_verdict": (panel.get("editor") or {}).get("verdict"),
                 "added_by_name": names.get(item.added_by),
                 "added_at": item.added_at,
                 "updated_at": item.updated_at,
-                "can_delete": user.role == "admin" or item.added_by == user.id,
+                "can_delete": can_remove(user, item),
                 "authors": people[paper.id]["authors"],
                 "author_count": people[paper.id]["count"],
             }
@@ -484,17 +619,31 @@ def events_of(db, item):
     ]
 
 
-def library_refs(db, paper_ids):
-    """{paper_id: {item_id, status, collections}} for the saved ones among `paper_ids`."""
+def library_refs(db, paper_ids, user):
+    """{paper_id: ref} for the papers among `paper_ids` saved in a library `user` sees. The ref describes the
+    Company item when there is one, else the user's own (item_id, scope, status, collections), and names both
+    item ids (company_item_id, personal_item_id; null: not in that library)."""
     items = (
-        db.scalars(select(LibraryItem).where(LibraryItem.paper_id.in_(list(paper_ids)))).all()
-        if paper_ids
+        db.scalars(select(LibraryItem).where(LibraryItem.paper_id.in_(list(paper_ids)), visible(user))).all()
+        if paper_ids and user is not None
         else []
     )
     collections = collections_of(db, [i.id for i in items])
-    return {
-        i.paper_id: {"item_id": i.id, "status": i.status, "collections": collections[i.id]} for i in items
-    }
+    by_paper = {}
+    for i in items:
+        by_paper.setdefault(i.paper_id, {})[i.scope] = i
+    out = {}
+    for paper_id, scopes in by_paper.items():
+        main = scopes.get("company") or scopes["personal"]
+        out[paper_id] = {
+            "item_id": main.id,
+            "scope": main.scope,
+            "status": main.status,
+            "collections": collections[main.id],
+            "company_item_id": scopes["company"].id if "company" in scopes else None,
+            "personal_item_id": scopes["personal"].id if "personal" in scopes else None,
+        }
+    return out
 
 
 def load_run(db, run_id):

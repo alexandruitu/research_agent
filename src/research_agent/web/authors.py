@@ -159,9 +159,10 @@ def author_condition(paper_id_column, author_id=None, author_name=None):
     return and_(*conditions) if conditions else None
 
 
-def suggest(db, q, run_id=None, library=False, limit=10):
+def suggest(db, q, run_id=None, library=False, limit=10, viewer=None, scope=None):
     """Typeahead: stored authors whose normalized name contains every typed word, with their paper count
-    (within the run, or the library, when given). Identified authors first, then by paper count."""
+    (within the run, or the library, when given: one library with `scope`, else every library `viewer` sees;
+    never another user's personal library). Identified authors first, then by paper count."""
     words = normalize_name(q).split()
     if not words:
         return []
@@ -174,7 +175,13 @@ def suggest(db, q, run_id=None, library=False, limit=10):
             exists().where(Screening.run_id == run_id, Screening.paper_id == PaperAuthor.paper_id)
         )
     if library:
-        stmt = stmt.where(exists().where(LibraryItem.paper_id == PaperAuthor.paper_id))
+        from .library import in_library, visible
+
+        if viewer is None:
+            mine = LibraryItem.scope == "company"
+        else:
+            mine = in_library(scope, viewer) if scope else visible(viewer)
+        stmt = stmt.where(exists().where(LibraryItem.paper_id == PaperAuthor.paper_id, mine))
     identified = or_(Author.orcid.is_not(None), Author.openalex_id.is_not(None))
     stmt = (
         stmt.group_by(Author.id)

@@ -4,8 +4,9 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
+from ... import library as library_svc
 from ... import reader as svc
 from ... import related
 from ...authors import authors_of
@@ -251,6 +252,7 @@ def _note_out(db, note):
         "general": bool(answer.get("general")),
         "quotes": note.quotes or [],
         "model": note.model,
+        "visibility": note.visibility,
         "created_by_name": author.name if author else None,
         "created_at": note.created_at,
     }
@@ -258,12 +260,16 @@ def _note_out(db, note):
 
 @router.get("/papers/{paper_id}/notes", response_model=list[ReaderNoteOut])
 def list_notes(paper_id: uuid.UUID, user=Depends(require_role("viewer")), db=Depends(get_db)):
-    """The team's Reader notes on a paper, newest first (shown in the Reader and the Library item)."""
+    """Reader notes on a paper the user may see, newest first (shown in the Reader and the Library item): the
+    company notes and the user's own private ones."""
     if db.get(Paper, paper_id) is None:
         raise ApiError(404, "not_found", "No such paper")
     notes = db.scalars(
         select(ReaderNote)
-        .where(ReaderNote.paper_id == paper_id)
+        .where(
+            ReaderNote.paper_id == paper_id,
+            or_(ReaderNote.visibility == "company", ReaderNote.created_by == user.id),
+        )
         .order_by(ReaderNote.created_at.desc(), ReaderNote.id)
     )
     return [_note_out(db, n) for n in notes]
@@ -292,7 +298,13 @@ def save_note(
     result = (job.progress or {}).get("result")
     if job.status != "done" or not result:
         raise ApiError(409, "not_ready", "This answer is not finished")
-    item = db.scalar(select(LibraryItem).where(LibraryItem.paper_id == paper.id))
+    # linked to the Company item when there is one, else the user's own (never another user's personal item)
+    item = db.scalar(
+        select(LibraryItem)
+        .where(LibraryItem.paper_id == paper.id, library_svc.visible(user))
+        .order_by(LibraryItem.scope)  # "company" < "personal"
+        .limit(1)
+    )
     note = ReaderNote(
         paper_id=paper.id,
         run_id=run.id,
@@ -303,6 +315,7 @@ def save_note(
         answer={k: result.get(k) for k in ("answer", "not_in_paper", "general")},
         quotes=result.get("statements") or [],
         model=result.get("model") or "",
+        visibility=body.visibility,
         created_by=user.id,
     )
     db.add(note)

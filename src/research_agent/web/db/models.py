@@ -536,11 +536,30 @@ class RedFlag(Base):
 
 
 class Collection(Base):
-    """A team collection of library items. Names are unique case-insensitively; archived ones stay readable."""
+    """A collection of library items in one library: `company` (everyone) or `personal` (its owner only). Names
+    are unique case-insensitively within a library; archived ones stay readable."""
 
     __tablename__ = "collections"
-    __table_args__ = (Index("ux_collections_lower_name", text("lower(name)"), unique=True),)
+    __table_args__ = (
+        Index(
+            "ux_collections_lower_name",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("scope = 'company'"),
+        ),
+        Index(
+            "ux_collections_owner_lower_name",
+            "owner_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("scope = 'personal'"),
+        ),
+    )
     id: Mapped[uuid.UUID] = pk()
+    scope: Mapped[str] = mapped_column(String(16), default="company", server_default="company")
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )  # set for personal collections only
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
@@ -549,14 +568,37 @@ class Collection(Base):
 
 
 class LibraryItem(Base):
-    """A paper the team saved, once per paper. `snapshot` freezes the evidence of the run it was saved from;
-    field_id, run_id, score and red_flag_count mirror the snapshot for filtering and sorting."""
+    """A saved paper, once per paper in each library: the Company library (`scope` company, everyone) or one
+    person's library (`scope` personal, `owner_id`, visible to the owner only). `snapshot` freezes the evidence
+    of the run it was saved from; field_id, run_id, score and red_flag_count mirror the snapshot for filtering
+    and sorting. `has_full_text`, `text_source` and `text_licence` record the text the item rests on (Company
+    items need full text; items migrated from the old team library may be abstract only)."""
 
     __tablename__ = "library_items"
-    id: Mapped[uuid.UUID] = pk()
-    paper_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("papers.id", ondelete="CASCADE"), unique=True
+    __table_args__ = (
+        Index(
+            "ux_library_items_company_paper",
+            "paper_id",
+            unique=True,
+            postgresql_where=text("scope = 'company'"),
+        ),
+        Index(
+            "ux_library_items_personal_paper",
+            "owner_id",
+            "paper_id",
+            unique=True,
+            postgresql_where=text("scope = 'personal'"),
+        ),
     )
+    id: Mapped[uuid.UUID] = pk()
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id", ondelete="CASCADE"), index=True)
+    scope: Mapped[str] = mapped_column(String(16), default="company", server_default="company")
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )  # set for personal items only
+    has_full_text: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    text_source: Mapped[str | None] = mapped_column(String(24), nullable=True)  # resolver name, or upload
+    text_licence: Mapped[str | None] = mapped_column(String(24), nullable=True)  # None: not known
     status: Mapped[str] = mapped_column(String(16), default="to_read")  # to_read | read | relevant | rejected
     note: Mapped[str] = mapped_column(Text, default="", server_default="")
     snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -710,6 +752,8 @@ class ReaderNote(Base):
     answer: Mapped[dict] = mapped_column(JSONB, default=dict)  # {answer, not_in_paper, general}
     quotes: Mapped[list] = mapped_column(JSONB, default=list)  # [{text, quote}]
     model: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    # company: everyone signed in sees it; private: its author only
+    visibility: Mapped[str] = mapped_column(String(16), default="company", server_default="company")
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = created()
 

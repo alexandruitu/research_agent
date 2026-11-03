@@ -1060,7 +1060,8 @@ export interface paths {
         put?: never;
         /**
          * Save To Library
-         * @description Save papers of a run. Already-saved papers keep their status, note and snapshot; the requested
+         * @description Save papers of a run into one library (`scope`; personal by default). The Company library takes only
+         *     papers with full text (422 needs_full_text otherwise). Already-saved papers keep their status, note and snapshot; the requested
          *     collections and tags are merged into them and they are listed in `existing` (200 when none is new).
          */
         post: operations["save_to_library_api_v1_library_post"];
@@ -1084,6 +1085,27 @@ export interface paths {
         get: operations["export_library_api_v1_library_export_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Eligibility
+         * @description Which papers of a run can go into the Company library (full text stored or uploaded) and the text they
+         *     would rest on. The save checks this again.
+         */
+        post: operations["check_eligibility_api_v1_library_eligibility_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1309,7 +1331,8 @@ export interface paths {
         };
         /**
          * List Notes
-         * @description The team's Reader notes on a paper, newest first (shown in the Reader and the Library item).
+         * @description Reader notes on a paper the user may see, newest first (shown in the Reader and the Library item): the
+         *     company notes and the user's own private ones.
          */
         get: operations["list_notes_api_v1_papers__paper_id__notes_get"];
         put?: never;
@@ -2129,6 +2152,12 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Scope
+             * @default personal
+             * @enum {string}
+             */
+            scope: "personal" | "company";
+            /**
              * Description
              * @default
              */
@@ -2141,6 +2170,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope?: "personal" | "company";
             /** Name */
             name: string;
             /** Description */
@@ -2436,6 +2470,21 @@ export interface components {
             disagreements: components["schemas"]["DisagreementOut"][];
             /** Call Key */
             call_key: string | null;
+        };
+        /** EligibilityOut */
+        EligibilityOut: {
+            /** Papers */
+            papers: components["schemas"]["PaperEligibility"][];
+        };
+        /** EligibilityRequest */
+        EligibilityRequest: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Paper Ids */
+            paper_ids: string[];
         };
         /** EstimateLine */
         EstimateLine: {
@@ -3078,6 +3127,15 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope?: "personal" | "company";
+            /** Has Full Text */
+            has_full_text?: boolean;
+            /** Text Licence */
+            text_licence?: string | null;
             paper: components["schemas"]["LibraryPaperOut"];
             /** Status */
             status: string;
@@ -3134,6 +3192,15 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope?: "personal" | "company";
+            /** Has Full Text */
+            has_full_text?: boolean;
+            /** Text Licence */
+            text_licence?: string | null;
             paper: components["schemas"]["LibraryPaperOut"];
             /** Status */
             status: string;
@@ -3213,7 +3280,8 @@ export interface components {
         };
         /**
          * LibraryRef
-         * @description A paper's place in the team library (on paper rows and the drawer); null when it is not saved.
+         * @description A paper's place in the libraries the user sees (on paper rows and the drawer); null when it is in
+         *     neither. item_id, status and collections describe the Company item when there is one, else the user's own.
          */
         LibraryRef: {
             /**
@@ -3225,6 +3293,15 @@ export interface components {
             status: string;
             /** Collections */
             collections: components["schemas"]["CollectionRef"][];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope?: "personal" | "company";
+            /** Company Item Id */
+            company_item_id?: string | null;
+            /** Personal Item Id */
+            personal_item_id?: string | null;
         };
         /** LibrarySaveOut */
         LibrarySaveOut: {
@@ -3243,6 +3320,12 @@ export interface components {
              * Format: uuid
              */
             run_id: string;
+            /**
+             * Scope
+             * @default personal
+             * @enum {string}
+             */
+            scope: "personal" | "company";
             /** Paper Ids */
             paper_ids: string[];
             /** Collection Ids */
@@ -3468,6 +3551,20 @@ export interface components {
             year: number | null;
             /** Doi */
             doi: string;
+        };
+        /** PaperEligibility */
+        PaperEligibility: {
+            /**
+             * Paper Id
+             * Format: uuid
+             */
+            paper_id: string;
+            /** Has Full Text */
+            has_full_text: boolean;
+            /** Text Source */
+            text_source: string | null;
+            /** Text Licence */
+            text_licence: string | null;
         };
         /** PaperFileOut */
         PaperFileOut: {
@@ -3898,6 +3995,12 @@ export interface components {
              * Format: uuid
              */
             job_id: string;
+            /**
+             * Visibility
+             * @default private
+             * @enum {string}
+             */
+            visibility: "private" | "company";
         };
         /** ReaderNoteOut */
         ReaderNoteOut: {
@@ -3931,6 +4034,11 @@ export interface components {
             quotes: components["schemas"]["ReaderQuote"][];
             /** Model */
             model: string;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility?: "private" | "company";
             /** Created By Name */
             created_by_name: string | null;
             /**
@@ -7066,6 +7174,8 @@ export interface operations {
             query?: {
                 /** @description true: also list archived collections */
                 archived?: boolean;
+                /** @description which library's collections */
+                scope?: "personal" | "company";
             };
             header?: never;
             path?: never;
@@ -7226,6 +7336,8 @@ export interface operations {
     list_library_api_v1_library_get: {
         parameters: {
             query?: {
+                /** @description which library: company, or personal (your own) */
+                scope?: "personal" | "company";
                 /** @description words matched in title, abstract or note */
                 q?: string | null;
                 collection_id?: string | null;
@@ -7306,6 +7418,8 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv" | "bibtex";
+                /** @description which library: company, or personal (your own) */
+                scope?: "personal" | "company";
                 /** @description words matched in title, abstract or note */
                 q?: string | null;
                 collection_id?: string | null;
@@ -7337,6 +7451,39 @@ export interface operations {
                 content: {
                     "text/csv": unknown;
                     "application/x-bibtex": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_eligibility_api_v1_library_eligibility_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EligibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EligibilityOut"];
                 };
             };
             /** @description Validation Error */
@@ -7487,8 +7634,10 @@ export interface operations {
                 q: string;
                 /** @description count (and list) only papers of this run */
                 run_id?: string | null;
-                /** @description count (and list) only papers in the team library */
+                /** @description count (and list) only papers in your libraries */
                 library?: boolean;
+                /** @description with library: only this library (company, or personal: your own) */
+                scope?: ("personal" | "company") | null;
                 limit?: number;
             };
             header?: never;

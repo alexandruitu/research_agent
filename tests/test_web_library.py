@@ -3,6 +3,7 @@
 import uuid
 
 from sqlalchemy import select
+from web_fixtures import give_full_text
 
 from research_agent.web.db.models import LibraryEvent, LibraryItem, Paper
 
@@ -101,13 +102,19 @@ def test_save_refusals(sign_in, imported, db):
 def test_archived_collections_take_no_new_items(sign_in, imported, db):
     member, csrf = sign_in("member")
     admin, acsrf = sign_in("admin")
-    c = member.post(f"{API}/library/collections", json={"name": "Old"}, headers=csrf).json()
+    give_full_text(db, "demo:1")
+    c = member.post(
+        f"{API}/library/collections", json={"name": "Old", "scope": "company"}, headers=csrf
+    ).json()
     assert member.post(f"{API}/library/collections/{c['id']}/archive", headers=csrf).status_code == 403
     assert admin.post(f"{API}/library/collections/{c['id']}/archive", headers=acsrf).json()["archived_at"]
-    r = save(member, csrf, imported["research"], [pid(db, "demo:1")], collection_ids=[c["id"]])
+    r = save(
+        member, csrf, imported["research"], [pid(db, "demo:1")], collection_ids=[c["id"]], scope="company"
+    )
     assert r.status_code == 422 and r.json()["code"] == "archived_collection"
-    assert [x["name"] for x in member.get(f"{API}/library/collections").json()] == []
-    assert [x["name"] for x in member.get(f"{API}/library/collections?archived=true").json()] == ["Old"]
+    assert [x["name"] for x in member.get(f"{API}/library/collections?scope=company").json()] == []
+    archived = member.get(f"{API}/library/collections?scope=company&archived=true").json()
+    assert [x["name"] for x in archived] == ["Old"]
     restored = admin.post(f"{API}/library/collections/{c['id']}/restore", headers=acsrf).json()
     assert restored["archived_at"] is None
 
@@ -155,8 +162,10 @@ def test_delete_is_for_the_adder_or_an_admin(app, sign_in, imported, db):
     create_user(db, email="other@example.org", name="Other", role="member", password="correct horse battery")
     db.commit()
     member, csrf = sign_in("member")
+    give_full_text(db, "demo:1", "demo:2")
     first, second = (
-        save(member, csrf, imported["research"], [pid(db, f"demo:{n}")]).json()["created"][0] for n in (1, 2)
+        save(member, csrf, imported["research"], [pid(db, f"demo:{n}")], scope="company").json()["created"][0]
+        for n in (1, 2)
     )
     from fastapi.testclient import TestClient
 
@@ -178,11 +187,17 @@ def test_delete_is_for_the_adder_or_an_admin(app, sign_in, imported, db):
 
 def test_filters_sorting_and_paging(sign_in, imported, db):
     member, csrf = sign_in("member")
+    give_full_text(db, "demo:1", "demo:2", "demo:3")
     ids = save(
-        member, csrf, imported["research"], [pid(db, f"demo:{n}") for n in (1, 2, 3)], tags=["t"]
+        member,
+        csrf,
+        imported["research"],
+        [pid(db, f"demo:{n}") for n in (1, 2, 3)],
+        tags=["t"],
+        scope="company",
     ).json()
     first, second, third = ids["created"]
-    c = member.post(f"{API}/library/collections", json={"name": "C"}, headers=csrf).json()
+    c = member.post(f"{API}/library/collections", json={"name": "C", "scope": "company"}, headers=csrf).json()
     member.patch(
         f"{API}/library/{first}",
         json={
@@ -256,8 +271,11 @@ def test_rows_and_drawer_show_the_library_state(sign_in, imported, db):
     refs = {r["paper"]["id"]: r["library"] for r in rows}
     assert refs[paper] == {
         "item_id": item_id,
+        "scope": "personal",
         "status": "to_read",
         "collections": [{"id": body["collection"]["id"], "name": "C"}],
+        "company_item_id": None,
+        "personal_item_id": item_id,
     }
     assert refs[pid(db, "demo:2")] is None
     drawer = member.get(f"{API}/runs/{imported['research']}/papers/{paper}").json()

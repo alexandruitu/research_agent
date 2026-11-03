@@ -50,7 +50,10 @@ def test_bibtex_escapes_and_keys():
 def test_export_endpoint_honours_filters(sign_in, imported, db):
     member, csrf = sign_in("member")
     ids = [str(db.scalar(select(Paper.id).where(Paper.source_id == f"demo:{n}"))) for n in (1, 2)]
-    body = {"run_id": str(imported["research"]), "paper_ids": ids, "tags": ["x"]}
+    from web_fixtures import give_full_text
+
+    give_full_text(db, "demo:1", "demo:2")
+    body = {"run_id": str(imported["research"]), "paper_ids": ids, "tags": ["x"], "scope": "company"}
     item_id = member.post(f"{API}/library", json=body, headers=csrf).json()["created"][0]
     member.patch(f"{API}/library/{item_id}", json={"status": "relevant"}, headers=csrf)
     viewer, _ = sign_in("viewer")

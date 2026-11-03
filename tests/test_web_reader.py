@@ -307,3 +307,38 @@ def test_the_reader_model_is_a_setting_kept_out_of_runs(db):
     assert reader_model(db, {}) == "a:screen"  # default: the Screen model
     row.models = {**row.models, "reader": "a:reader"}
     assert reader_model(db, {}) == "a:reader"
+
+
+def test_notes_are_private_unless_shared_with_the_company(reader_world):
+    settings, factory, sign_in, run_id, paper = reader_world
+    member, csrf = sign_in("member")
+    admin, _ = sign_in("admin")
+    with factory() as db:
+        admin_id = db.scalar(select(User.id).where(User.role == "admin"))
+        # another person's own library item is never linked to this member's note
+        db.add(LibraryItem(paper_id=paper.id, run_id=run_id, scope="personal", owner_id=admin_id))
+        db.commit()
+    saved = {}
+    for visibility in ("private", "company"):
+        r = member.post(
+            f"{API}/runs/{run_id}/papers/{paper.id}/reader/ask",
+            json={"tool": "background", "selection": "AUC"},
+            headers=csrf,
+        )
+        Worker(settings, factory).drain()
+        note = member.post(
+            f"{API}/runs/{run_id}/papers/{paper.id}/notes",
+            json={"job_id": r.json()["id"], "visibility": visibility},
+            headers=csrf,
+        )
+        assert note.status_code == 201 and note.json()["visibility"] == visibility
+        assert note.json()["library_item_id"] is None
+        saved[visibility] = note.json()["id"]
+    assert {n["id"] for n in member.get(f"{API}/papers/{paper.id}/notes").json()} == set(saved.values())
+    assert [n["id"] for n in admin.get(f"{API}/papers/{paper.id}/notes").json()] == [saved["company"]]
+    bad = member.post(
+        f"{API}/runs/{run_id}/papers/{paper.id}/notes",
+        json={"job_id": str(uuid.uuid4()), "visibility": "everyone"},
+        headers=csrf,
+    )
+    assert bad.status_code == 422

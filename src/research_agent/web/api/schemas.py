@@ -1589,6 +1589,7 @@ class ModelsAvailableOut(Model):
 # --- Team library -------------------------------------------------------------------------------------------
 
 LibraryStatus = Literal["to_read", "read", "relevant", "rejected"]
+LibraryScope = Literal["personal", "company"]  # My library (the signed-in user's own) | Company library
 
 
 class CollectionRef(Model):
@@ -1597,15 +1598,22 @@ class CollectionRef(Model):
 
 
 class LibraryRef(Model):
-    """A paper's place in the team library (on paper rows and the drawer); null when it is not saved."""
+    """A paper's place in the libraries the user sees (on paper rows and the drawer); null when it is in
+    neither. item_id, status and collections describe the Company item when there is one, else the user's own."""
 
+    ADDED: ClassVar[frozenset] = frozenset(["scope", "company_item_id", "personal_item_id"])
     item_id: uuid.UUID
     status: str  # to_read | read | relevant | rejected
     collections: list[CollectionRef]
+    scope: LibraryScope = "company"  # the library of item_id
+    company_item_id: uuid.UUID | None = None
+    personal_item_id: uuid.UUID | None = None  # the user's own item
 
 
 class CollectionOut(Model):
+    ADDED: ClassVar[frozenset] = frozenset(["scope"])
     id: uuid.UUID
+    scope: LibraryScope = "company"
     name: str
     description: str
     archived_at: datetime | None
@@ -1616,6 +1624,7 @@ class CollectionOut(Model):
 
 class CollectionCreate(Model):
     name: str = Field(min_length=1, max_length=100, pattern=PLAIN)
+    scope: LibraryScope = "personal"  # its library (a new collection in a save goes into the save's library)
     description: str = Field(default="", max_length=500, pattern=PLAIN)
 
     @field_validator("name", "description", mode="before")
@@ -1649,8 +1658,15 @@ class LibraryFieldOut(Model):
 
 
 class LibraryItemOut(Model):
-    ADDED: ClassVar[frozenset] = frozenset(["authors", "author_count"])
+    ADDED: ClassVar[frozenset] = frozenset(
+        ["authors", "author_count", "scope", "has_full_text", "text_licence"]
+    )
     id: uuid.UUID
+    scope: LibraryScope = "company"
+    has_full_text: bool = False  # false: abstract only (only items from before the two libraries, in Company)
+    text_licence: str | None = (
+        None  # licence of the text (cc-by.., open_access, user_upload, ...); null: unknown
+    )
     paper: LibraryPaperOut
     status: str  # to_read | read | relevant | rejected
     note: str
@@ -1660,12 +1676,12 @@ class LibraryItemOut(Model):
     run_id: uuid.UUID | None
     score: float | None  # panel score (0-100), else the ranking score, at snapshot time
     red_flag_count: int | None  # null: not a panel run
-    text_source: str | None
+    text_source: str | None  # where the text came from: a full-text resolver, upload, or abstract
     editor_verdict: str | None
     added_by_name: str | None
     added_at: datetime
     updated_at: datetime
-    can_delete: bool  # the signed-in user added it, or is an admin
+    can_delete: bool  # personal: the owner; company: the signed-in user added it, or is an admin
     authors: list[AuthorOut] = Field(default_factory=list)  # the first 3 (then "et al.")
     author_count: int = 0
 
@@ -1694,12 +1710,29 @@ class LibraryPage(Model):
 
 class LibrarySaveRequest(Model):
     run_id: uuid.UUID
+    scope: LibraryScope = "personal"  # one library per request; the Company library needs full text
     paper_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
     collection_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
     new_collection: CollectionCreate | None = None
     tags: list[str] = Field(default_factory=list, max_length=20)
     note: str = Field(default="", max_length=5000, pattern=TEXT)
     status: LibraryStatus = "to_read"
+
+
+class EligibilityRequest(Model):
+    run_id: uuid.UUID
+    paper_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class PaperEligibility(Model):
+    paper_id: uuid.UUID
+    has_full_text: bool  # false: abstract only, so not allowed in the Company library
+    text_source: str | None  # resolver name, or upload
+    text_licence: str | None
+
+
+class EligibilityOut(Model):
+    papers: list[PaperEligibility]
 
 
 class LibrarySaveOut(Model):
@@ -1896,6 +1929,7 @@ class ReaderQuote(Model):
 
 class ReaderNoteIn(Model):
     job_id: uuid.UUID  # a finished reader_ask job of this user: its checked answer is saved, not client text
+    visibility: Literal["private", "company"] = "private"  # private: only its author sees it
 
 
 class ReaderNoteOut(Model):
@@ -1911,8 +1945,10 @@ class ReaderNoteOut(Model):
     general: bool
     quotes: list[ReaderQuote]
     model: str
+    visibility: Literal["private", "company"] = "company"
     created_by_name: str | None
     created_at: datetime
+    ADDED: ClassVar[frozenset] = frozenset(["visibility"])
 
 
 BackfillStatusOut.model_rebuild()

@@ -142,12 +142,16 @@ def test_filter_library_by_author(sign_in, db, authored):
     papers = [str(paper_row(db, s).id) for s in ("demo:1", "demo:3", "demo:4")]
     r = member.post(f"{API}/library", json={"run_id": str(authored), "paper_ids": papers}, headers=csrf)
     assert r.status_code == 201, r.text
-    items = member.get(f"{API}/library").json()["items"]
+    items = member.get(f"{API}/library", params={"scope": "personal"}).json()["items"]
     by_source = {i["paper"]["source_id"]: i for i in items}
     assert by_source["demo:1"]["author_count"] == 4 and len(by_source["demo:1"]["authors"]) == 3
     jon_id = db.scalar(select(Author.id).where(Author.openalex_id == "A2"))
-    assert ids(member.get(f"{API}/library", params={"author_id": str(jon_id)})) == ["demo:1"]
-    assert ids(member.get(f"{API}/library", params={"author_name": "Jon Smith"})) == ["demo:1", "demo:3"]
+    mine = {"scope": "personal"}
+    assert ids(member.get(f"{API}/library", params={"author_id": str(jon_id)} | mine)) == ["demo:1"]
+    assert ids(member.get(f"{API}/library", params={"author_name": "Jon Smith"} | mine)) == [
+        "demo:1",
+        "demo:3",
+    ]
     detail = member.get(f"{API}/library/{by_source['demo:1']['id']}").json()
     assert len(detail["authors"]) == 4
 
@@ -257,3 +261,25 @@ def test_backfill_job_from_settings_runs_in_the_worker(world):
     assert [(a["orcid"], a["openalex_id"], a["paper_count"]) for a in found] == [
         ("0000-0003-0000-0007", "A7", 1)
     ]
+
+
+def test_library_typeahead_counts_only_libraries_the_user_sees(sign_in, db, authored):
+    from web_fixtures import give_full_text
+
+    member, csrf = sign_in("member")
+    viewer, _ = sign_in("viewer")
+    give_full_text(db, "demo:3")
+    body = {"run_id": str(authored), "paper_ids": [str(paper_row(db, "demo:1").id)]}
+    assert member.post(f"{API}/library", json=body, headers=csrf).status_code == 201  # My library
+    company = body | {"paper_ids": [str(paper_row(db, "demo:3").id)], "scope": "company"}
+    assert member.post(f"{API}/library", json=company, headers=csrf).status_code == 201
+
+    def counts(client, **extra):
+        found = client.get(f"{API}/authors", params={"q": "jon", "library": True, **extra}).json()
+        return sorted(((a["openalex_id"] or ""), a["paper_count"]) for a in found)
+
+    assert len(counts(member)) == 2  # both of the member's libraries
+    assert counts(member, scope="personal") == [("A2", 1)]  # demo:1 has the identified Jon
+    assert counts(member, scope="company") == [("", 1)]  # demo:3 has the name-only Jon
+    assert counts(viewer) == [("", 1)]  # the member's own library never counts for others
+    assert counts(viewer, scope="personal") == []

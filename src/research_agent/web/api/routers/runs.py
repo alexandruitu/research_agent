@@ -332,7 +332,7 @@ def get_run(
         links={
             "papers": f"/?run={run.id}",
             "evals": runs_svc.evals_from(db, run),
-            "library_count": runs_svc.library_count(db, run),
+            "library_count": runs_svc.library_count(db, run, user),
         },
         can_manage=runs_svc.can_manage(user, run),
         active_job_id=active.id if active else None,

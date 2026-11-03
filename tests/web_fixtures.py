@@ -166,3 +166,18 @@ def save_key(factory, settings, user_id, provider="anthropic", value="sk-test-ke
     with factory() as db:
         save_secret(db, settings, user_id, provider, value)
         db.commit()
+
+
+def give_full_text(db, *source_ids):
+    """Mark papers as having full text: an uploaded PDF row (no bytes needed for the library's rule)."""
+    import hashlib
+
+    from sqlalchemy import select
+
+    from research_agent.web.db.models import Paper, PaperFile
+
+    for source_id in source_ids:
+        paper = db.scalar(select(Paper).where(Paper.source_id == source_id))
+        sha = hashlib.sha256(source_id.encode()).hexdigest()
+        db.add(PaperFile(paper_id=paper.id, sha256=sha, filename=f"{sha[:8]}.pdf", size=10))
+    db.commit()

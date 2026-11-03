@@ -1,6 +1,7 @@
 """Authors: the typeahead over stored authors, one author, and the OpenAlex backfill (Settings → Sources)."""
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -21,7 +22,10 @@ BACKFILL = "authors_backfill"
 def suggest_authors(
     q: str = Query(..., min_length=1, max_length=200, description="words of the author's name"),
     run_id: uuid.UUID | None = Query(None, description="count (and list) only papers of this run"),
-    library: bool = Query(False, description="count (and list) only papers in the team library"),
+    library: bool = Query(False, description="count (and list) only papers in your libraries"),
+    scope: Literal["personal", "company"] | None = Query(
+        None, description="with library: only this library (company, or personal: your own)"
+    ),
     limit: int = Query(10, ge=1, le=50),
     user=Depends(require_role("viewer")),
     db=Depends(get_db),
@@ -29,7 +33,7 @@ def suggest_authors(
     """Stored authors whose name contains every typed word: identified ones first, then by paper count."""
     if run_id is not None and db.get(Run, run_id) is None:
         raise ApiError(404, "not_found", "No such run")
-    return svc.suggest(db, q, run_id=run_id, library=library, limit=limit)
+    return svc.suggest(db, q, run_id=run_id, library=library, limit=limit, viewer=user, scope=scope)
 
 
 @router.get("/backfill", response_model=BackfillStatusOut)

@@ -82,6 +82,7 @@ def paper_filters(
         (author_name or "").strip() or None,
         matched_by,
         topic_authors(db, run),
+        user,
     )
     if matched_by is not None and not query.authors_spec:
         raise ApiError(422, "validation_error", "matched_by needs a run of a researcher topic")
@@ -114,7 +115,7 @@ def get_paper(
         raise ApiError(404, "not_found", "This paper is not part of the run")
     return drawer | {
         "files": files_of(db, user, paper.id),
-        "library": library_refs(db, [paper.id]).get(paper.id),
+        "library": library_refs(db, [paper.id], user).get(paper.id),
     }
 
 

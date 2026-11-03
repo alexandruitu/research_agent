@@ -53,6 +53,7 @@ class PaperQuery:
     author_name: str | None = None  # name match: every author with this normalized name
     matched_by: str | None = None  # researcher topics: person | coauthor | institution | name_match
     authors_spec: dict | None = None  # the run's topic authors spec (set by the router; None: not one)
+    viewer: object = None  # the signed-in user: rows show their own library items besides the Company one
 
 
 # A panel score counts only the answered checklist items: below this coverage (answered / total) the score is
@@ -287,7 +288,9 @@ def _filtered(run, q):
             PaperReview,
             and_(PaperReview.run_id == Screening.run_id, PaperReview.paper_id == Screening.paper_id),
         )
-        .outerjoin(LibraryItem, LibraryItem.paper_id == Screening.paper_id)
+        .outerjoin(
+            LibraryItem, and_(LibraryItem.paper_id == Screening.paper_id, LibraryItem.scope == "company")
+        )
         .where(Screening.run_id == run.id)
     )
     if q.decision:
@@ -339,7 +342,7 @@ GROUP_RULES = {
     "source": "Grouped by the source that found the paper; a paper found by several is in each of their groups.",
     "year": "Grouped by publication year.",
     "decided_by": "Dropped papers grouped by the criterion that dropped them; kept papers together.",
-    "library": "Grouped by the paper's status in the team library.",
+    "library": "Grouped by the paper's status in the Company library.",
 }
 SPECIAL_LABELS = {
     ("source", "none"): "No source search (eval candidates)",
@@ -454,7 +457,7 @@ def paper_table(db, run, q):
             cells[screening_id][name] = {"kind": kind, "jev_p": probability, "llm": llm, "quote": quote}
     from .library import library_refs  # the library builds on this module
 
-    refs = library_refs(db, [r[1].id for r in rows])
+    refs = library_refs(db, [r[1].id for r in rows], q.viewer)
     people = authors_of(db, [r[1].id for r in rows], limit=SHOWN)
     matches = matched_for(db, [r[1].id for r in rows], q.authors_spec) if q.authors_spec else {}
     items = [

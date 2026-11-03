@@ -225,8 +225,16 @@ def evals_from(db, run):
     return out
 
 
-def library_count(db, run):
-    return db.scalar(select(func.count()).select_from(LibraryItem).where(LibraryItem.run_id == run.id))
+def library_count(db, run, user=None):
+    """Library items saved from this run that `user` sees (the Company library and their own)."""
+    stmt = select(func.count()).select_from(LibraryItem).where(LibraryItem.run_id == run.id)
+    if user is None:
+        stmt = stmt.where(LibraryItem.scope == "company")
+    else:
+        from .library import visible
+
+        stmt = stmt.where(visible(user))
+    return db.scalar(stmt)
 
 
 def user_names(db, ids):
