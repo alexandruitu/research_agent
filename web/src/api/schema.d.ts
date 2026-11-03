@@ -51,6 +51,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Signup Status
+         * @description Whether the login screen offers "Create an account" (the allowed domains are not listed).
+         */
+        get: operations["signup_status_api_v1_auth_signup_get"];
+        put?: never;
+        /**
+         * Signup
+         * @description A member account for an allowed email domain. A taken email gets the same answer as a new one (and no
+         *     session: the user signs in), so signup never tells who has an account. Every attempt counts against the
+         *     per-IP limit.
+         */
+        post: operations["signup_api_v1_auth_signup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -1570,6 +1596,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Keys */
+        get: operations["list_keys_api_v1_me_keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/keys/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Key
+         * @description Add or replace a key. It is never shown again: the answer carries only its last 4 characters.
+         */
+        put: operations["save_key_api_v1_me_keys__provider__put"];
+        post?: never;
+        /** Delete Key */
+        delete: operations["delete_key_api_v1_me_keys__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/keys/{provider}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Key
+         * @description Queue a test of the saved key: the worker (the only process that decrypts) makes one free call.
+         */
+        post: operations["check_key_api_v1_me_keys__provider__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Models */
+        get: operations["get_models_api_v1_me_models_get"];
+        /**
+         * Put Models
+         * @description Replace the user's model choices (null: the admin default). Each new run freezes them in its config.
+         */
+        put: operations["put_models_api_v1_me_models_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage */
+        get: operations["usage_api_v1_me_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports": {
         parameters: {
             query?: never;
@@ -2876,6 +2998,34 @@ export interface components {
              */
             created_at: string;
         };
+        /** KeyIn */
+        KeyIn: {
+            /** Key */
+            key: string;
+        };
+        /** KeyOut */
+        KeyOut: {
+            /** Provider */
+            provider: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+            /** Saved */
+            saved: boolean;
+            /** Last4 */
+            last4: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Checked At */
+            checked_at: string | null;
+            /** Check Ok */
+            check_ok: boolean | null;
+            /** Check Detail */
+            check_detail: string;
+            /** Checkable */
+            checkable: boolean;
+        };
         /**
          * KeywordsIO
          * @description Keyword groups: every `all` term, at least one `any` term, none of the `none` terms.
@@ -3190,6 +3340,42 @@ export interface components {
             models: components["schemas"]["AvailableModelOut"][];
             /** Providers */
             providers: components["schemas"]["ProviderOut"][];
+        };
+        /** MyModelOption */
+        MyModelOption: {
+            /** Id */
+            id: string;
+            /** Provider */
+            provider: string;
+            /** Available */
+            available: boolean;
+        };
+        /** MyModelRole */
+        MyModelRole: {
+            /** Role */
+            role: string;
+            /** Label */
+            label: string;
+            /** Default */
+            default: string | null;
+            /** Choice */
+            choice: string | null;
+            /** Effective */
+            effective: string | null;
+        };
+        /** MyModelsIn */
+        MyModelsIn: {
+            /** Models */
+            models: {
+                [key: string]: string | null;
+            };
+        };
+        /** MyModelsOut */
+        MyModelsOut: {
+            /** Roles */
+            roles: components["schemas"]["MyModelRole"][];
+            /** Options */
+            options: components["schemas"]["MyModelOption"][];
         };
         /** PanelAnswerOut */
         PanelAnswerOut: {
@@ -4552,6 +4738,8 @@ export interface components {
             contact_email: string | null;
             /** Alerts Max Runs Per Day */
             alerts_max_runs_per_day?: number;
+            /** Signup Domains */
+            signup_domains?: string[];
         };
         /** SettingsPatch */
         SettingsPatch: {
@@ -4559,6 +4747,27 @@ export interface components {
             contact_email?: string | null;
             /** Alerts Max Runs Per Day */
             alerts_max_runs_per_day?: number | null;
+            /** Signup Domains */
+            signup_domains?: string[] | null;
+        };
+        /** SignupIn */
+        SignupIn: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Password */
+            password: string;
+        };
+        /** SignupOut */
+        SignupOut: {
+            /** Message */
+            message: string;
+        };
+        /** SignupStatusOut */
+        SignupStatusOut: {
+            /** Open */
+            open: boolean;
         };
         /** SnapshotRequest */
         SnapshotRequest: {
@@ -4664,6 +4873,26 @@ export interface components {
             alert_id: string;
             /** Subscribed */
             subscribed: boolean;
+        };
+        /** UsageMonth */
+        UsageMonth: {
+            /** Month */
+            month: string;
+            /** Runs */
+            runs: number;
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Unpriced Models */
+            unpriced_models: string[];
+        };
+        /** UsageOut */
+        UsageOut: {
+            /** Estimate */
+            estimate: boolean;
+            /** Months */
+            months: components["schemas"]["UsageMonth"][];
         };
         /** UserCreate */
         UserCreate: {
@@ -4850,6 +5079,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+        };
+    };
+    signup_status_api_v1_auth_signup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupStatusOut"];
+                };
+            };
+        };
+    };
+    signup_api_v1_auth_signup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8117,6 +8399,194 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_keys_api_v1_me_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyOut"][];
+                };
+            };
+        };
+    };
+    save_key_api_v1_me_keys__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_key_api_v1_me_keys__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_key_api_v1_me_keys__provider__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_models_api_v1_me_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyModelsOut"];
+                };
+            };
+        };
+    };
+    put_models_api_v1_me_models_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyModelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyModelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_api_v1_me_usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
                 };
             };
         };

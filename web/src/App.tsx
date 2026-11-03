@@ -21,6 +21,10 @@ import { FieldEditorPage } from "./pages/FieldEditorPage";
 import { FieldsPage } from "./pages/FieldsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
+import { MyKeysTab } from "./features/me/MyKeysTab";
+import { MyModelsTab } from "./features/me/MyModelsTab";
+import { MyUsageTab } from "./features/me/MyUsageTab";
 import { RatePage } from "./pages/RatePage";
 import { PapersPage } from "./pages/PapersPage";
 import { ReaderPage } from "./pages/ReaderPage";
@@ -55,6 +59,7 @@ export function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route element={<RequireAuth />}>
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
@@ -99,6 +104,11 @@ export function App() {
               <Route path="reviewers/:reviewerKey" element={<ReviewerEditorPage />} />
               <Route path="screening" element={<ScreeningTab />} />
               <Route path="fulltext" element={<FulltextTab />} />
+              <Route element={<RequireRole role="member" />}>
+                <Route path="keys" element={<MyKeysTab />} />
+                <Route path="my-models" element={<MyModelsTab />} />
+                <Route path="usage" element={<MyUsageTab />} />
+              </Route>
               <Route element={<RequireRole role="admin" />}>
                 <Route path="users" element={<UsersPage />} />
               </Route>

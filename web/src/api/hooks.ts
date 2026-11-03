@@ -276,7 +276,7 @@ export const useCheckSource = () => useMutation({ mutationFn: (name: string) => 
 export function usePatchSettings() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: { contact_email?: string | null; alerts_max_runs_per_day?: number | null }) => api.patch<SettingsOut>("/settings", { body }),
+    mutationFn: (body: { contact_email?: string | null; alerts_max_runs_per_day?: number | null; signup_domains?: string[] }) => api.patch<SettingsOut>("/settings", { body }),
     onSuccess: (settings) => client.setQueryData(keys.settings, settings),
   });
 }

@@ -187,3 +187,13 @@ export type Role = "viewer" | "member" | "admin";
 export const ROLE_ORDER: Record<Role, number> = { viewer: 0, member: 1, admin: 2 };
 export const hasRole = (user: { role: string } | null | undefined, minimum: Role): boolean =>
   !!user && (ROLE_ORDER[user.role as Role] ?? -1) >= ROLE_ORDER[minimum];
+
+// Settings → My keys / My models / My usage, and signup
+export type KeyOut = S["KeyOut"];
+export type MyModelsOut = S["MyModelsOut"];
+export type MyModelRole = S["MyModelRole"];
+export type MyModelOption = S["MyModelOption"];
+export type UsageOut = S["UsageOut"];
+export type UsageMonth = S["UsageMonth"];
+export type SignupIn = S["SignupIn"];
+export type SignupOut = S["SignupOut"];

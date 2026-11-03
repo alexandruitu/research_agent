@@ -13,7 +13,13 @@ const TABS = [
   { to: "/settings/fulltext", label: "Full text" },
 ];
 
-function Tabs({ admin }: { admin: boolean }) {
+const MINE = [
+  { to: "/settings/keys", label: "My keys" },
+  { to: "/settings/my-models", label: "My models" },
+  { to: "/settings/usage", label: "My usage" },
+];
+
+function Tabs({ admin, member }: { admin: boolean; member: boolean }) {
   const { confirmLeave } = useLeaveGuard();
   const guard = (event: MouseEvent) => {
     if (!confirmLeave()) event.preventDefault();
@@ -21,6 +27,7 @@ function Tabs({ admin }: { admin: boolean }) {
   return (
     <nav aria-label="Settings sections" className="tabs">
       {TABS.map((tab) => <NavLink key={tab.to} to={tab.to} onClick={guard}>{tab.label}</NavLink>)}
+      {member && MINE.map((tab) => <NavLink key={tab.to} to={tab.to} onClick={guard}>{tab.label}</NavLink>)}
       {admin && <NavLink to="/settings/users" onClick={guard}>Users</NavLink>}
     </nav>
   );
@@ -29,12 +36,13 @@ function Tabs({ admin }: { admin: boolean }) {
 export function SettingsPage() {
   const { user } = useAuth();
   const admin = hasRole(user, "admin");
+  const member = hasRole(user, "member");
   return (
     <DirtyGuardProvider>
       <section>
         <h1>Settings</h1>
-        <Tabs admin={admin} />
-        {!admin && <p className="sub">Read-only: only admins change settings. Every run records the settings version it used.</p>}
+        <Tabs admin={admin} member={member} />
+        {!admin && <p className="sub">Read-only: only admins change the team settings{member ? " (your own keys, models and usage are under the My tabs)" : ""}. Every run records the settings version it used.</p>}
         <Outlet />
       </section>
     </DirtyGuardProvider>

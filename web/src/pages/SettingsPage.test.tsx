@@ -49,7 +49,7 @@ describe("Settings tabs", () => {
   it("lists the tabs in order, Users for admins only", async () => {
     setup("admin", "/settings/sources");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Sources", "Reviewers", "AI models", "Screening", "Full text", "Users"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Sources", "Reviewers", "AI models", "Screening", "Full text", "My keys", "My models", "My usage", "Users"]);
   });
 
   it("explains read-only mode to non-admins", async () => {

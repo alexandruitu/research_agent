@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { useSignupStatus } from "../api/meHooks";
 import { useAuth } from "../auth/AuthProvider";
 
 /** Only same-app paths: "//host" and "/\\host" are protocol-relative URLs to another origin. */
@@ -15,6 +16,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const signup = useSignupStatus();
   const from = safeFrom((location.state as { from?: unknown } | null)?.from);
 
   if (status === "authenticated") return <Navigate to={from} replace />;
@@ -48,6 +50,7 @@ export function LoginPage() {
         {error && <p role="alert" className="form-error">{error}</p>}
         <button type="submit" disabled={busy}>Sign in</button>
       </form>
+      {signup.data?.open && <p><Link to="/signup">Create an account</Link></p>}
     </main>
   );
 }

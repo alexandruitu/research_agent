@@ -5,6 +5,7 @@ import { usePatchUser, useUsers } from "../api/hooks";
 import type { UserOut } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { InviteForm } from "../features/users/InviteForm";
+import { SignupDomainsForm } from "../features/users/SignupDomainsForm";
 import { DeleteUserDialog, EditUserDialog, ResetPasswordDialog } from "../features/users/UserDialogs";
 
 type Open = { kind: "edit" | "password" | "delete"; user: UserOut } | null;
@@ -34,6 +35,7 @@ export function UsersPage() {
   return (
     <section>
       <h2>Users</h2>
+      <SignupDomainsForm />
       <InviteForm />
       {problem && <p role="alert" className="form-error">{problem}</p>}
       {notice && <p role="status">{notice}</p>}
