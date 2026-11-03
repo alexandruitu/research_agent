@@ -1,10 +1,13 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 from ..auth import SessionCookieProvider
 from ..db.session import make_engine, make_session_factory
 from ..security import RateLimiter
 from ..settings import load_settings
-from .errors import install_error_handlers
+from .errors import ApiError, install_error_handlers
 from .routers import (
     admin,
     alerts,
@@ -69,4 +72,25 @@ def create_app(settings=None, session_factory=None):
         health,
     ):
         app.include_router(module.router, prefix=API_PREFIX)
+    if settings.static_dir:
+        mount_frontend(app, settings.static_dir)
     return app
+
+
+def mount_frontend(app, root):
+    """Serve the built React app: real files under `root`, `index.html` for client-side routes. Unknown
+    /api paths stay 404 JSON. Security headers (CSP) are set by the reverse proxy in front."""
+    root = Path(root).resolve()
+    index = root / "index.html"
+    if not index.is_file():
+        raise RuntimeError(f"RESEARCH_WEB_STATIC_DIR has no index.html: {root}")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend(path: str):
+        if path == "api" or path.startswith("api/"):
+            raise ApiError(404, "not_found", "Not found")
+        target = (root / path).resolve()
+        if path and target.is_relative_to(root) and target.is_file():
+            cache = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+            return FileResponse(target, headers={"Cache-Control": cache})
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})

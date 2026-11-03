@@ -1,0 +1,1 @@
+# Put cert.pem and key.pem here when CADDY_TLS points at them. Never commit them.

@@ -1,0 +1,37 @@
+# TLS edge for the research agent. SITE_ADDRESS and CADDY_TLS come from deploy/.env (see .env.example).
+# CADDY_TLS=internal  -> Caddy's own local CA (browsers warn until its root is trusted; see the docs)
+# CADDY_TLS=/certs/cert.pem /certs/key.pem -> a certificate you provide in deploy/certs/
+{
+	admin off
+	auto_https disable_redirects
+}
+
+{$SITE_ADDRESS} {
+	tls {$CADDY_TLS}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# full-text PDF uploads (the API caps them at 30 MB); every other request body stays at 1 MB
+	@uploads path_regexp ^/api/v1/papers/[^/]+/files$
+	handle @uploads {
+		request_body {
+			max_size 31MB
+		}
+		reverse_proxy api:8000
+	}
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy api:8000
+	}
+	log
+}
+
+# plain HTTP only redirects to HTTPS
+http:// {
+	redir https://{host}{uri} permanent
+}

@@ -62,6 +62,8 @@ class Settings:
     signup_max_attempts: int = 5  # sign-ups per IP per window (every attempt counts)
     signup_window_seconds: int = 3600
     login_ip_max_attempts: int = 30  # failed logins per IP (any email) per login window
+    # the built frontend (web/dist); when set, `serve` also serves it (the Docker image sets it)
+    static_dir: Path | None = None
 
 
 def _number(env, name, default, cast=int, low=None, high=None, positive=False):
@@ -109,6 +111,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         secrets_key=(env.get(SECRETS_KEY_ENV) or "").strip() or None,
         dev_mode=env.get("RESEARCH_WEB_DEV_MODE", "false").strip().lower() == "true",
         signup_max_attempts=_number(env, "RESEARCH_WEB_SIGNUP_MAX_ATTEMPTS", 5, low=1, high=1000),
+        static_dir=Path(env["RESEARCH_WEB_STATIC_DIR"]).resolve()
+        if env.get("RESEARCH_WEB_STATIC_DIR")
+        else None,
     )
     if settings.secrets_key:
         check_secrets_key(settings.secrets_key)

@@ -112,7 +112,7 @@ behind a TLS reverse proxy; see `docs/deployment.md`.
   environment minus the removed variables. `research-web dev --with-worker` loads `.env` into its own process
   environment for the worker's keys (not into the API settings, not into logs); set
   `PYTHON_DOTENV_DISABLED=1` to skip that. `research-web worker` never reads `.env`: give it the keys in
-  its environment (`deploy/worker.env` in Docker).
+  its environment (optional `deploy/worker.env` in Docker, search-source keys only).
 
 Checked on 2026-09-26: a demo run with 3 papers went queued → running → done with every stage `completed`,
 a repeated start with the same key returned 200 and the same job, the run shows 3 screened / 3 kept with
@@ -520,5 +520,5 @@ Three rules the UI keeps:
 
 ## Deployment
 
-Docker Compose files live in `deploy/`; see `docs/deployment.md`. They cannot be run on a machine without
-Docker, so they are checked by tests as data only until a Docker host (or CI) builds them.
+Docker Compose files live in `deploy/`; see `docs/deployment-docker.md` (install guide) and `docs/deployment.md`
+(design). Tests check them as data; CI builds the image.

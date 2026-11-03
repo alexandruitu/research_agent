@@ -274,3 +274,65 @@ def test_the_long_running_worker_checks_keys_and_the_one_shot_does_not(cli_setti
     assert main(["worker", "--once"], settings=cli_settings) == 0
     assert main(["worker"], settings=cli_settings) == 0
     assert [w.kwargs for w in fake_worker.made] == [{"key_check": False}, {"key_check": True}]
+
+
+def test_bootstrap_migrates_and_seeds_the_first_admin_and_domains_once(cli_settings, monkeypatch, capsys):
+    from research_agent.web.db.models import AppSettings
+
+    monkeypatch.setenv("RESEARCH_WEB_ADMIN_EMAIL", "Boot@Example.org")
+    monkeypatch.setenv("RESEARCH_WEB_ADMIN_PASSWORD", "correct horse battery")
+    monkeypatch.setenv("RESEARCH_WEB_SIGNUP_DOMAINS", "Example.org, @lab.example.org")
+    monkeypatch.setenv("RESEARCH_WEB_CONTACT_EMAIL", "ops@example.org")
+    assert main(["bootstrap"], settings=cli_settings) == 0
+    url = cli_settings.database_url
+    assert scalar(url, select(User.role).where(User.email == "boot@example.org")) == "admin"
+    assert scalar(url, select(AppSettings.signup_domains)) == ["example.org", "lab.example.org"]
+    assert scalar(url, select(AppSettings.contact_email)) == "ops@example.org"
+    out = capsys.readouterr().out
+    assert "correct horse" not in out
+    # a second start changes nothing: the admin exists and the domains are already set
+    monkeypatch.setenv("RESEARCH_WEB_ADMIN_EMAIL", "other@example.org")
+    monkeypatch.setenv("RESEARCH_WEB_SIGNUP_DOMAINS", "other.org")
+    assert main(["bootstrap"], settings=cli_settings) == 0
+    assert scalar(url, select(func.count()).select_from(User).where(User.role == "admin")) == 1
+    assert scalar(url, select(AppSettings.signup_domains)) == ["example.org", "lab.example.org"]
+
+
+def test_bootstrap_rejects_a_bad_domain_and_an_admin_without_password(cli_settings, monkeypatch):
+    monkeypatch.setenv("RESEARCH_WEB_SIGNUP_DOMAINS", "not a domain!")
+    assert main(["bootstrap"], settings=cli_settings) == 1
+    monkeypatch.delenv("RESEARCH_WEB_SIGNUP_DOMAINS")
+    monkeypatch.setenv("RESEARCH_WEB_ADMIN_EMAIL", "a@example.org")
+    monkeypatch.delenv("RESEARCH_WEB_ADMIN_PASSWORD", raising=False)
+    assert main(["bootstrap"], settings=cli_settings) == 1
+
+
+def test_serve_serves_the_built_frontend_with_spa_fallback(cli_settings, tmp_path):
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+
+    from research_agent.web.api.app import create_app
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>app</html>")
+    (dist / "assets" / "app.js").write_text("console.log(1)")
+    (tmp_path / "secret.txt").write_text("no")
+    main(["migrate"], settings=cli_settings)
+    client = TestClient(create_app(replace(cli_settings, static_dir=dist)))
+    assert client.get("/").text == "<html>app</html>"
+    assert client.get("/runs/123").text == "<html>app</html>"
+    assert "immutable" in client.get("/assets/app.js").headers["cache-control"]
+    assert client.get("/../secret.txt").text != "no"
+    assert client.get("/api/v1/health").json() == {"status": "ok"}
+    assert client.get("/api/v1/nope").status_code == 404
+    page = client.get("/runs/1")
+    assert (
+        "script-src 'self'" in page.headers["content-security-policy"]
+        and page.headers["x-frame-options"] == "DENY"
+    )
+    assert (
+        client.get("/api/v1/health").headers["content-security-policy"]
+        == "default-src 'none'; frame-ancestors 'none'"
+    )

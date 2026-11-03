@@ -13,7 +13,7 @@ nivel Jev + Anthropic); precizia științifică nu e încă măsurată (vezi `re
 - Live: `research-agent "topic" --mode live --max-papers 5 --run-dir runs/live-01` (cere `.env`)
 - UI: `research-ui`
 - Web (backend): `research-web dev --import-all --admin-email <email>` (server local, PostgreSQL embedded, parola în `RESEARCH_WEB_ADMIN_PASSWORD`); vezi `docs/web-app.md`
-- Web (producție): `research-web serve` (API) și `research-web worker` (singurul proces cu chei); vezi `docs/deployment.md`
+- Web (producție): `research-web serve` (API) și `research-web worker` (singurul proces cu chei); vezi `docs/deployment-docker.md` (instalare Docker) și `docs/deployment.md`
 - Web (frontend): `cd web && npm run dev` (cu `research-web dev --import-all --with-worker --allow-demo` pornit) · teste în browser: `npm run e2e`
 - Eval: `research-eval --help` · `build-gold` · `screen` · `agreement` · `report` (vezi README, secțiunea Evaluare)
 

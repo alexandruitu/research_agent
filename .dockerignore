@@ -16,3 +16,7 @@ web/dist
 web/playwright-report
 web/test-results
 web/e2e/.auth
+cache
+uploads
+deploy/.env
+deploy/backups

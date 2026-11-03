@@ -19,3 +19,6 @@ web/node_modules
 # The root runs/ and evals/ patterns above must not hide the web app's feature folders.
 !web/src/features/runs/
 !web/src/features/evals/
+deploy/certs/*.pem
+deploy/certs/*.key
+deploy/backups/

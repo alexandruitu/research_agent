@@ -47,6 +47,18 @@ SECURITY_HEADERS = {
 }
 
 
+# The built frontend (served by `serve` when RESEARCH_WEB_STATIC_DIR is set): same-origin only, nothing inline.
+FRONTEND_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; "
+        "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+}
+
+
 def _request_id(request):
     return getattr(request.state, "request_id", "-")
 
@@ -86,7 +98,11 @@ def install_error_handlers(app):
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         response = await call_next(request)
-        response.headers.update(SECURITY_HEADERS)
+        path = request.url.path
+        if path == "/api" or path.startswith("/api/") or "cache-control" not in response.headers:
+            response.headers.update(SECURITY_HEADERS)  # every API answer; frontend files set Cache-Control
+        else:
+            response.headers.update(FRONTEND_HEADERS)
         return response
 
     @app.exception_handler(ApiError)

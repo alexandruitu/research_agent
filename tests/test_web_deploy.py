@@ -27,11 +27,12 @@ def compose():
 
 def test_services_and_startup_order(compose):
     services = compose["services"]
-    assert set(services) == {"db", "migrate", "api", "worker", "web"}
+    assert set(services) == {"db", "migrate", "api", "worker", "proxy"}
+    assert services["migrate"]["command"] == ["research-web", "bootstrap"]
     assert services["api"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert services["worker"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert services["migrate"]["depends_on"]["db"]["condition"] == "service_healthy"
-    assert services["web"]["depends_on"]["api"]["condition"] == "service_healthy"
+    assert services["proxy"]["depends_on"]["api"]["condition"] == "service_healthy"
     assert "healthcheck" in services["db"] and "healthcheck" in services["api"]
 
 
@@ -73,10 +74,36 @@ def key_problems(service):
     return problems
 
 
-def test_provider_keys_exist_only_in_the_worker(compose):
-    for name in ("db", "migrate", "api", "web"):
-        assert key_problems(compose["services"][name]) == [], name
-    assert compose["services"]["worker"]["env_file"] == ["worker.env"]
+def test_no_service_sees_provider_keys(compose):
+    """Users bring their own keys (encrypted in the database); no container gets provider keys."""
+    for name, service in compose["services"].items():
+        if name != "worker":
+            assert key_problems(service) == [], name
+    worker = compose["services"]["worker"]
+    assert worker["env_file"] == [{"path": "worker.env", "required": False}]
+    assert not {n for n in env_names(worker) if n in KEYS or n.endswith(SECRET_SUFFIXES)}
+    example = (DEPLOY / "worker.env.example").read_text()
+    for name in (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "TYPESAFE_API_KEY",
+        "RESEARCH_MODEL",
+    ):
+        assert f"{name}=" not in example, name
+    for name in SOURCE_KEYS:
+        assert name == "RESEARCH_AGENT_CONTACT" or f"{name}=" in example, name
+
+
+def test_dev_mode_and_demo_are_forced_off_and_secrets_key_is_required(compose):
+    text = COMPOSE.read_text()
+    assert "${RESEARCH_SECRETS_KEY:?" in text
+    for name in ("migrate", "api", "worker"):
+        env = compose["services"][name]["environment"]
+        assert env["RESEARCH_WEB_DEV_MODE"] == "false" and env["RESEARCH_WEB_ALLOW_DEMO"] == "false"
+    worker = compose["services"]["worker"]["environment"]
+    assert {"HTTPS_PROXY", "NO_PROXY"} <= set(worker)
+    assert "RESEARCH_WEB_ADMIN_PASSWORD" not in compose["services"]["api"]["environment"]
 
 
 @pytest.mark.parametrize(
@@ -98,12 +125,10 @@ def test_the_key_check_catches_every_way_in(service):
     assert key_problems(service)
 
 
-def test_source_key_names_are_listed_empty_in_the_worker_example_only():
-    worker = (DEPLOY / "worker.env.example").read_text().splitlines()
-    api = (DEPLOY / ".env.example").read_text()
-    for name in SOURCE_KEYS:
-        assert f"{name}=" in worker, name
-        assert name not in api, name
+def test_the_env_example_holds_no_provider_keys():
+    text = (DEPLOY / ".env.example").read_text()
+    for name in (*KEYS, *SOURCE_KEYS):
+        assert f"{name}=" not in text, name
 
 
 def test_the_worker_forwards_stop_signals_to_python(compose):
@@ -123,20 +148,20 @@ def test_the_api_mounts_run_folders_read_only_and_the_worker_can_write_runs(comp
     assert all(v.endswith(":ro") for v in worker_volumes if "/data/evals" in v or "/data/gold" in v)
 
 
-def test_only_the_web_service_publishes_a_port_and_only_on_loopback(compose):
+def test_only_the_proxy_publishes_ports(compose):
     for name, service in compose["services"].items():
         ports = service.get("ports", [])
-        if name == "web":
-            assert ports == ["127.0.0.1:8080:8080"]
+        if name == "proxy":
+            assert ports == ["${HTTPS_PORT:-443}:443", "${HTTP_PORT:-80}:80"]
         else:
-            assert not ports, f"{name} must not publish ports; the browser reaches the API through nginx"
+            assert not ports, f"{name} must not publish ports; the browser reaches the API through Caddy"
     assert compose["services"]["api"]["expose"] == ["8000"]
 
 
 def test_secure_defaults_in_the_api_environment(compose):
     env = compose["services"]["api"]["environment"]
     assert env["RESEARCH_WEB_COOKIE_SECURE"] == "true" and env["RESEARCH_WEB_ALLOW_DEMO"] == "false"
-    assert "0.0.0.0" in compose["services"]["api"]["command"]  # inside the container; only nginx reaches it
+    assert "0.0.0.0" in compose["services"]["api"]["command"]  # inside the container; only Caddy reaches it
 
 
 def test_no_secret_value_is_written_into_any_deployment_file():
@@ -147,19 +172,25 @@ def test_no_secret_value_is_written_into_any_deployment_file():
         for line in (ROOT / name).read_text().splitlines():
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                assert value == "" or key in {
-                    "RESEARCH_MODEL",
-                    "RESEARCH_REVIEWER_A_MODEL",
-                    "RESEARCH_REVIEWER_B_MODEL",
-                    "RESEARCH_ADJUDICATOR_MODEL",
-                }, f"{name}: {key} must be empty in the example"
+                assert value == "" or key in {"CADDY_TLS", "HTTPS_PORT", "HTTP_PORT"}, (
+                    f"{name}: {key} must be empty in the example"
+                )
 
 
 def test_dockerfile_is_unprivileged_and_never_copies_env_files():
     text = (ROOT / "deploy" / "Dockerfile").read_text()
     assert "USER app" in text and not re.search(r"COPY[^\n]*\.env", text)
+    assert "npm ci" in text and "AS web" in text and "'.[web,live]'" in text
+    assert "PYTHON_DOTENV_DISABLED=1" in text and "RESEARCH_WEB_STATIC_DIR=/app/web" in text
     ignore = (ROOT / ".dockerignore").read_text().split()
     assert {".env", ".venv", ".git", "runs", "evals", "gold", ".web-dev"} <= set(ignore)
+
+
+def test_caddy_terminates_tls_and_proxies_only_the_api():
+    text = (DEPLOY / "Caddyfile").read_text()
+    assert "tls {$CADDY_TLS}" in text and "Strict-Transport-Security" in text and "admin off" in text
+    assert text.count("reverse_proxy api:8000") == 2 and text.count("reverse_proxy") == 2
+    assert "max_size 31MB" in text and "max_size 1MB" in text
 
 
 def test_the_web_package_data_files_ship_in_the_wheel():
@@ -187,56 +218,6 @@ def test_the_web_package_data_files_ship_in_the_wheel():
             assert not any(fnmatch.fnmatch(part, pattern) for part in parts), (relative, pattern)
 
 
-def test_the_web_container_is_unprivileged_and_read_only(compose):
-    web = compose["services"]["web"]
-    assert web["read_only"] is True and web["tmpfs"] == ["/tmp"]
-    assert "env_file" not in web and not (web.get("environment") or {})
-    text = (ROOT / "deploy" / "Dockerfile.web").read_text()
-    assert "nginx-unprivileged" in text and "npm ci" in text and not re.search(r"COPY[^\n]*\.env", text)
-
-
-NGINX = ROOT / "deploy" / "nginx.conf"
-
-
-def test_nginx_serves_the_app_and_proxies_only_the_api():
-    text = NGINX.read_text()
-    assert "listen 8080;" in text and "server_tokens off;" in text
-    assert "proxy_pass http://api:8000;" in text
-    assert "try_files $uri /index.html;" in text  # client-side routes
-    assert text.count("proxy_pass") == text.count("proxy_pass http://api:8000;") == 2  # the API, uploads
-    uploads = text.split("location ~ ^/api/v1/papers/[^/]+/files$ {")[1].split("}")[0]
-    assert "client_max_body_size 31m;" in uploads and "client_max_body_size 1m;" in text
-
-
-def test_nginx_csp_is_strict():
-    text = NGINX.read_text()
-    policy = re.search(r"add_header Content-Security-Policy \"([^\"]+)\" always;", text).group(1)
-    for directive in (
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self'",
-        "connect-src 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'none'",
-        "form-action 'self'",
-        "object-src 'none'",
-    ):
-        assert directive in policy
-    assert "unsafe-inline" not in policy and "unsafe-eval" not in policy and "*" not in policy
-    for header in ("X-Content-Type-Options nosniff", "Referrer-Policy no-referrer", "X-Frame-Options DENY"):
-        assert f"add_header {header} always;" in text
-
-
-def test_nginx_locations_do_not_reset_the_security_headers():
-    # nginx drops inherited add_header directives in any block that defines its own; keep them at server level only.
-    text = NGINX.read_text()
-    for block in re.findall(r"location[^{]*\{[^}]*\}", text):
-        assert "add_header" not in block, block
-    api_block = re.search(r"location /api/ \{[^}]*\}", text).group(0)
-    for name in ("Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options"):
-        assert f"proxy_hide_header {name};" in api_block  # one source of truth at the edge
-
-
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 
 
@@ -260,7 +241,5 @@ def test_ci_runs_every_check_and_needs_no_secrets():
     python = " ".join(step.get("run", "") for step in workflow["jobs"]["python"]["steps"])
     assert "ruff check ." in python and "pytest" in python
     docker = " ".join(step.get("run", "") for step in workflow["jobs"]["docker"]["steps"])
-    assert (
-        "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile.web" in docker
-    )
+    assert "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile" in docker
     assert workflow["jobs"]["e2e"]["env"]["PYTHON_DOTENV_DISABLED"] == "1"

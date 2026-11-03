@@ -38,7 +38,7 @@ flowchart LR
 | Eval harness | `src/research_agent/eval/` | recall, threshold sweep, reviewer agreement |
 | Web backend | `src/research_agent/web/` | DB, importers, auth, API, worker |
 | Frontend | `web/` | React single-page app |
-| Deployment | `deploy/`, `.github/workflows/ci.yml` | Compose, nginx, CI |
+| Deployment | `deploy/`, `.github/workflows/ci.yml` | Compose, Caddy, CI |
 
 ## 2. Pipeline (`graph.py`)
 
@@ -233,18 +233,18 @@ alone. Types are generated from the API, and CI fails if they are stale.
 
 ```mermaid
 flowchart LR
-  B[Browser] -- HTTPS --> RP[TLS reverse proxy]
-  RP --> WEB["web: nginx<br/>SPA + strict CSP<br/>127.0.0.1:8080"]
-  WEB -- /api/ --> API["api: research-web serve<br/>no keys"]
+  B[Browser] -- HTTPS --> RP["proxy: Caddy<br/>TLS, HSTS<br/>only published ports"]
+  RP --> API["api: research-web serve<br/>API + built SPA (strict CSP)"]
   API --> DB[(db: postgres 16)]
-  WK["worker: research-web worker<br/>worker.env = keys"] --> DB
-  MIG[migrate: one-shot] --> DB
+  WK["worker: research-web worker<br/>users' keys, decrypted per run"] --> DB
+  MIG["migrate: research-web bootstrap<br/>one-shot, advisory lock"] --> DB
   API -. read-only .-> V[(runs volume)]
   WK --> V
 ```
 
-Only `web` publishes a port. Provider keys exist only in the worker. CI runs the lint, unit and browser
-tests (with axe), `pip-audit` and `npm audit`, and builds both images.
+Only `proxy` publishes ports. No container holds LLM keys: users save their own (encrypted with
+`RESEARCH_SECRETS_KEY`). CI runs the lint, unit and browser tests (with axe), `pip-audit` and `npm audit`, and
+builds the image. Install guide: `docs/deployment-docker.md`.
 
 ## Running it
 

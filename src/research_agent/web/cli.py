@@ -133,6 +133,73 @@ def cmd_migrate(args, settings):
     return 0
 
 
+BOOTSTRAP_LOCK = 0x5245_5341  # pg advisory lock id: one bootstrap at a time, even if two containers start
+
+
+def cmd_bootstrap(args, settings):
+    """Container start-up, safe to repeat: migrations under an advisory lock, then (only when the environment
+    asks and nothing is set yet) the first admin, the sign-up domains and the contact address."""
+    import sqlalchemy as sa
+
+    from .api.schemas import SettingsPatch
+    from .db.models import User
+    from .fields import settings_row
+
+    env = os.environ
+    try:
+        patch = SettingsPatch(
+            signup_domains=[
+                d for d in env.get("RESEARCH_WEB_SIGNUP_DOMAINS", "").replace(",", " ").split() if d
+            ],
+            contact_email=env.get("RESEARCH_WEB_CONTACT_EMAIL", "").strip() or None,
+        )
+    except ValueError as exc:
+        print(
+            "FAILED: RESEARCH_WEB_SIGNUP_DOMAINS or RESEARCH_WEB_CONTACT_EMAIL: " + " ".join(str(exc).split())
+        )
+        return 1
+    engine = make_engine(settings.database_url)
+    try:
+        with engine.connect() as lock:
+            lock.execute(sa.text("SELECT pg_advisory_lock(:id)"), {"id": BOOTSTRAP_LOCK})
+            try:
+                upgrade(settings.database_url)
+                print("database is up to date")
+                factory = make_session_factory(engine)
+                email = env.get("RESEARCH_WEB_ADMIN_EMAIL", "").strip()
+                with factory() as db:
+                    has_admin = db.scalar(sa.select(User.id).where(User.role == "admin").limit(1))
+                if email and not has_admin:
+                    if not env.get("RESEARCH_WEB_ADMIN_PASSWORD"):
+                        print(
+                            "FAILED: RESEARCH_WEB_ADMIN_EMAIL is set but RESEARCH_WEB_ADMIN_PASSWORD is empty"
+                        )
+                        return 1
+                    try:
+                        print(
+                            f"created admin {ensure_admin(settings, email, env.get('RESEARCH_WEB_ADMIN_NAME') or 'Admin')}"
+                        )
+                    except AuthError as exc:
+                        print(f"FAILED: {exc}")
+                        return 1
+                elif has_admin:
+                    print("an admin exists; RESEARCH_WEB_ADMIN_* is ignored")
+                with factory() as db:
+                    row = settings_row(db)
+                    if patch.signup_domains and not row.signup_domains:
+                        row.signup_domains = patch.signup_domains
+                        print("sign-up domains set: " + ", ".join(patch.signup_domains))
+                    if patch.contact_email and not row.contact_email:
+                        row.contact_email = patch.contact_email
+                        print("contact address set")
+                    db.commit()
+            finally:
+                lock.execute(sa.text("SELECT pg_advisory_unlock(:id)"), {"id": BOOTSTRAP_LOCK})
+    finally:
+        engine.dispose()
+    return 0
+
+
 def dev_secrets_key(folder):
     """The development server's Fernet key: RESEARCH_SECRETS_KEY when set, else `<folder>/secrets.key`, created
     (mode 600) on first use. Never written to .env and never printed."""
@@ -251,6 +318,10 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="research-web", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("migrate", help="apply database migrations").set_defaults(func=cmd_migrate)
+    sub.add_parser(
+        "bootstrap",
+        help="container start-up: migrate (locked), then first admin and sign-up domains from env",
+    ).set_defaults(func=cmd_bootstrap)
     p = sub.add_parser(
         "create-admin", help="create an admin (password from RESEARCH_WEB_ADMIN_PASSWORD or a prompt)"
     )
