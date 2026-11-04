@@ -125,7 +125,7 @@ def test_a_failed_run_records_a_safe_message_and_keeps_the_checkpoint(env):
                     "status": "failed",
                     "stages": {"plan": "completed", "screen": "failed"},
                     "error_type": "ValidationError",
-                    "message": "Etapa nu s-a încheiat.",
+                    "message": "The stage did not finish.",
                 }
             )
         )
@@ -136,7 +136,7 @@ def test_a_failed_run_records_a_safe_message_and_keeps_the_checkpoint(env):
     with factory() as db:
         job, run = db.get(Job, job_id), db.get(Run, run_id)
         assert job.status == "failed" and run.status == "failed"
-        assert job.error == run.error == "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat."
+        assert job.error == run.error == "failed at stage 'screen': ValidationError: The stage did not finish."
         assert "sk-ant" not in job.error and (folder / "manifest.json").exists()
         assert job.progress["stages"]["screen"] == "failed"
 

@@ -75,7 +75,7 @@ def test_results_interface_renders_and_filters(tmp_path, monkeypatch):
     assert len(at.tabs) == 3
     at.slider[0].set_value(100).run()
     assert not at.exception
-    assert any("filtrul" in item.value for item in at.info)
+    assert any("filter" in item.value for item in at.info)
 
 
 def test_configuration_validation_and_demo_launch(tmp_path, monkeypatch):
@@ -83,14 +83,14 @@ def test_configuration_validation_and_demo_launch(tmp_path, monkeypatch):
     fake = Mock()
     monkeypatch.setattr(jobs, "launch", fake)
     at = AppTest.from_file(str(APP)).run()
-    next(b for b in at.button if "Cercetare nouă" in b.label).click().run()
+    next(b for b in at.button if "New research" in b.label).click().run()
     assert not at.exception
     at.text_area[0].set_value("x")
-    next(b for b in at.button if "Pornește" in b.label).click().run()
+    next(b for b in at.button if "Start research" in b.label).click().run()
     assert at.error
     assert not fake.called
     at.text_area[0].set_value("test topic")
-    next(b for b in at.button if "Pornește" in b.label).click().run()
+    next(b for b in at.button if "Start research" in b.label).click().run()
     assert fake.call_count == 1
     assert fake.call_args.args[1].topic == "test topic"
     assert read_json(tmp_path / "ui-settings.json")["topic"] == "test topic"

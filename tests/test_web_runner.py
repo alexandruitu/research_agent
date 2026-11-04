@@ -114,11 +114,11 @@ def test_failure_message_uses_only_the_pipelines_sanitized_fields(tmp_path):
                 "status": "failed",
                 "stages": {"plan": "completed", "screen": "failed"},
                 "error_type": "ValidationError",
-                "message": "Etapa nu s-a încheiat.",
+                "message": "The stage did not finish.",
             }
         )
     )
-    assert failure_message(tmp_path, 1) == "failed at stage 'screen': ValidationError: Etapa nu s-a încheiat."
+    assert failure_message(tmp_path, 1) == "failed at stage 'screen': ValidationError: The stage did not finish."
     assert failure_message(tmp_path / "missing", 3) == "the run process exited with code 3"
     (tmp_path / "progress.json").write_text(json.dumps({"status": "completed"}))
     assert failure_message(tmp_path, 1) == "the run process exited with code 1"

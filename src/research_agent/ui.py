@@ -39,12 +39,12 @@ if "active_run" not in st.session_state:
 
 with st.sidebar:
     st.markdown("## 🔬 Research Studio")
-    st.caption("De la întrebare la dovezi verificabile")
-    if st.button("＋ Cercetare nouă", type="primary", use_container_width=True):
+    st.caption("From question to verifiable evidence")
+    if st.button("＋ New research", type="primary", use_container_width=True):
         st.session_state.active_run = None
         st.rerun()
     st.divider()
-    st.markdown("**Biblioteca de cercetări**")
+    st.markdown("**Research library**")
     runs = list_runs(ROOT)
     labels = {
         str(p): ("DEMO · " if m["contract"]["mode"] == "demo" else "LIVE · ")
@@ -55,96 +55,96 @@ with st.sidebar:
     }
     if runs:
         choice = st.selectbox(
-            "Cercetări salvate", list(labels), format_func=lambda p: labels[p], label_visibility="collapsed"
+            "Saved research", list(labels), format_func=lambda p: labels[p], label_visibility="collapsed"
         )
-        if st.button("Deschide cercetarea", use_container_width=True):
+        if st.button("Open research", use_container_width=True):
             st.session_state.active_run = choice
             st.rerun()
     else:
-        st.caption("Cercetările noi vor apărea aici.")
+        st.caption("New research will appear here.")
     st.divider()
-    st.caption("V1 · Analiză la nivel de abstract")
-    st.caption("Europe PMC în modul live. Demo-ul folosește date sintetice.")
-    st.caption("Stocare locală · SQLite · checkpoint-uri")
+    st.caption("V1 · Abstract-level analysis")
+    st.caption("Europe PMC in live mode. The demo uses synthetic data.")
+    st.caption("Local storage · SQLite · checkpoints")
 
 
 def configuration():
-    st.caption("SPAȚIU DE CERCETARE / CONFIGURARE")
-    st.title("Ce vrei să descoperi?")
+    st.caption("RESEARCH SPACE / SETUP")
+    st.title("What do you want to find out?")
     st.write(
-        "Definește subiectul și evaluatorii. Urmărește cum se transformă lucrările găsite într-un clasament argumentat."
+        "Set the topic and the reviewers. Watch the papers found turn into a reasoned ranking."
     )
     mode_label = st.radio(
-        "Mod de lucru", ["Demo · fără chei API", "Live · surse și modele reale"], horizontal=True
+        "Mode", ["Demo · no API keys", "Live · real sources and models"], horizontal=True
     )
     live = mode_label.startswith("Live")
     if not live:
         st.info(
-            "Demo-ul testează întregul flux cu lucrări și evaluări sintetice. Nu produce concluzii științifice."
+            "The demo tests the whole flow with synthetic papers and reviews. It does not produce scientific conclusions."
         )
     with st.form("configuration"):
         topic = st.text_area(
-            "Subiectul cercetării",
+            "Research topic",
             value=DEFAULTS.get("topic", "retrieval augmented generation clinical question answering"),
             max_chars=500,
             height=90,
         )
         left, right = st.columns(2)
-        maximum = left.slider("Candidați de evaluat", 1, 30, int(DEFAULTS.get("max_papers", 12)))
+        maximum = left.slider("Candidates to review", 1, 30, int(DEFAULTS.get("max_papers", 12)))
         pause = right.selectbox(
-            "Punct de oprire", ["Fără pauză", "După căutare", "După extragerea dovezilor", "După adjudecare"]
+            "Stopping point", ["No pause", "After search", "After evidence extraction", "After adjudication"]
         )
         st.caption(
-            "Maximum 10 rezultate în clasament. Un lot mai mare înseamnă mai multe apeluri și un cost mai mare în modul live."
+            "At most 10 results in the ranking. A larger batch means more calls and a higher cost in live mode."
         )
         models, credentials = {}, {}
         if live:
-            st.subheader("Modele și acces")
+            st.subheader("Models and access")
             st.caption(
-                "Format model: furnizor:nume-model. De exemplu, anthropic:ID sau openai:ID. Introdu un model disponibil în contul tău."
+                "Model format: provider:model-name. For example, anthropic:ID or openai:ID. Enter a model available in your account."
             )
             saved = DEFAULTS.get("models", {})
             models["default"] = st.text_input(
-                "Model principal · planificare, screening, dovezi",
+                "Main model · planning, screening, evidence",
                 value=saved.get("default", os.getenv("RESEARCH_MODEL", "")),
             )
             a, b = st.columns(2)
             models["review_a"] = a.text_input(
-                "Evaluator A · contribuție",
+                "Reviewer A · contribution",
                 value=saved.get("review_a", os.getenv("RESEARCH_REVIEWER_A_MODEL", "")),
-                placeholder="Gol = modelul principal",
+                placeholder="Empty = main model",
             )
             models["review_b"] = b.text_input(
-                "Evaluator B · critic",
+                "Reviewer B · critic",
                 value=saved.get("review_b", os.getenv("RESEARCH_REVIEWER_B_MODEL", "")),
-                placeholder="Gol = modelul principal",
+                placeholder="Empty = main model",
             )
             models["adjudicate"] = st.text_input(
-                "Arbitru · rezolvarea dezacordurilor",
+                "Adjudicator · resolves disagreements",
                 value=saved.get("adjudicate", os.getenv("RESEARCH_ADJUDICATOR_MODEL", "")),
-                placeholder="Gol = modelul principal",
+                placeholder="Empty = main model",
             )
             st.caption(
-                "Evaluatorii nu văd răspunsul celuilalt. Modelele diferite pot reduce erorile corelate."
+                "The reviewers do not see each other's answers. Different models can reduce correlated errors."
             )
             a, b = st.columns(2)
             credentials["ANTHROPIC_API_KEY"] = a.text_input(
-                "Cheie API Anthropic",
+                "Anthropic API key",
                 type="password",
                 key="credential_anthropic",
-                placeholder="Din mediu" if os.getenv("ANTHROPIC_API_KEY") else "Introdu cheia",
+                placeholder="From environment" if os.getenv("ANTHROPIC_API_KEY") else "Enter the key",
             )
             credentials["OPENAI_API_KEY"] = b.text_input(
-                "Cheie API OpenAI",
+                "OpenAI API key",
                 type="password",
                 key="credential_openai",
-                placeholder="Din mediu" if os.getenv("OPENAI_API_KEY") else "Introdu cheia",
+                placeholder="From environment" if os.getenv("OPENAI_API_KEY") else "Enter the key",
             )
             st.caption(
-                "Câmp gol = cheia din mediul local / .env. Cheile introduse aici nu se salvează pe disc. Topic-ul și abstractele sunt trimise furnizorilor selectați."
+                "Empty field = the key from the local environment / .env. Keys entered here are not saved to disk. The topic and abstracts are sent to the selected providers."
             )
-        save = st.checkbox("Păstrează setările pentru următoarea cercetare", value=True)
-        submitted = st.form_submit_button("Pornește cercetarea →", type="primary", use_container_width=True)
+        save = st.checkbox("Keep these settings for the next research", value=True)
+        submitted = st.form_submit_button("Start research →", type="primary", use_container_width=True)
     if submitted:
         errors = []
         if len(topic.strip()) < 3:
@@ -173,9 +173,9 @@ def configuration():
                 },
             )
         pauses = {
-            "După căutare": "discover",
-            "După extragerea dovezilor": "extract",
-            "După adjudecare": "adjudicate",
+            "After search": "discover",
+            "After evidence extraction": "extract",
+            "After adjudication": "adjudicate",
         }
         path = new_directory(ROOT)
         try:
@@ -196,13 +196,13 @@ def configuration():
 
 def review_panel(review):
     st.caption(
-        f"Verdict: {review['verdict']} · relevanță {review['relevance']}/4 · metodă {review['methods']}/4 · suport {review['support']}/4"
+        f"Verdict: {review['verdict']} · relevance {review['relevance']}/4 · methods {review['methods']}/4 · support {review['support']}/4"
     )
     st.write(review["assessment"])
-    st.markdown("**Puncte forte**")
+    st.markdown("**Strengths**")
     for item in review["strengths"]:
         st.write("• " + item)
-    st.markdown("**Limite / obiecții**")
+    st.markdown("**Limitations / objections**")
     for item in review["weaknesses"]:
         st.write("• " + item)
 
@@ -214,7 +214,7 @@ def results(path, report):
     counts = st.columns(4)
     for col, label, value in zip(
         counts,
-        ["Înregistrări găsite", "Candidați evaluați", "În clasament", "Adjudecări"],
+        ["Records found", "Candidates reviewed", "In the ranking", "Adjudications"],
         [
             len(state["discovered"]),
             len(state["evidence"]),
@@ -223,25 +223,25 @@ def results(path, report):
         ],
     ):
         col.metric(label, value)
-    overview, detail, audit = st.tabs(["Clasament", "Dovezi și evaluatori", "Căutare și export"])
+    overview, detail, audit = st.tabs(["Ranking", "Evidence and reviewers", "Search and export"])
     with overview:
-        st.subheader("Lucrările selectate")
+        st.subheader("Selected papers")
         st.caption(
-            "Scor preliminar din abstracte: relevanță 40% · detalii metodologice 30% · suportul afirmațiilor 30%."
+            "Preliminary score from abstracts: relevance 40% · methodological detail 30% · support for claims 30%."
         )
         if not ranking:
             st.info(
-                "Nicio lucrare nu a primit verdictul final include. Candidații și motivele sunt disponibili în fila Dovezi și evaluatori."
+                "No paper received the final include verdict. The candidates and reasons are in the Evidence and reviewers tab."
             )
         else:
-            threshold = st.slider("Scor minim afișat", 0, 100, 0, key=f"threshold-{path.name}")
+            threshold = st.slider("Minimum score shown", 0, 100, 0, key=f"threshold-{path.name}")
             rows = [
                 {
-                    "Loc": i,
-                    "Lucrare": papers[r["paper_id"]]["title"],
-                    "Scor": r["score"],
-                    "An": papers[r["paper_id"]]["year"],
-                    "Adjudecare": "Da" if r["decision"]["adjudicated"] else "Nu",
+                    "Rank": i,
+                    "Paper": papers[r["paper_id"]]["title"],
+                    "Score": r["score"],
+                    "Year": papers[r["paper_id"]]["year"],
+                    "Adjudicate": "Yes" if r["decision"]["adjudicated"] else "No",
                 }
                 for i, r in enumerate(ranking, 1)
                 if r["score"] >= threshold
@@ -252,8 +252,8 @@ def results(path, report):
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "Scor": st.column_config.ProgressColumn(
-                            "Scor / 100", min_value=0, max_value=100, format="%.1f"
+                        "Score": st.column_config.ProgressColumn(
+                            "Score / 100", min_value=0, max_value=100, format="%.1f"
                         )
                     },
                 )
@@ -266,42 +266,42 @@ def results(path, report):
                         st.write(r["assessment"])
                         c1, c2 = st.columns(2)
                         with c1:
-                            st.markdown("**Puncte forte**")
+                            st.markdown("**Strengths**")
                             for point in r["strengths"]:
                                 st.write("• " + point)
                         with c2:
-                            st.markdown("**Idei principale**")
+                            st.markdown("**Key takeaways**")
                             for point in r["takeaways"]:
                                 st.write("• " + point)
             else:
-                st.info("Nicio lucrare nu trece filtrul ales.")
+                st.info("No paper passes the chosen filter.")
     with detail:
         if not papers:
-            st.info("Nu au fost găsite lucrări în lotul de căutare.")
+            st.info("No papers were found in the search batch.")
         else:
             pid = st.selectbox(
-                "Selectează o lucrare · inclusiv cele neclasate",
+                "Select a paper · including unranked ones",
                 list(papers),
                 format_func=lambda k: papers[k]["title"],
                 key=f"paper-{path.name}",
             )
             paper = papers[pid]
-            st.caption(f"{pid} · {paper['year']} · DOI: {paper['doi'] or 'indisponibil'}")
+            st.caption(f"{pid} · {paper['year']} · DOI: {paper['doi'] or 'unavailable'}")
             st.write(
                 "**Screening:** "
                 + state["screens"][pid]["decision"]
                 + " — "
                 + state["screens"][pid]["reason"]
             )
-            with st.expander("Abstractul sursă", expanded=True):
-                st.write(paper["abstract"] or "Abstract indisponibil.")
+            with st.expander("Source abstract", expanded=True):
+                st.write(paper["abstract"] or "Abstract unavailable.")
             evidence = state["evidence"].get(pid)
             if evidence:
-                st.markdown("**Dovezi extrase**")
+                st.markdown("**Extracted evidence**")
                 for claim in evidence["claims"]:
                     with st.container(border=True):
                         st.write(claim["statement"])
-                        st.caption("Citat exact din abstract")
+                        st.caption("Exact quote from the abstract")
                         st.write(claim["quote"])
                 st.caption("Design: " + evidence["study_design"])
                 for limitation in evidence["limitations"]:
@@ -309,47 +309,47 @@ def results(path, report):
             if pid in state["reviews_a"]:
                 a, b = st.columns(2)
                 with a:
-                    st.subheader("Evaluator A")
+                    st.subheader("Reviewer A")
                     review_panel(state["reviews_a"][pid])
                 with b:
-                    st.subheader("Evaluator B · critic")
+                    st.subheader("Reviewer B · critic")
                     review_panel(state["reviews_b"][pid])
                 d = state["decisions"][pid]
                 with st.container(border=True):
                     st.markdown(
-                        "**Decizia finală · "
-                        + ("cu adjudecare" if d["adjudicated"] else "acord între evaluatori")
+                        "**Final decision · "
+                        + ("adjudicated" if d["adjudicated"] else "reviewers agreed")
                         + "**"
                     )
                     st.write(d["reason"])
                     review_panel(d["review"])
-            st.markdown("**Proveniență**")
+            st.markdown("**Provenance**")
             for src in paper["provenance"]:
                 if src["url"].startswith("https://europepmc.org/"):
-                    st.link_button("Deschide sursa · " + src["record_id"], src["url"])
+                    st.link_button("Open source · " + src["record_id"], src["url"])
                 else:
                     st.text(src["url"])
-                st.caption("Căutare: " + src["query"] + " · Recuperat: " + src["retrieved_at"])
-                with st.expander("Amprenta sursei"):
+                st.caption("Search: " + src["query"] + " · Retrieved: " + src["retrieved_at"])
+                with st.expander("Source fingerprint"):
                     st.code(src["raw_sha256"], language=None)
     with audit:
-        st.subheader("Strategia de căutare")
+        st.subheader("Search strategy")
         for query in state["plan"]["queries"]:
             st.code(query, language=None)
         st.write(state["plan"]["rationale"])
-        st.caption("Maximum o pagină per query. Clasamentul privește acest lot, nu întreaga literatură.")
-        with st.expander("Configurația folosită"):
+        st.caption("At most one page per query. The ranking covers this batch, not the whole literature.")
+        with st.expander("Configuration used"):
             st.json(report["manifest"])
         a, b = st.columns(2)
         a.download_button(
-            "Descarcă raportul Markdown",
+            "Download the Markdown report",
             (path / "report.md").read_bytes(),
             file_name="research-report.md",
             mime="text/markdown",
             use_container_width=True,
         )
         b.download_button(
-            "Descarcă auditul complet JSON",
+            "Download the full JSON audit",
             (path / "report.json").read_bytes(),
             file_name="research-audit.json",
             mime="application/json",
@@ -360,14 +360,14 @@ def results(path, report):
 def research(path):
     manifest = read_json(path / "manifest.json", {})
     contract = manifest.get("contract", {})
-    st.caption("SPAȚIU DE CERCETARE / REZULTATE ȘI PROGRES")
-    st.title(contract.get("topic", "Pregătim cercetarea…"))
+    st.caption("RESEARCH SPACE / RESULTS AND PROGRESS")
+    st.title(contract.get("topic", "Preparing the research…"))
     if contract.get("mode") == "demo":
         st.info(
-            "DEMO · Lucrări și evaluări sintetice. Acest rezultat demonstrează fluxul, nu reprezintă dovezi științifice."
+            "DEMO · Synthetic papers and reviews. This result demonstrates the flow; it is not scientific evidence."
         )
     elif contract:
-        st.caption("LIVE · Europe PMC · analiză doar pe abstracte · rezultate preliminare")
+        st.caption("LIVE · Europe PMC · abstract-only analysis · preliminary results")
     initial = status(path)
 
     @st.fragment(run_every=1 if initial["status"] == "running" else None)
@@ -378,11 +378,11 @@ def research(path):
         if current["status"] != initial["status"]:
             st.rerun()
         labels = {
-            "running": "În desfășurare",
-            "completed": "Cercetare finalizată",
-            "paused": "Pauză la checkpoint",
-            "failed": "Cercetare oprită cu eroare",
-            "interrupted": "Proces întrerupt · poate fi reluat",
+            "running": "Running",
+            "completed": "Research complete",
+            "paused": "Paused at checkpoint",
+            "failed": "Research stopped with an error",
+            "interrupted": "Process interrupted · can be resumed",
         }
         st.subheader(labels[current["status"]])
         stages = current.get("stages", {})
@@ -391,7 +391,7 @@ def research(path):
         completed = sum(v == "completed" for v in stages.values())
         st.progress(
             completed / len(STAGES),
-            text=f"{completed} din {len(STAGES)} etape încheiate · progres pe etape, nu estimare de timp",
+            text=f"{completed} of {len(STAGES)} stages finished · progress by stage, not a time estimate",
         )
         symbols = {"completed": "✅", "running": "⏳", "failed": "⚠️"}
         cols = st.columns(3)
@@ -402,12 +402,12 @@ def research(path):
                 st.error(current["message"])
             if current.get("error_type"):
                 st.caption("Error type: " + current["error_type"])
-            st.caption("Reluarea folosește configurația salvată și checkpoint-urile existente.")
+            st.caption("Resuming uses the saved configuration and existing checkpoints.")
             resume_keys = {}
             if contract.get("mode") == "live":
-                with st.expander("Acces pentru reluare · chei API"):
+                with st.expander("Access for resuming · API keys"):
                     st.caption(
-                        "Dacă ai introdus cheile numai în interfață, introdu-le din nou. Cheile din .env sunt reutilizate automat."
+                        "If you entered the keys only in the interface, enter them again. Keys from .env are reused automatically."
                     )
                     resume_keys["ANTHROPIC_API_KEY"] = st.text_input(
                         "Anthropic", type="password", key="credential_anthropic"
@@ -415,7 +415,7 @@ def research(path):
                     resume_keys["OPENAI_API_KEY"] = st.text_input(
                         "OpenAI", type="password", key="credential_openai"
                     )
-            if (path / "manifest.json").exists() and st.button("Reia cercetarea →", type="primary"):
+            if (path / "manifest.json").exists() and st.button("Resume research →", type="primary"):
                 try:
                     launch(path, resume=True, credentials=resume_keys)
                 except (ValueError, OSError):
@@ -424,10 +424,10 @@ def research(path):
                     st.session_state.clear_credentials = True
                     st.rerun()
             elif not (path / "manifest.json").exists():
-                st.info("Configurarea nu a fost salvată. Deschide Cercetare nouă pentru a încerca din nou.")
+                st.info("The setup was not saved. Open New research to try again.")
         if current["status"] == "running":
             st.caption(
-                "Poți naviga în bibliotecă sau închide pagina. Procesul local continuă cât timp calculatorul rămâne pornit."
+                "You can browse the library or close the page. The local process keeps running while the computer stays on."
             )
 
     monitor()

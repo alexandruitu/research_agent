@@ -1,20 +1,20 @@
-# Verificare milestone 1 — 12 septembrie 2026
+# Milestone 1 verification — 12 September 2026
 
-- Python 3.12, dependențe instalate și importate efectiv.
-- 12 teste pytest trecute; verificare Ruff trecută.
-- CLI demo: 12 candidați sintetici, oprire după `extract`, reluare într-un proces separat,
-  12 adjudecări și 10 rezultate în raport. Raportul poate fi regenerat prin `--resume`.
-- Test de eșec al reviewer B: checkpoint păstrat; reluarea nu repetă reviewer A.
-- Teste pentru deduplicare/proveniență, DOI-uri conflictuale și matching ambiguu,
-  citate inexistente, output invalid, acord/dezacord, verdict uncertain, lipsă abstract,
-  rezultate goale, erori HTTP și cache-ul adaptorului de model.
-- Smoke test live Europe PMC: 3 înregistrări publice recuperate, toate cu abstract.
-  Snapshot: `examples/live-connector/retrieved.json`; payload sursă: baza SQLite alăturată.
-  Acest snapshot nu reprezintă lucrări evaluate sau un top științific.
-- Nu a fost executat un run cu modele LLM externe. Testul adaptorului live folosește
-  un model substituit; cheile și model IDs trebuie configurate înaintea verificării live.
+- Python 3.12, dependencies installed and actually imported.
+- 12 pytest tests passed; Ruff check passed.
+- Demo CLI: 12 synthetic candidates, stop after `extract`, resume in a separate process,
+  12 adjudications and 10 results in the report. The report can be regenerated with `--resume`.
+- Reviewer B failure test: checkpoint kept; resuming does not repeat reviewer A.
+- Tests for deduplication/provenance, conflicting DOIs and ambiguous matching,
+  nonexistent quotes, invalid output, agreement/disagreement, uncertain verdict, missing abstract,
+  empty results, HTTP errors and the model adapter cache.
+- Live Europe PMC smoke test: 3 public records retrieved, all with an abstract.
+  Snapshot: `examples/live-connector/retrieved.json`; source payload: the accompanying SQLite database.
+  This snapshot does not represent evaluated papers or a scientific top list.
+- No run with external LLM models was executed. The live adapter test uses
+  a substitute model; keys and model IDs must be configured before live verification.
 
-`requirements.lock.txt` păstrează versiunile instalate în mediul testat. Pentru reproducere:
+`requirements.lock.txt` keeps the versions installed in the tested environment. To reproduce:
 
 ```sh
 pip install -r requirements.lock.txt
@@ -22,16 +22,16 @@ pip install --no-deps -e .
 pytest -q
 ```
 
-Manifestul demo și bazele SQLite incluse sunt date de exemplu. Pentru experimente noi,
-folosește un director nou de run, așa cum este descris în README.
+The demo manifest and the included SQLite databases are sample data. For new experiments,
+use a new run directory, as described in the README.
 
-## Interfață — verificare 14 septembrie 2026
+## Interface — verification 14 September 2026
 
-18 teste trecute, inclusiv randarea interfeței Streamlit, filtrarea clasamentului,
-validarea formularului, lansarea workerului, blocarea lansărilor duplicate și progresul
-persistent. Cheile sunt excluse din argumentele procesului și din fișierele de configurare;
-mesajele de eroare ale furnizorilor sunt filtrate înainte de afișare.
+18 tests passed, including rendering of the Streamlit interface, ranking filtering,
+form validation, worker launch, blocking of duplicate launches and persistent
+progress. Keys are excluded from process arguments and from configuration files;
+provider error messages are filtered before display.
 
-Verificat în browser: pagina de rezultate, formularul unei cercetări noi, lansarea unui
-demo de 12 candidați, pauza după extragerea dovezilor și reluarea din interfață.
-Tema luminoasă este stabilită de launcher pentru un contrast lizibil.
+Verified in the browser: the results page, the new research form, launching a
+12-candidate demo, pausing after evidence extraction and resuming from the interface.
+The light theme is set by the launcher for readable contrast.

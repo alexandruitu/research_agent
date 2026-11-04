@@ -1,12 +1,12 @@
 # Literature Radar (Research Agent)
 
-Prototip Python + Pydantic + LangGraph, cu checkpointing SQLite și raport Markdown/JSON.
-Primul milestone demonstrează întregul circuit pe un topic, cu maximum 30 de candidați
-și cel mult 10 rezultate. Analizează **abstracte**, nu full-text.
+Python + Pydantic + LangGraph prototype, with SQLite checkpointing and a Markdown/JSON report.
+The first milestone demonstrates the whole loop on one topic, with at most 30 candidates
+and at most 10 results. It analyzes **abstracts**, not full text.
 
-## Pornire rapidă — fără chei API
+## Quick start — no API keys
 
-Necesită Python 3.11+. Din acest director:
+Requires Python 3.11+. From this directory:
 
 ```sh
 python3.12 -m venv .venv
@@ -16,55 +16,55 @@ research-agent "retrieval augmented generation" --mode demo --run-dir runs/demo
 pytest -q
 ```
 
-Deschide `runs/demo/report.md`. **Demo este integral sintetic**, inclusiv lucrările,
-scorurile și review-urile. Verifică mecanica sistemului, nu performanța științifică a modelelor.
-Demo generează 12 candidați și exercită deliberat ruta de adjudecare.
+Open `runs/demo/report.md`. **The demo is entirely synthetic**, including the papers,
+scores and reviews. It checks the system's mechanics, not the scientific performance of the models.
+The demo generates 12 candidates and deliberately exercises the adjudication route.
 
-## Căutare și evaluare live
+## Live search and evaluation
 
 ```sh
 cp .env.example .env
-# Completează model IDs și cheile furnizorilor în .env.
+# Fill in model IDs and provider keys in .env.
 research-agent "retrieval augmented generation clinical question answering" \
   --mode live --max-papers 5 --run-dir runs/live-01
 ```
 
-`RESEARCH_MODEL` configurează planner, screening și extraction. Reviewer A, reviewer B
-și adjudicator au fiecare un override în `.env.example`. Format: `provider:model-id`.
-Sunt incluse integrările LangChain pentru OpenAI și Anthropic; alte integrări pot fi adăugate.
-Nu există un model live implicit, o cheie inclusă sau fallback silențios la demo.
-Configurarea se citește la început și se salvează fără chei în manifest.
-Topic-ul și abstractele sunt trimise furnizorilor configurați. Modelele sunt apelate fără tools.
+`RESEARCH_MODEL` configures the planner, screening and extraction. Reviewer A, reviewer B
+and the adjudicator each have an override in `.env.example`. Format: `provider:model-id`.
+LangChain integrations for OpenAI and Anthropic are included; other integrations can be added.
+There is no default live model, no bundled key and no silent fallback to demo.
+The configuration is read at start and saved without keys in the manifest.
+The topic and abstracts are sent to the configured providers. Models are called without tools.
 
-Recomandat pentru primul run live: 5 candidați. Maximum apeluri logice pentru N candidați:
-`1 + 5N` (planner, screening, extraction, două review-uri și eventual adjudecare).
-Retry-urile furnizorului pot produce cereri suplimentare. Maximum 2 review-uri simultane;
-restul lucrului per etapă este secvențial. Timeout model 60s, maximum 2 retry-uri SDK,
-output limitat la 2500 tokens/apel. Nu este implementat un buget monetar strict.
+Recommended for the first live run: 5 candidates. Maximum logical calls for N candidates:
+`1 + 5N` (planner, screening, extraction, two reviews and possibly adjudication).
+Provider retries can produce extra requests. At most 2 concurrent reviews;
+the rest of the work per stage is sequential. Model timeout 60s, at most 2 SDK retries,
+output limited to 2500 tokens/call. No strict monetary budget is implemented.
 
-## Câmpuri (domain.json)
+## Fields (domain.json)
 
-Un câmp = topic + criterii de includere (toate trebuie să fie adevărate) și excludere (oricare elimină
-lucrarea) + surse (Europe PMC, OpenAlex, arXiv) + interval de ani + praguri Jev. Aplicația web scrie
-`domain.json`; din linia de comandă:
+A field = topic + inclusion criteria (all must be true) and exclusion criteria (any one removes
+the paper) + sources (Europe PMC, OpenAlex, arXiv) + year range + Jev thresholds. The web app writes
+`domain.json`; from the command line:
 
 ```bash
 research-agent --domain field.json --mode demo --run-dir runs/field-demo
 research-eval screen gold/toy.json --run-dir runs/eval-field --field field.json
 ```
 
-`domain.json` se copiază în directorul run-ului și apare în `manifest.json`. În `report.json`, fiecare
-screen are `criteria` (per criteriu: `jev_p`, răspunsul LLM `yes|no|unclear`, citatul verificat) și
-`decided_by` (criteriul care a eliminat lucrarea sau `null`); fiecare lucrare are `sources`.
-Run-urile cu topic pozițional rămân neschimbate (o singură întrebare `topic_match`).
+`domain.json` is copied into the run directory and appears in `manifest.json`. In `report.json`, each
+screen has `criteria` (per criterion: `jev_p`, the LLM answer `yes|no|unclear`, the verified quote) and
+`decided_by` (the criterion that removed the paper, or `null`); each paper has `sources`.
+Runs with a positional topic are unchanged (a single `topic_match` question).
 
-## Panel de review (review.json)
+## Review panel (review.json)
 
-Cu `--review review.json` (combinabil cu `--domain` sau cu un topic), lucrările păstrate la screening sunt
-citite în full text unde e disponibil legal (PMC OA, Unpaywall, PDF încărcat) și evaluate de un panel
-(implicit Methodologist, Clinician, Statistician; checklist din CLAIM/TRIPOD+AI) plus un editor. Scorul,
-acoperirea și red flags sunt calculate în cod. PDF-urile încărcate se pun în `<run>/uploads/<id>.pdf`
-(`MED:123` → `MED_123.pdf`) sau într-un director dat cu `--uploads DIR`.
+With `--review review.json` (combinable with `--domain` or with a topic), papers kept at screening are
+read in full text where legally available (PMC OA, Unpaywall, uploaded PDF) and evaluated by a panel
+(by default Methodologist, Clinician, Statistician; checklist from CLAIM/TRIPOD+AI) plus an editor. The score,
+coverage and red flags are computed in code. Uploaded PDFs go in `<run>/uploads/<id>.pdf`
+(`MED:123` → `MED_123.pdf`) or in a directory given with `--uploads DIR`.
 
 ```bash
 python -c "import json; from research_agent.panel import default_review; print(json.dumps(default_review()))" > review.json
@@ -73,21 +73,21 @@ research-agent "topic" --review review.json --mode demo --run-dir runs/panel-dem
 
 `report.json` → `state.review[<paper id>]`: `text_source`, `reviews`, `editor`, `score`, `coverage`, `red_flags`.
 
-## Reluare după întrerupere
+## Resuming after an interruption
 
 ```sh
 research-agent "retrieval augmented generation" --run-dir runs/checkpoint --stop-after extract
 research-agent --run-dir runs/checkpoint --resume
 ```
 
-Aceeași comandă `--resume` reia și un run oprit de o excepție. Manifestul păstrează topic-ul,
-modul și modelele. Checkpoint-urile sunt la granițele nodurilor; cache-ul SQLite al apelurilor
-validate evită repetarea apelurilor deja salvate dintr-un nod parțial executat.
-O cădere între răspunsul furnizorului și salvare poate repeta un apel: nu promitem exactly-once.
-Un director existent nu poate fi suprascris cu un run nou. Un run complet poate regenera raportul.
-Folosește o singură instanță CLI per director de run. Nu încărca baze checkpoint necunoscute.
+The same `--resume` command also resumes a run stopped by an exception. The manifest keeps the topic,
+mode and models. Checkpoints are at node boundaries; the SQLite cache of validated calls
+avoids repeating calls already saved from a partially executed node.
+A crash between the provider's response and the save can repeat a call: we do not promise exactly-once.
+An existing directory cannot be overwritten with a new run. A completed run can regenerate the report.
+Use a single CLI instance per run directory. Do not load unknown checkpoint databases.
 
-## Arhitectură
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -104,75 +104,75 @@ flowchart LR
   R --> O[Markdown + JSON + SQLite]
 ```
 
-| Modul | Responsabilitate |
+| Module | Responsibility |
 |---|---|
-| `schemas.py` | Contracte Pydantic, decizii, evidence, provenance, limite |
-| `connectors.py` | Protocol Connector, Europe PMC, fixture, deduplicare |
-| `agents.py` | Prompturi versionate, configurare modele, output structurat, cache auditabil |
-| `graph.py` | Noduri LangGraph, review-uri paralele, barieră fan-in, adjudecare, scoring |
-| `storage.py` | Raw payloads adresate prin hash, apeluri model, papers |
-| `report.py` | Raport și export al întregii stări |
-| `cli.py` | Inițializare, checkpoint persistent și resume |
+| `schemas.py` | Pydantic contracts, decisions, evidence, provenance, limits |
+| `connectors.py` | Connector protocol, Europe PMC, fixture, deduplication |
+| `agents.py` | Versioned prompts, model configuration, structured output, auditable cache |
+| `graph.py` | LangGraph nodes, parallel reviews, fan-in barrier, adjudication, scoring |
+| `storage.py` | Hash-addressed raw payloads, model calls, papers |
+| `report.py` | Report and export of the whole state |
+| `cli.py` | Initialization, persistent checkpoint and resume |
 
-Reviewer A și B primesc același topic, abstract și evidence, fără review-ul celuilalt.
-A caută contribuția susținută; B atacă validitatea și extrapolările. Sunt independenți la
-nivel de context, nu statistic: aceleași modele/evidence pot produce erori corelate.
-Pentru diversitate, configurează modele diferite. Adjudicatorul vede ambele review-uri și sursa.
+Reviewers A and B receive the same topic, abstract and evidence, without the other's review.
+A looks for the supported contribution; B attacks validity and extrapolations. They are independent at
+the context level, not statistically: the same models/evidence can produce correlated errors.
+For diversity, configure different models. The adjudicator sees both reviews and the source.
 
-Dezacord = verdict diferit sau diferență de cel puțin 2 puncte pe orice componentă.
-La acord folosim minimul scorurilor pe componentă și păstrăm observațiile ambilor evaluatori.
-La dezacord, adjudicatorul produce scoruri și motiv; `uncertain` nu intră în top.
+Disagreement = a different verdict or a difference of at least 2 points on any component.
+On agreement we use the minimum of the scores per component and keep both reviewers' observations.
+On disagreement, the adjudicator produces scores and a reason; `uncertain` does not enter the top.
 
-Scor v1 = `100 × (0.4 relevance + 0.3 methods + 0.3 support) / 4`, fiecare 0–4.
-`methods` măsoară detaliile metodologice vizibile în abstract, nu calitatea verificată.
-Scorul este o formulă deterministă aplicată unor judecăți LLM, deci ranking-ul live nu este
-reproductibil numeric la apeluri noi. Cache-ul și snapshot-urile permit auditarea exactă a unui run.
-Egalitățile se ordonează după ID stabil. Nu completăm artificial până la 10.
+Score v1 = `100 × (0.4 relevance + 0.3 methods + 0.3 support) / 4`, each 0–4.
+`methods` measures the methodological details visible in the abstract, not verified quality.
+The score is a deterministic formula applied to LLM judgments, so the live ranking is not
+numerically reproducible with new calls. The cache and snapshots allow exact auditing of a run.
+Ties are ordered by stable ID. We do not artificially fill up to 10.
 
-## Proveniență și persistență
+## Provenance and persistence
 
-Fiecare candidat păstrează ID, DOI normalizat, titlu, an, abstract, query, sursă, URL,
-timestamp și hash-ul payload-ului original. Deduplicarea combină ID/DOI și, conservator,
-titlu normalizat + an; nu combină prin titlu doi DOI cunoscuți diferiți.
-Fiecare claim extras include un citat verificat ca substring exact al abstractului.
-Această verificare dovedește existența citatului, nu faptul că acesta implică logic afirmația.
+Each candidate keeps its ID, normalized DOI, title, year, abstract, query, source, URL,
+timestamp and the hash of the original payload. Deduplication merges by ID/DOI and, conservatively,
+by normalized title + year; it does not merge by title two known, different DOIs.
+Each extracted claim includes a quote verified as an exact substring of the abstract.
+This check proves the quote exists, not that it logically implies the claim.
 
-În directorul run-ului:
+In the run directory:
 
-- `manifest.json`: contract, modele, versiuni prompt/scoring și pachete principale.
-- `checkpoints.sqlite`: stare LangGraph, ramuri terminate și pasul următor.
-- `research.sqlite`: tabele `raw`, `calls`, `papers`; input/output validat pentru fiecare apel.
-- `report.json`: întregul traseu, inclusiv screening, evidence, review-urile separate și deciziile.
-- `report.md`: top, strengths, assessment, takeaways, limitări și proveniență.
+- `manifest.json`: contract, models, prompt/scoring versions and main packages.
+- `checkpoints.sqlite`: LangGraph state, finished branches and the next step.
+- `research.sqlite`: tables `raw`, `calls`, `papers`; validated input/output for each call.
+- `report.json`: the whole trail, including screening, evidence, the separate reviews and the decisions.
+- `report.md`: top, strengths, assessment, takeaways, limitations and provenance.
 
-Erorile de rețea/schema/citate opresc rularea și păstrează checkpoint-ul; nu devin rezultate goale.
-Conectorul reîncearcă tranzitorii 429/5xx și transport (3 încercări), cu timeout 30s.
-Abstractele lipsă sunt păstrate ca `uncertain`, fără ranking. Screening `uncertain` cu abstract
-continuă la evaluare. Căutarea goală produce explicit zero rezultate.
+Network/schema/quote errors stop the run and keep the checkpoint; they do not become empty results.
+The connector retries transient 429/5xx and transport errors (3 attempts), with a 30s timeout.
+Missing abstracts are kept as `uncertain`, without ranking. An `uncertain` screening with an abstract
+continues to evaluation. An empty search explicitly produces zero results.
 
-## Limitele acestui milestone și pașii următori
+## Limits of this milestone and next steps
 
-- Europe PMC este o sursă orientată spre biomedicină/life sciences, nu acoperire universală.
-- O pagină de cel mult N rezultate per query, maximum 3 query-uri; maximum N candidați unici
-  evaluați în ordinea descoperirii. Topul este în acest lot, nu în întreaga literatură.
-- Nu există achiziție full-text, verificare de retrageri, screening dublu, risk-of-bias validat,
-  normalizare a familiilor preprint/journal sau calibrare față de evaluatori umani.
-- Un singur model de screening în M1; schema permite audit, dar nu rezolvă false negatives.
-- Query planning și review-urile sunt apeluri de model delimitate, nu agenți autonomi cu tools.
-- Nu există business translation, competitive intelligence sau implementare pgvector.
+- Europe PMC is a source oriented toward biomedicine/life sciences, not universal coverage.
+- One page of at most N results per query, at most 3 queries; at most N unique candidates
+  evaluated in discovery order. The top is within this batch, not across the whole literature.
+- There is no full-text acquisition, retraction checking, double screening, validated risk-of-bias,
+  normalization of preprint/journal families or calibration against human raters.
+- A single screening model in M1; the schema allows auditing, but does not solve false negatives.
+- Query planning and the reviews are bounded model calls, not autonomous agents with tools.
+- There is no business translation, competitive intelligence or pgvector implementation.
 
-Milestone 2: eșantion real etichetat manual, măsurarea screening recall și a concordanței evaluatorilor,
-full-text pentru surse deschise și extragere cu localizare pe secțiune/paragraf.
-Milestone 3: mai multe conectoare, paginare/date, workers dinamici per lucrare și limite de cost.
-Ulterior se poate înlocui Store cu PostgreSQL și adăuga embeddings; exportul `Paper`/`Evidence`/
-`Decision` este punctul de extensie pentru consumatori downstream, fără a-i implementa acum.
+Milestone 2: a real, manually labeled sample, measurement of screening recall and of reviewer agreement,
+full text for open sources and extraction with section/paragraph localization.
+Milestone 3: more connectors, pagination/dates, dynamic per-paper workers and cost limits.
+Later, Store can be replaced with PostgreSQL and embeddings added; the `Paper`/`Evidence`/
+`Decision` export is the extension point for downstream consumers, without implementing them now.
 
-## Evaluare (research-eval)
+## Evaluation (research-eval)
 
-`research-eval` măsoară screening-ul față de un review sistematic (SR) publicat: lucrările incluse
-în SR sunt pozitivele, restul candidaților găsiți de același query sunt negativele. Toate apelurile
-modelelor se salvează în cache-ul SQLite al run-ului, iar `report` rulează offline din cache
-(nu apelează niciodată API-uri) și poate reface cascada la orice pereche de praguri Jev.
+`research-eval` measures screening against a published systematic review (SR): the papers included
+in the SR are the positives, the remaining candidates found by the same query are the negatives. All model
+calls are saved in the run's SQLite cache, and `report` runs offline from the cache
+(it never calls APIs) and can replay the cascade at any pair of Jev thresholds.
 
 ```sh
 research-eval build-gold sr_specs/x.yaml -o gold/x.json
@@ -181,29 +181,29 @@ research-eval agreement gold/x.json --run-dir runs/eval-x --limit 40
 research-eval report runs/eval-x --holdout runs/eval-y
 ```
 
-- `build-gold`: rezolvă studiile SR în Europe PMC și îngheață setul gold (hash de conținut);
-  `--max-candidates` (implicit 200) limitează numărul de candidați.
-- `screen`: Jev și screening-ul LLM pe fiecare candidat cu abstract; reluabil, fără apeluri repetate.
-  Cere `TYPESAFE_API_KEY` în `.env`, chiar și cu `--mode demo`. Un director de run acceptă un singur
-  gold set; pentru alt gold folosește alt `--run-dir`.
-- `agreement`: reviewer A/B pe toate pozitivele plus `--limit` negative eșantionate (seed fix);
-  folosește aceleași modele ca `screen`.
-- `report`: scrie `metrics.md` și `metrics.json` în directorul run-ului. `--holdout` primește
-  directorul unui run, deja screenat, pe un ALT SR (același gold e refuzat). Dacă run-ul are
-  răspunsuri Jev de la versiuni diferite ale modelului, `report` se oprește, iar
-  `--allow-mixed-jev-versions` îl forțează.
+- `build-gold`: resolves the SR studies in Europe PMC and freezes the gold set (content hash);
+  `--max-candidates` (default 200) limits the number of candidates.
+- `screen`: Jev and LLM screening on each candidate with an abstract; resumable, without repeated calls.
+  Requires `TYPESAFE_API_KEY` in `.env`, even with `--mode demo`. A run directory accepts a single
+  gold set; for another gold set use another `--run-dir`.
+- `agreement`: reviewer A/B on all positives plus `--limit` sampled negatives (fixed seed);
+  uses the same models as `screen`.
+- `report`: writes `metrics.md` and `metrics.json` in the run directory. `--holdout` takes
+  the directory of a run, already screened, on a DIFFERENT SR (the same gold is refused). If the run has
+  Jev answers from different model versions, `report` stops, and
+  `--allow-mixed-jev-versions` forces it.
 
-Regula de recomandare: se recomandă perechea de praguri cu cele mai multe apeluri de screening economisite
-dintre cele care nu pierd niciun pozitiv SR pe care `llm_only` îl păstrează (pe setul principal și, dacă e dat,
-pe holdout); o pereche care pierde un pozitiv pe holdout e respinsă explicit în raport. `--target-recall`
-este acum doar o constrângere suplimentară opțională (recall >= valoarea dată).
+Recommendation rule: it recommends the threshold pair with the most screening calls saved
+among those that lose no SR positive that `llm_only` keeps (on the main set and, if given,
+on the holdout); a pair that loses a positive on the holdout is explicitly rejected in the report. `--target-recall`
+is now only an optional extra constraint (recall >= the given value).
 
-Rulează comenzile din rădăcina repo-ului: `.env` se citește din directorul curent.
-CLI-ul principal `research-agent` are nivelul Jev în cascadă: `--jev` (doar live),
-`--jev-min-confidence` (auto-include, implicit 0.6) și `--jev-exclude-min-confidence`
-(auto-exclude, implicit 0.9, trebuie să fie cel puțin cât primul).
+Run the commands from the repo root: `.env` is read from the current directory.
+The main CLI `research-agent` has the cascaded Jev layer: `--jev` (live only),
+`--jev-min-confidence` (auto-include, default 0.6) and `--jev-exclude-min-confidence`
+(auto-exclude, default 0.9, must be at least as high as the first).
 
-Format `sr.yaml`:
+`sr.yaml` format:
 
 ```yaml
 name: ctffr-sr
@@ -212,88 +212,88 @@ topic: deep learning CT-FFR
 query: ("fractional flow reserve" AND "deep learning")
 included:
   - doi: 10.1000/p1
-  - title: Titlul unui studiu fără DOI
+  - title: Title of a study without a DOI
     year: 2024
 ```
 
-Ce se măsoară: recall de retrieval și de screening (cu interval Wilson 95%), lista pozitivelor
-ratate, sweep de praguri Jev (include/exclude) cu recomandare de praguri, kappa între
-revieweri A și B (alături de acordul brut și prevalență). Erorile opresc comanda și se scriu în
-`errors.log` în directorul run-ului (tip și mesaj, fără chei).
+What is measured: retrieval and screening recall (with a 95% Wilson interval), the list of missed
+positives, a sweep of Jev thresholds (include/exclude) with a threshold recommendation, kappa between
+reviewers A and B (alongside raw agreement and prevalence). Errors stop the command and are written to
+`errors.log` in the run directory (type and message, without keys).
 
-Limite:
-- Precizia nu e metrica principală: „inclus în SR” reflectă criterii aplicate pe full-text,
-  nu pe abstract, deci negativele nu sunt negative certe.
-- Pragurile recomandate sunt netestate fără `--holdout` (se potrivesc pe același SR); cu un singur SR
-  regula „fără pierderi față de llm_only” poate fi tot supra-potrivită.
-- Dacă reviewerii A și B sunt din aceeași familie de modele, kappa e umflat (corelația erorilor).
+Limits:
+- Precision is not the main metric: "included in the SR" reflects criteria applied to full text,
+  not to the abstract, so the negatives are not certain negatives.
+- The recommended thresholds are untested without `--holdout` (they are fitted on the same SR); with a single SR
+  the "no losses relative to llm_only" rule can still overfit.
+- If reviewers A and B are from the same model family, kappa is inflated (error correlation).
 
-### Evaluarea panelului: `panel`, `ablation`, `human`
+### Panel evaluation: `panel`, `ablation`, `human`
 
 ```sh
 research-eval panel --gold gold/x.json --review review.json --eval-dir evals/panel-x --sample 20 --seed 0 --mode live
-research-eval ablation evals/panel-x --eval-dir evals/abl-x            # offline; --rerun-editor costă apeluri
-research-eval human evals/panel-x --ratings human_ratings.json         # copiat în folderul eval
+research-eval ablation evals/panel-x --eval-dir evals/abl-x            # offline; --rerun-editor costs calls
+research-eval human evals/panel-x --ratings human_ratings.json         # copied into the eval folder
 research-eval report evals/panel-x                                     # metrics.json: panel (+ human)
 research-eval report evals/abl-x                                       # metrics.json: ablation
 ```
 
-- `panel` (sau `--run RUN_DIR` în loc de `--gold`, fără etichete SR): eșantion determinist (seed) —
-  întâi lucrările incluse în SR (până la N/2), apoi excluse potrivite pe an/sursă; full text, toți
-  reviewerii și editorul, cu cache în `research.sqlite` din folderul eval. Folderul conține
-  `manifest.json` (configurație înghețată: hash gold, hash review.json, versiuni panel, modele,
-  versiune prompt, id-urile eșantionului), `review.json`, `panel.json`.
-- `ablation`: fiecare submulțime de revieweri (1..n) punctată în cod, comparată cu panelul complet
-  (verdict schimbat, red flags ratate, |Δscor|, cost). Costul = apeluri + caractere prompt+răspuns
-  (proxy pentru tokeni: cache-ul nu stochează usage-ul furnizorului).
+- `panel` (or `--run RUN_DIR` instead of `--gold`, without SR labels): deterministic sample (seed) —
+  first the papers included in the SR (up to N/2), then excluded ones matched on year/source; full text, all
+  reviewers and the editor, with a cache in `research.sqlite` in the eval folder. The folder contains
+  `manifest.json` (frozen configuration: gold hash, review.json hash, panel versions, models,
+  prompt version, sample ids), `review.json`, `panel.json`.
+- `ablation`: each subset of reviewers (1..n) scored in code, compared with the full panel
+  (changed verdict, missed red flags, |Δscore|, cost). Cost = calls + prompt+response characters
+  (a proxy for tokens: the cache does not store the provider's usage).
 - `human`: `human_ratings.json` (`{"schema": 1, "ratings": [{paper_id, reviewer, reviewer_version,
-  item, item_text, rater, answer, quote}]}`); consens = majoritate, egalitate → unclear; ratingurile
-  pentru o formulare veche a itemului sunt ignorate (numărate ca stale).
-- AUC pentru incluse vs excluse din SR: Hanley–McNeil (fără resampling). Incluziunea în SR nu e calitate.
+  item, item_text, rater, answer, quote}]}`); consensus = majority, tie → unclear; ratings
+  for an old wording of the item are ignored (counted as stale).
+- AUC for SR included vs excluded: Hanley–McNeil (no resampling). Inclusion in an SR is not quality.
 
-## Documentație consultată
+## Documentation consulted
 
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
 - [SQLite checkpointer](https://reference.langchain.com/python/langgraph.checkpoint.sqlite/SqliteSaver)
 - [LangChain model interface](https://docs.langchain.com/oss/python/langchain/models)
 - [Europe PMC REST API](https://europepmc.org/RestfulWebService)
 
-## Rezultate incluse
+## Included results
 
-- [Raport demo complet](examples/demo/report.md)
-- [Snapshot conector live, fără evaluare LLM](examples/live-connector/retrieved.json)
-- [Verificări executate și limitele validării](VERIFICATION.md)
-- `requirements.lock.txt`: versiunile exacte instalate pentru verificare.
+- [Full demo report](examples/demo/report.md)
+- [Live connector snapshot, without LLM evaluation](examples/live-connector/retrieved.json)
+- [Checks executed and the limits of the validation](VERIFICATION.md)
+- `requirements.lock.txt`: the exact versions installed for verification.
 
-## Interfață vizuală — Research Studio
+## Visual interface — Research Studio
 
 ```sh
 pip install -e '.[dev,live,ui]'
 research-ui
 ```
 
-Deschide [Research Studio](http://127.0.0.1:8501). Interfața pornește local,
-pe adresa 127.0.0.1. Necesită macOS sau Linux pentru blocarea exclusivă a rulărilor.
+Open [Research Studio](http://127.0.0.1:8501). The interface starts locally,
+at the address 127.0.0.1. It requires macOS or Linux for exclusive run locking.
 
-- **Cercetare nouă**: topic, mod demo/live, număr de candidați, modele pe rol,
-  chei API și pauză opțională după o etapă.
-- **Progres**: etape în lucru/încheiate/eșuate, actualizate automat; reluare din checkpoint.
-- **Clasament**: scoruri vizuale, filtru de scor, puncte forte și idei principale.
-- **Dovezi și evaluatori**: abstract, citate exacte, review-uri alăturate, adjudecare și surse.
-- **Căutare și export**: query-uri, configurația folosită, raport Markdown și audit JSON.
-- **Bibliotecă**: cercetările anterioare rămân accesibile și după repornirea interfeței.
+- **New research**: topic, demo/live mode, number of candidates, models per role,
+  API keys and an optional pause after a stage.
+- **Progress**: stages in progress/finished/failed, updated automatically; resume from checkpoint.
+- **Ranking**: visual scores, score filter, strengths and main ideas.
+- **Evidence and reviewers**: abstract, exact quotes, side-by-side reviews, adjudication and sources.
+- **Search and export**: queries, the configuration used, Markdown report and JSON audit.
+- **Library**: previous research stays accessible even after the interface restarts.
 
-Rulările pornesc în procese separate: închiderea paginii nu oprește cercetarea.
-Datele noi sunt în `runs/`; `RESEARCH_RUNS_DIR` poate schimba acest director.
-Setările nesensibile se păstrează în `runs/ui-settings.json`. Cheile introduse în pagină
-sunt transmise numai procesului de cercetare și nu sunt salvate pe disc. Pentru reluare,
-reintrodu cheile sau configurează-le în `.env`. Rulările păstrează modelele inițiale;
-pentru a schimba modelul unei cercetări eșuate, pornește o cercetare nouă.
-Progresul măsoară etape, nu timpul rămas. V1 nu oferă anulare în mijlocul unui apel LLM.
+Runs start in separate processes: closing the page does not stop the research.
+New data is in `runs/`; `RESEARCH_RUNS_DIR` can change this directory.
+Non-sensitive settings are kept in `runs/ui-settings.json`. Keys entered in the page
+are passed only to the research process and are not saved to disk. To resume,
+re-enter the keys or configure them in `.env`. Runs keep their initial models;
+to change the model of a failed research, start a new research.
+Progress measures stages, not remaining time. V1 does not offer cancellation in the middle of an LLM call.
 
-## Aplicația web
+## The web app
 
-Pentru departament există și o aplicație web (FastAPI + PostgreSQL + React în `web/`): tabelul de lucrări
-cu banda pipeline-ului și sertarul lucrării, pornirea rulărilor demo/live printr-un worker, pagina Evals
-(recall cu intervale, grila de praguri) și System map, cu roluri viewer/member/admin. Rulare locală și
-frontend: [`docs/web-app.md`](docs/web-app.md); producție cu Docker Compose: [`docs/deployment-docker.md`](docs/deployment-docker.md) (pas cu pas) și [`docs/deployment.md`](docs/deployment.md). Arhitectura, cu diagrame pe module: [`docs/architecture.md`](docs/architecture.md).
+For the department there is also a web app (FastAPI + PostgreSQL + React in `web/`): the papers table
+with the pipeline band and the paper drawer, starting demo/live runs through a worker, the Evals page
+(recall with intervals, the threshold grid) and the System map, with viewer/member/admin roles. Local run and
+frontend: [`docs/web-app.md`](docs/web-app.md); production with Docker Compose: [`docs/deployment-docker.md`](docs/deployment-docker.md) (step by step) and [`docs/deployment.md`](docs/deployment.md). The architecture, with per-module diagrams: [`docs/architecture.md`](docs/architecture.md).

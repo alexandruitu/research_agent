@@ -27,15 +27,15 @@ from .storage import Store
 CACHE_NAMESPACE_ENV = "RESEARCH_CACHE_NAMESPACE"  # set by the web worker: the user id of the run
 
 STAGES = {
-    "plan": "Planificare căutare",
-    "discover": "Căutare în surse",
-    "normalize": "Deduplicare",
+    "plan": "Plan the search",
+    "discover": "Search the sources",
+    "normalize": "Deduplicate",
     "screen": "Screening",
-    "extract": "Extragere dovezi",
-    "review_a": "Evaluator A",
-    "review_b": "Evaluator B · critic",
-    "adjudicate": "Adjudecare",
-    "rank": "Clasament",
+    "extract": "Extract evidence",
+    "review_a": "Reviewer A",
+    "review_b": "Reviewer B · critic",
+    "adjudicate": "Adjudicate",
+    "rank": "Rank",
 }
 FIELDS = dict(
     zip(
