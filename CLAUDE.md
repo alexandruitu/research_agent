@@ -7,11 +7,10 @@ M1 (this code, initially generated with Codex) has run in demo and in a small li
 Jev + Anthropic layer); scientific precision is not measured yet (see `research-eval`).
 
 ## Commands
-- Install: `python3.12 -m venv .venv && . .venv/bin/activate && pip install -e '.[dev,live,ui]'`
+- Install: `python3.12 -m venv .venv && . .venv/bin/activate && pip install -e '.[dev,live,web,web-dev]'`
 - Tests: `pytest -q` · Lint: `ruff check .`
 - Demo: `research-agent "topic" --mode demo --run-dir runs/demo`
 - Live: `research-agent "topic" --mode live --max-papers 5 --run-dir runs/live-01` (requires `.env`)
-- UI: `research-ui`
 - Web (backend): `research-web dev --import-all --admin-email <email>` (local server, embedded PostgreSQL, password in `RESEARCH_WEB_ADMIN_PASSWORD`); see `docs/web-app.md`
 - Web (production): `research-web serve` (API) and `research-web worker` (the only process with keys); see `docs/deployment-docker.md` (Docker install) and `docs/deployment.md`
 - Web (frontend): `cd web && npm run dev` (with `research-web dev --import-all --with-worker --allow-demo` running) · browser tests: `npm run e2e`

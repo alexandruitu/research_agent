@@ -25,13 +25,3 @@ pytest -q
 The demo manifest and the included SQLite databases are sample data. For new experiments,
 use a new run directory, as described in the README.
 
-## Interface — verification 14 September 2026
-
-18 tests passed, including rendering of the Streamlit interface, ranking filtering,
-form validation, worker launch, blocking of duplicate launches and persistent
-progress. Keys are excluded from process arguments and from configuration files;
-provider error messages are filtered before display.
-
-Verified in the browser: the results page, the new research form, launching a
-12-candidate demo, pausing after evidence extraction and resuming from the interface.
-The light theme is set by the launcher for readable contrast.

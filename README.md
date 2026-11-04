@@ -265,32 +265,6 @@ research-eval report evals/abl-x                                       # metrics
 - [Checks executed and the limits of the validation](VERIFICATION.md)
 - `requirements.lock.txt`: the exact versions installed for verification.
 
-## Visual interface — Research Studio
-
-```sh
-pip install -e '.[dev,live,ui]'
-research-ui
-```
-
-Open [Research Studio](http://127.0.0.1:8501). The interface starts locally,
-at the address 127.0.0.1. It requires macOS or Linux for exclusive run locking.
-
-- **New research**: topic, demo/live mode, number of candidates, models per role,
-  API keys and an optional pause after a stage.
-- **Progress**: stages in progress/finished/failed, updated automatically; resume from checkpoint.
-- **Ranking**: visual scores, score filter, strengths and main ideas.
-- **Evidence and reviewers**: abstract, exact quotes, side-by-side reviews, adjudication and sources.
-- **Search and export**: queries, the configuration used, Markdown report and JSON audit.
-- **Library**: previous research stays accessible even after the interface restarts.
-
-Runs start in separate processes: closing the page does not stop the research.
-New data is in `runs/`; `RESEARCH_RUNS_DIR` can change this directory.
-Non-sensitive settings are kept in `runs/ui-settings.json`. Keys entered in the page
-are passed only to the research process and are not saved to disk. To resume,
-re-enter the keys or configure them in `.env`. Runs keep their initial models;
-to change the model of a failed research, start a new research.
-Progress measures stages, not remaining time. V1 does not offer cancellation in the middle of an LLM call.
-
 ## The web app
 
 For the department there is also a web app (FastAPI + PostgreSQL + React in `web/`): the papers table

@@ -7,7 +7,7 @@ pgserver = pytest.importorskip(
 )
 sa = pytest.importorskip("sqlalchemy")
 
-# Provider and source keys. Some modules call load_dotenv() on import (ui.py), which would leak the
+# Provider and source keys. A module that calls load_dotenv() on import would leak the
 # developer's real .env into os.environ for every later test; tests set the keys they need themselves.
 KEY_VARIABLES = (
     "ANTHROPIC_API_KEY",

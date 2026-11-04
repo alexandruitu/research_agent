@@ -199,19 +199,6 @@ def run_lock(path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def is_running(path):
-    lock = Path(path) / ".run.lock"
-    if not lock.exists():
-        return False
-    with lock.open("a") as handle:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            return True
-        fcntl.flock(handle, fcntl.LOCK_UN)
-    return False
-
-
 class Progress:
     def __init__(self, path):
         self.path = Path(path) / "progress.json"

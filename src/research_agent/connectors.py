@@ -10,7 +10,7 @@ import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import NamedTuple, Protocol
+from typing import NamedTuple
 
 import httpx
 
@@ -274,10 +274,6 @@ class SearchResult(NamedTuple):
     total: int | None  # hits the source reports for the query (None: it did not say)
     query: str  # the query the source received (years included)
     note: str | None = None  # how to read `total` when it differs from what `papers` were drawn from
-
-
-class Connector(Protocol):
-    def search(self, query: str, limit: int) -> list[Paper]: ...
 
 
 def _total(value):
