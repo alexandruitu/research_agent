@@ -1,8 +1,9 @@
-import type { MouseEvent } from "react";
+import { type MouseEvent, Suspense } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { hasRole } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Skeleton } from "../components/ui/Skeleton";
 import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 
 const TABS = [
@@ -44,7 +45,7 @@ export function SettingsPage() {
         <p className="lede">How searches work for the whole team (sources, reviewers, models) and, under the My tabs, your own keys, models and usage. Pick a tab below.</p>
         <Tabs admin={admin} member={member} />
         {!admin && <p className="sub">Read-only: only admins change the team settings{member ? " (your own keys, models and usage are under the My tabs)" : ""}. Every search records the settings version it used.</p>}
-        <Outlet />
+        <Suspense fallback={<Skeleton label="the page" rows={4} />}><Outlet /></Suspense>
       </section>
     </DirtyGuardProvider>
   );

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { Skeleton } from "../components/ui/Skeleton";
 import { NavLink, Outlet } from "react-router-dom";
 
 const TABS = [
@@ -15,7 +17,7 @@ export function ValidationPage() {
       <nav aria-label="Validation sections" className="tabs">
         {TABS.map((tab) => <NavLink key={tab.to} to={tab.to}>{tab.label}</NavLink>)}
       </nav>
-      <Outlet />
+      <Suspense fallback={<Skeleton label="the page" rows={4} />}><Outlet /></Suspense>
     </section>
   );
 }

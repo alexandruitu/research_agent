@@ -1,4 +1,4 @@
-import { Fragment, type MouseEvent } from "react";
+import { Fragment, type MouseEvent, Suspense } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useUnreadDigests } from "../api/hooks";
@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { DirtyGuardProvider, useLeaveGuard } from "../features/settings/dirtyGuard";
 import { FEATURES } from "../config";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { Skeleton } from "./ui/Skeleton";
 import { GlossaryLink, GlossaryProvider } from "./ui/GlossaryDialog";
 import { StaleBanner } from "./StaleBanner";
 import { ToastProvider } from "./ui/Toast";
@@ -69,7 +70,7 @@ function Chrome() {
         {/* keyed by path: a crash on one page must not stick when the user navigates to another */}
         <ErrorBoundary key={pathname} label="this page">
           {showWelcome && <WelcomeGuide />}
-          <Outlet />
+          <Suspense fallback={<Skeleton label="the page" rows={4} />}><Outlet /></Suspense>
         </ErrorBoundary>
       </main>
       <footer className="page-foot">

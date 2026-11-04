@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 
 import { useRuns } from "./api/hooks";
@@ -6,36 +7,38 @@ import { Skeleton } from "./components/ui/Skeleton";
 import { FEATURES } from "./config";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
-import { ModelsTab } from "./features/settings/ModelsTab";
-import { FulltextTab } from "./features/settings/FulltextTab";
-import { ReviewerEditorPage } from "./features/settings/ReviewerEditor";
-import { ReviewersTab } from "./features/settings/ReviewersTab";
-import { ScreeningTab } from "./features/settings/ScreeningTab";
-import { SourcesTab } from "./features/settings/SourcesTab";
-import { AlertsPage } from "./pages/AlertsPage";
-import { ComparePage } from "./pages/ComparePage";
-import { EvalReportPage } from "./pages/EvalReportPage";
-import { EvalsHomePage } from "./pages/EvalsHomePage";
-import { NewEvalPage } from "./pages/NewEvalPage";
-import { FieldEditorPage } from "./pages/FieldEditorPage";
-import { FieldsPage } from "./pages/FieldsPage";
-import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
-import { SignupPage } from "./pages/SignupPage";
-import { MyKeysTab } from "./features/me/MyKeysTab";
-import { MyModelsTab } from "./features/me/MyModelsTab";
-import { MyUsageTab } from "./features/me/MyUsageTab";
-import { RatePage } from "./pages/RatePage";
-import { PapersPage } from "./pages/PapersPage";
-import { ReaderPage } from "./pages/ReaderPage";
-import { RunComparePage } from "./pages/RunComparePage";
-import { RunDetailPage } from "./pages/RunDetailPage";
-import { RunsPage } from "./pages/RunsPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { SystemMapPage } from "./pages/SystemMapPage";
-import { HowItWorksPage } from "./pages/HowItWorksPage";
-import { ValidationPage } from "./pages/ValidationPage";
-import { UsersPage } from "./pages/UsersPage";
+
+// Each page is its own chunk, loaded when first opened: the sign-in page and the shell load fast.
+const ModelsTab = lazy(() => import("./features/settings/ModelsTab").then((m) => ({ default: m.ModelsTab })));
+const FulltextTab = lazy(() => import("./features/settings/FulltextTab").then((m) => ({ default: m.FulltextTab })));
+const ReviewerEditorPage = lazy(() => import("./features/settings/ReviewerEditor").then((m) => ({ default: m.ReviewerEditorPage })));
+const ReviewersTab = lazy(() => import("./features/settings/ReviewersTab").then((m) => ({ default: m.ReviewersTab })));
+const ScreeningTab = lazy(() => import("./features/settings/ScreeningTab").then((m) => ({ default: m.ScreeningTab })));
+const SourcesTab = lazy(() => import("./features/settings/SourcesTab").then((m) => ({ default: m.SourcesTab })));
+const AlertsPage = lazy(() => import("./pages/AlertsPage").then((m) => ({ default: m.AlertsPage })));
+const ComparePage = lazy(() => import("./pages/ComparePage").then((m) => ({ default: m.ComparePage })));
+const EvalReportPage = lazy(() => import("./pages/EvalReportPage").then((m) => ({ default: m.EvalReportPage })));
+const EvalsHomePage = lazy(() => import("./pages/EvalsHomePage").then((m) => ({ default: m.EvalsHomePage })));
+const NewEvalPage = lazy(() => import("./pages/NewEvalPage").then((m) => ({ default: m.NewEvalPage })));
+const FieldEditorPage = lazy(() => import("./pages/FieldEditorPage").then((m) => ({ default: m.FieldEditorPage })));
+const FieldsPage = lazy(() => import("./pages/FieldsPage").then((m) => ({ default: m.FieldsPage })));
+const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
+const SignupPage = lazy(() => import("./pages/SignupPage").then((m) => ({ default: m.SignupPage })));
+const MyKeysTab = lazy(() => import("./features/me/MyKeysTab").then((m) => ({ default: m.MyKeysTab })));
+const MyModelsTab = lazy(() => import("./features/me/MyModelsTab").then((m) => ({ default: m.MyModelsTab })));
+const MyUsageTab = lazy(() => import("./features/me/MyUsageTab").then((m) => ({ default: m.MyUsageTab })));
+const RatePage = lazy(() => import("./pages/RatePage").then((m) => ({ default: m.RatePage })));
+const PapersPage = lazy(() => import("./pages/PapersPage").then((m) => ({ default: m.PapersPage })));
+const ReaderPage = lazy(() => import("./pages/ReaderPage").then((m) => ({ default: m.ReaderPage })));
+const RunComparePage = lazy(() => import("./pages/RunComparePage").then((m) => ({ default: m.RunComparePage })));
+const RunDetailPage = lazy(() => import("./pages/RunDetailPage").then((m) => ({ default: m.RunDetailPage })));
+const RunsPage = lazy(() => import("./pages/RunsPage").then((m) => ({ default: m.RunsPage })));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const SystemMapPage = lazy(() => import("./pages/SystemMapPage").then((m) => ({ default: m.SystemMapPage })));
+const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage").then((m) => ({ default: m.HowItWorksPage })));
+const ValidationPage = lazy(() => import("./pages/ValidationPage").then((m) => ({ default: m.ValidationPage })));
+const UsersPage = lazy(() => import("./pages/UsersPage").then((m) => ({ default: m.UsersPage })));
 
 /** Old top-level URL → its place under Validation, keeping the rest of the path, the query and the hash. */
 function MovedTo({ to }: { to: string }) {
@@ -57,6 +60,7 @@ function Home() {
 export function App() {
   return (
     <AuthProvider>
+      <Suspense fallback={<Skeleton label="the page" rows={4} />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
@@ -123,6 +127,7 @@ export function App() {
           </Route>
         </Route>
       </Routes>
+      </Suspense>
     </AuthProvider>
   );
 }
