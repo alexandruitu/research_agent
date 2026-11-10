@@ -50,7 +50,7 @@ class User(Base):
 class AuthSession(Base):
     __tablename__ = "sessions"
     id: Mapped[uuid.UUID] = pk()
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     csrf_token: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -66,7 +66,9 @@ class Field(Base):
     topic: Mapped[str] = mapped_column(Text)  # mirrors the current version (see field_versions)
     current_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -87,7 +89,9 @@ class FieldVersion(Base):
     query_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {source: query}
     # a researcher topic: {people, group, coauthors, institutions, min_shared}; null: keywords/topic field
     authors: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -156,7 +160,9 @@ class GoldSet(Base):
     positives: Mapped[int | None] = mapped_column(Integer, nullable=True)
     unresolved: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # the SR spec it was built from
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -172,11 +178,15 @@ class Run(Base):
     manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
     folder: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
     source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    gold_set_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("gold_sets.id"), nullable=True)
+    gold_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("gold_sets.id"), nullable=True, index=True
+    )
     settings_version_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("settings_versions.id"), nullable=True, index=True
     )  # the review settings a panel run used (null: a legacy run)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -216,7 +226,9 @@ class CriterionScore(Base):
     screening_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("screenings.id", ondelete="CASCADE"), primary_key=True
     )
-    criterion_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("criteria.id"), primary_key=True)
+    criterion_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("criteria.id"), primary_key=True, index=True
+    )
     probability: Mapped[float | None] = mapped_column(Float, nullable=True)  # Jev p; null: Jev did not run
     jev_version: Mapped[str] = mapped_column(String(64), default="")
     llm_answer: Mapped[str | None] = mapped_column(String(16), nullable=True)  # yes | no | unclear
@@ -255,7 +267,7 @@ class Ranking(Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True
     )
-    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), primary_key=True)
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), primary_key=True, index=True)
     score: Mapped[float] = mapped_column(Float)
     position: Mapped[int] = mapped_column(Integer)
 
@@ -265,7 +277,7 @@ class GoldLabel(Base):
     gold_set_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("gold_sets.id", ondelete="CASCADE"), primary_key=True
     )
-    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), primary_key=True)
+    paper_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("papers.id"), primary_key=True, index=True)
     label: Mapped[str] = mapped_column(String(16))  # include | not_included
     label_source: Mapped[str] = mapped_column(String(32), default="sr_included_list")
     via: Mapped[str] = mapped_column(String(16), default="query")
@@ -277,15 +289,19 @@ class EvalReport(Base):
     __tablename__ = "eval_reports"
     id: Mapped[uuid.UUID] = pk()
     kind: Mapped[str] = mapped_column(String(16), server_default="screening")
-    gold_set_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("gold_sets.id"), nullable=True)
+    gold_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("gold_sets.id"), nullable=True, index=True
+    )
     run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("runs.id", ondelete="CASCADE"), unique=True)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("eval_reports.id", ondelete="SET NULL"), nullable=True
+        Uuid, ForeignKey("eval_reports.id", ondelete="SET NULL"), nullable=True, index=True
     )  # ablation and human reports: the panel report they were computed from
     config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))  # frozen config
     metrics: Mapped[dict] = mapped_column(JSONB)
     agreement: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -301,7 +317,9 @@ class RatingSample(Base):
     size: Mapped[int] = mapped_column(Integer)
     seed: Mapped[int] = mapped_column(Integer)
     paper_ids: Mapped[list] = mapped_column(JSONB)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -315,7 +333,7 @@ class HumanRatingRow(Base):
         Uuid, ForeignKey("rating_samples.id", ondelete="CASCADE"), index=True
     )
     paper_id: Mapped[str] = mapped_column(String(200))  # the eval's paper id (e.g. MED:123)
-    rater_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    rater_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     reviewer: Mapped[str] = mapped_column(String(64))
     reviewer_version: Mapped[int] = mapped_column(Integer)
     item: Mapped[str] = mapped_column(String(64))
@@ -400,7 +418,9 @@ class ReviewerProfile(Base):
     key: Mapped[str] = mapped_column(String(30), unique=True)
     current_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -419,7 +439,9 @@ class ReviewerVersion(Base):
     items: Mapped[list] = mapped_column(JSONB, default=list)
     model: Mapped[str | None] = mapped_column(String(200), nullable=True)
     note: Mapped[str] = mapped_column(Text, default="")
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -438,7 +460,9 @@ class SettingsVersion(Base):
     editor: Mapped[dict] = mapped_column(JSONB, default=dict)
     note: Mapped[str] = mapped_column(Text, default="")
     imported: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -465,7 +489,9 @@ class PaperFile(Base):
     sha256: Mapped[str] = mapped_column(String(64), index=True)
     filename: Mapped[str] = mapped_column(String(200))
     size: Mapped[int] = mapped_column(Integer)
-    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -562,7 +588,9 @@ class Collection(Base):
     )  # set for personal collections only
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = created()
 
@@ -610,7 +638,9 @@ class LibraryItem(Base):
     )
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     red_flag_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    added_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     added_at: Mapped[datetime] = created()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -653,7 +683,7 @@ class LibraryEvent(Base):
     item_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("library_items.id", ondelete="CASCADE"), index=True
     )
-    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True, index=True)
     kind: Mapped[str] = mapped_column(String(16))
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = created()
@@ -675,7 +705,7 @@ class Alert(Base):
     hour: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     last_run_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True
+        Uuid, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, index=True
     )
     max_new: Mapped[int] = mapped_column(Integer, default=50, server_default="50")
     min_group: Mapped[str] = mapped_column(
@@ -686,7 +716,9 @@ class Alert(Base):
     paused_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the daily budget pushed the last slot to the next day; the next digest says so, then this is cleared
     deferred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -754,7 +786,9 @@ class ReaderNote(Base):
     model: Mapped[str] = mapped_column(String(200), default="", server_default="")
     # company: everyone signed in sees it; private: its author only
     visibility: Mapped[str] = mapped_column(String(16), default="company", server_default="company")
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -776,7 +810,9 @@ class PaperMap(Base):
         JSONB, default=list
     )  # [{key, nodes: [{label, quote}], not_reported}]
     red_flags: Mapped[list] = mapped_column(JSONB, default=list)  # [{label, quote, by}] from the run, by code
-    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     built_at: Mapped[datetime] = created()
 
 

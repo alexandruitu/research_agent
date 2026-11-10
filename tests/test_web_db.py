@@ -85,3 +85,17 @@ def test_key_constraints_hold(db):
         db.flush()
     db.rollback()
     assert Screening.__table__.c.run_id.foreign_keys
+
+
+def test_the_api_engine_caps_statement_time(fresh_db_url):
+    from research_agent.web.db.session import make_engine
+
+    capped, plain = make_engine(fresh_db_url, statement_timeout_ms=1234), make_engine(fresh_db_url)
+    try:
+        with capped.connect() as connection:
+            assert connection.execute(sa.text("show statement_timeout")).scalar() == "1234ms"
+        with plain.connect() as connection:
+            assert connection.execute(sa.text("show statement_timeout")).scalar() == "0"
+    finally:
+        capped.dispose()
+        plain.dispose()

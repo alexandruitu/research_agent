@@ -33,12 +33,15 @@ from .routers import (
 
 API_PREFIX = "/api/v1"
 PREVIEWS_PER_MINUTE = 10
+API_STATEMENT_TIMEOUT_MS = 30_000
 
 
 def create_app(settings=None, session_factory=None):
     settings = settings or load_settings()
     if session_factory is None:
-        session_factory = make_session_factory(make_engine(settings.database_url))
+        session_factory = make_session_factory(
+            make_engine(settings.database_url, statement_timeout_ms=API_STATEMENT_TIMEOUT_MS)
+        )
     # Docs and the schema URL are off (default deny); `research-web openapi` dumps the schema offline.
     app = FastAPI(title="Research Agent", version="1", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings

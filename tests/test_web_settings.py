@@ -29,6 +29,26 @@ def test_job_settings_can_be_overridden_from_the_environment():
     assert s.job_stale_seconds == 30 and s.worker_poll_seconds == 0.1
 
 
+def test_session_and_sign_in_limits_can_be_tuned_from_the_environment():
+    s = load_settings(BASE)
+    assert (s.session_idle_hours, s.session_absolute_days) == (8, 7)
+    assert (s.login_max_attempts, s.login_window_seconds, s.login_ip_max_attempts) == (5, 300, 30)
+    s = load_settings(
+        {
+            **BASE,
+            "RESEARCH_WEB_SESSION_IDLE_HOURS": "2",
+            "RESEARCH_WEB_SESSION_DAYS": "1",
+            "RESEARCH_WEB_LOGIN_MAX_ATTEMPTS": "3",
+            "RESEARCH_WEB_LOGIN_WINDOW_SECONDS": "600",
+            "RESEARCH_WEB_LOGIN_IP_MAX_ATTEMPTS": "100",
+        }
+    )
+    assert (s.session_idle_hours, s.session_absolute_days) == (2, 1)
+    assert (s.login_max_attempts, s.login_window_seconds, s.login_ip_max_attempts) == (3, 600, 100)
+    with pytest.raises(SettingsError, match="RESEARCH_WEB_SESSION_DAYS"):
+        load_settings({**BASE, "RESEARCH_WEB_SESSION_DAYS": "0"})
+
+
 @pytest.mark.parametrize(
     "name,value",
     [

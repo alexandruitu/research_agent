@@ -363,7 +363,10 @@ name match: every author with that name) on `/runs/{id}/papers`, `/papers/groups
   `signup_domains` (Settings → Users, admin; empty = signup off, `GET /auth/signup` → {open}). A taken email gets the
   same 202 answer as a new one and no session (the user then signs in). Password policy as for invites (12+).
   Limits per IP: 5 signups/hour (`RESEARCH_WEB_SIGNUP_MAX_ATTEMPTS`), 30 failed logins per login window (any email),
-  on top of the per IP+email login limit.
+  on top of the per IP+email login limit. Tunable: `RESEARCH_WEB_LOGIN_MAX_ATTEMPTS` (per IP+email, 5),
+  `RESEARCH_WEB_LOGIN_IP_MAX_ATTEMPTS` (30), `RESEARCH_WEB_LOGIN_WINDOW_SECONDS` (300). Sessions end after
+  `RESEARCH_WEB_SESSION_IDLE_HOURS` (8) idle or `RESEARCH_WEB_SESSION_DAYS` (7); dead ones are purged at sign-in.
+  Behind Caddy, `serve` reads the client IP from X-Forwarded-For sent by `RESEARCH_WEB_FORWARDED_ALLOW_IPS` only.
 - **My keys** (`/me/keys`, member+): Anthropic, Google, OpenAI, xAI, TypeSafe and the keyed sources. A key is
   Fernet-encrypted with `RESEARCH_SECRETS_KEY` into `user_secrets`; responses carry only `last4` and dates. Test
   (`POST /me/keys/{provider}/check`) is a `secret_check` job: only the worker decrypts (`web/keyring.py`).

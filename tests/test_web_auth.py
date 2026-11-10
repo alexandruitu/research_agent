@@ -8,6 +8,7 @@ from research_agent.web.auth import (
     authenticate_password,
     create_user,
     load_session,
+    purge_sessions,
     revoke_session,
     start_session,
     utcnow,
@@ -46,6 +47,24 @@ def test_session_lifecycle_idle_absolute_and_revoked(db, users, settings):
     token3, row3 = start_session(db, users["viewer"], settings, now=now)
     revoke_session(db, row3, now=now)
     assert load_session(db, token3, settings, now=now) is None
+
+
+def test_dead_sessions_are_purged_on_the_next_sign_in(db, users, settings):
+    from sqlalchemy import func, select
+
+    from research_agent.web.db.models import AuthSession
+
+    now = utcnow()
+    start_session(db, users["viewer"], settings, now=now)
+    _, revoked = start_session(db, users["viewer"], settings, now=now)
+    revoke_session(db, revoked, now=now)
+    start_session(db, users["member"], settings, now=now - timedelta(hours=9))
+    start_session(db, users["member"], settings, now=now - timedelta(days=8))
+    db.flush()
+    purge_sessions(db, settings, now=now)
+    assert db.scalar(select(func.count()).select_from(AuthSession)) == 1
+    start_session(db, users["admin"], settings, now=now)  # a sign-in purges too, and keeps live sessions
+    assert db.scalar(select(func.count()).select_from(AuthSession)) == 2
 
 
 def test_login_me_logout_flow(client, users):

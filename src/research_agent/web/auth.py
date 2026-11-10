@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 
 from .db.models import AuthSession, User
 from .security import hash_password, new_token, token_hash, verify_password
@@ -83,8 +83,23 @@ def authenticate_password(db, email, password):
     return user
 
 
+def purge_sessions(db, settings, now=None):
+    """Delete sessions that can never be used again (expired, idle too long, or revoked)."""
+    now = now or utcnow()
+    db.execute(
+        delete(AuthSession).where(
+            or_(
+                AuthSession.expires_at <= now,
+                AuthSession.revoked_at.is_not(None),
+                AuthSession.last_seen_at < now - timedelta(hours=settings.session_idle_hours),
+            )
+        )
+    )
+
+
 def start_session(db, user, settings, now=None):
     now = now or utcnow()
+    purge_sessions(db, settings, now)  # sign-ins are rare enough to carry the clean-up
     token = new_token()
     row = AuthSession(
         user_id=user.id,
@@ -101,13 +116,19 @@ def start_session(db, user, settings, now=None):
 def load_session(db, token, settings, now=None):
     """Return (session_row, user) for a valid token, else None. Slides the idle timer."""
     now = now or utcnow()
-    row = db.scalar(select(AuthSession).where(AuthSession.token_hash == token_hash(token)))
-    if row is None or row.revoked_at is not None or row.expires_at <= now:
+    found = db.execute(
+        select(AuthSession, User)
+        .join(User, User.id == AuthSession.user_id)
+        .where(AuthSession.token_hash == token_hash(token))
+    ).first()
+    if found is None:
+        return None
+    row, user = found
+    if row.revoked_at is not None or row.expires_at <= now:
         return None
     if now - row.last_seen_at > timedelta(hours=settings.session_idle_hours):
         return None
-    user = db.get(User, row.user_id)
-    if user is None or not user.active:
+    if not user.active:
         return None
     if (now - row.last_seen_at).total_seconds() > TOUCH_SECONDS:
         row.last_seen_at = now

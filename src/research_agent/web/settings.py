@@ -111,6 +111,11 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         secrets_key=(env.get(SECRETS_KEY_ENV) or "").strip() or None,
         dev_mode=env.get("RESEARCH_WEB_DEV_MODE", "false").strip().lower() == "true",
         signup_max_attempts=_number(env, "RESEARCH_WEB_SIGNUP_MAX_ATTEMPTS", 5, low=1, high=1000),
+        session_idle_hours=_number(env, "RESEARCH_WEB_SESSION_IDLE_HOURS", 8, low=1, high=24 * 30),
+        session_absolute_days=_number(env, "RESEARCH_WEB_SESSION_DAYS", 7, low=1, high=90),
+        login_max_attempts=_number(env, "RESEARCH_WEB_LOGIN_MAX_ATTEMPTS", 5, low=1, high=100),
+        login_window_seconds=_number(env, "RESEARCH_WEB_LOGIN_WINDOW_SECONDS", 300, low=10, high=86_400),
+        login_ip_max_attempts=_number(env, "RESEARCH_WEB_LOGIN_IP_MAX_ATTEMPTS", 30, low=1, high=10_000),
         static_dir=Path(env["RESEARCH_WEB_STATIC_DIR"]).resolve()
         if env.get("RESEARCH_WEB_STATIC_DIR")
         else None,
