@@ -270,4 +270,4 @@ research-eval report evals/abl-x                                       # metrics
 For the department there is also a web app (FastAPI + PostgreSQL + React in `web/`): the papers table
 with the pipeline band and the paper drawer, starting demo/live runs through a worker, the Evals page
 (recall with intervals, the threshold grid) and the System map, with viewer/member/admin roles. Local run and
-frontend: [`docs/web-app.md`](docs/web-app.md); production with Docker Compose: [`docs/deployment-docker.md`](docs/deployment-docker.md) (step by step) and [`docs/deployment.md`](docs/deployment.md). The architecture, with per-module diagrams: [`docs/architecture.md`](docs/architecture.md).
+frontend: [`docs/web-app.md`](docs/web-app.md); production with Docker Compose: [`docs/deployment-docker.md`](docs/deployment-docker.md) (step by step; Windows: [`docs/deployment-windows.md`](docs/deployment-windows.md)) and [`docs/deployment.md`](docs/deployment.md). The architecture, with per-module diagrams: [`docs/architecture.md`](docs/architecture.md).

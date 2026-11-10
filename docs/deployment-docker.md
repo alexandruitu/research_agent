@@ -1,6 +1,7 @@
 # Install with Docker on one LAN machine
 
-Everything runs from the repository root. Design summary: `docs/deployment.md`.
+Everything runs from the repository root. Design summary: `docs/deployment.md`. On Windows (Docker Desktop,
+PowerShell scripts) follow `docs/deployment-windows.md` instead.
 
 ## 1. Requirements
 
@@ -124,4 +125,6 @@ The database refers to run folders by path, so restore the database and `runs` t
 - **Browser certificate warning:** trust Caddy's root (section 5) or provide a certificate.
 - **Wrong host name:** the browser must use a name listed in `SITE_ADDRESS`; change it and `up -d proxy`.
 - **Ports 80/443 taken:** set `HTTPS_PORT`/`HTTP_PORT` and use `https://host:<port>/`.
+- **`Pool overlaps with other one on this address space`:** the Caddy <-> API network `172.31.250.0/24` clashes
+  with another network; set `EDGE_SUBNET` in `deploy/.env` to a free `/24`.
 - **Smoke test** (throw-away stack on ports 18443/18080, removed afterwards): `scripts/docker_smoke.sh`.

@@ -191,9 +191,15 @@ def test_the_deploy_lock_pins_every_web_and_live_dependency():
     import tomllib
 
     lock = (DEPLOY / "requirements.lock.txt").read_text().lower()
-    pins = {line.split("==")[0].strip() for line in lock.splitlines() if "==" in line and not line.startswith("#")}
+    pins = {
+        line.split("==")[0].strip() for line in lock.splitlines() if "==" in line and not line.startswith("#")
+    }
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
-    wanted = project["dependencies"] + project["optional-dependencies"]["web"] + project["optional-dependencies"]["live"]
+    wanted = (
+        project["dependencies"]
+        + project["optional-dependencies"]["web"]
+        + project["optional-dependencies"]["live"]
+    )
     names = {re.split(r"[<>=!~\[; ]", spec, maxsplit=1)[0].lower().replace("_", "-") for spec in wanted}
     assert names <= pins, f"regenerate deploy/requirements.lock.txt: missing {sorted(names - pins)}"
     assert "deploy/requirements.lock.txt" not in (ROOT / ".dockerignore").read_text().split()
@@ -271,3 +277,53 @@ def test_ci_runs_every_check_and_needs_no_secrets():
     docker = " ".join(step.get("run", "") for step in workflow["jobs"]["docker"]["steps"])
     assert "docker compose -f deploy/docker-compose.yml config" in docker and "deploy/Dockerfile" in docker
     assert workflow["jobs"]["e2e"]["env"]["PYTHON_DOTENV_DISABLED"] == "1"
+
+
+WINDOWS = ROOT / "scripts" / "windows"
+
+
+def test_line_endings_are_pinned_for_windows_checkouts():
+    rules = (ROOT / ".gitattributes").read_text().splitlines()
+    assert "* text=auto eol=lf" in rules  # Caddyfile, compose, Dockerfile, shell scripts stay LF on Windows
+    assert "*.ps1 text eol=crlf" in rules
+
+
+def test_windows_scripts_run_on_windows_powershell_5():
+    scripts = sorted(WINDOWS.glob("*.ps1"))
+    assert {p.name for p in scripts} >= {
+        "common.ps1",
+        "setup.ps1",
+        "backup.ps1",
+        "restore.ps1",
+        "smoke.ps1",
+        "trust-caddy-root.ps1",
+    }
+    for path in scripts:
+        text = path.read_text(encoding="utf-8")
+        assert text.isascii(), f"{path.name}: PowerShell 5.1 reads a BOM-less file as ANSI; keep it ASCII"
+        # the code without strings (sh commands for containers may use &&) and without comments
+        code = re.sub(r'"[^"\n]*"|\'[^\'\n]*\'', '""', text)
+        code = "\n".join(line.split("#")[0] for line in code.splitlines())
+        for pwsh7_only in ("??", "?.", " && ", " || ", "-SkipCertificateCheck"):
+            assert pwsh7_only not in code, f"{path.name} uses {pwsh7_only!r}, which PowerShell 5.1 lacks"
+        if path.name != "common.ps1":
+            assert '. (Join-Path $PSScriptRoot "common.ps1")' in text, path.name
+    common = (WINDOWS / "common.ps1").read_text()
+    assert "UTF8Encoding($false)" in common  # compose misreads a .env that starts with a byte-order mark
+    backup = (WINDOWS / "backup.ps1").read_text()
+    assert '"-f", "/tmp/db.dump"' in backup and "db:/tmp/db.dump" in backup  # no '>' redirect of the dump
+
+
+def test_the_windows_setup_fills_every_secret_of_the_env_template():
+    setup = (WINDOWS / "setup.ps1").read_text()
+    template = (DEPLOY / ".env.example").read_text()
+    for name in (
+        "RESEARCH_SECRETS_KEY",
+        "DB_PASSWORD",
+        "RESEARCH_WEB_ADMIN_EMAIL",
+        "RESEARCH_WEB_ADMIN_PASSWORD",
+        "SITE_ADDRESS",
+    ):
+        assert f"\n{name}=" in template and f"{name} " in setup, name
+    assert "-AsSecureString" in setup and "Protect-File $EnvFile" in setup
+    assert "deploy/caddy-root.crt" in (ROOT / ".gitignore").read_text().splitlines()

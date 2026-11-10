@@ -1,0 +1,15 @@
+# One line-ending rule for every checkout, whatever core.autocrlf says. A Windows clone must not turn the files
+# that run inside Linux containers (Caddyfile, Dockerfile, compose, shell scripts) into CRLF.
+* text=auto eol=lf
+
+# Windows PowerShell 5.1 scripts keep Windows line endings.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.woff2 binary
+*.dump binary
+*.tgz binary

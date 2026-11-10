@@ -17,6 +17,7 @@ SITE_ADDRESS=localhost
 CADDY_TLS=internal
 HTTPS_PORT=$HTTPS
 HTTP_PORT=${SMOKE_HTTP_PORT:-18080}
+EDGE_SUBNET=${SMOKE_EDGE_SUBNET:-172.31.251.0/24}
 ENV
 C=(docker compose -p research-smoke --env-file "$WORK/env" -f deploy/docker-compose.yml)
 "${C[@]}" config -q
