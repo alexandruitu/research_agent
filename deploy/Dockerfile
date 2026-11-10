@@ -11,7 +11,7 @@ COPY web/ ./
 RUN npm run build
 
 # --- stage 2: Python runtime --------------------------------------------------------------------------
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,9 +24,13 @@ ENV PIP_NO_CACHE_DIR=1 \
     RESEARCH_EVALS_DIR=/data/evals \
     RESEARCH_GOLD_DIR=/data/gold
 WORKDIR /app
+# Dependencies first, from the hashed lock (deploy/requirements.lock.txt, regenerate with the command at its
+# top): this layer stays cached until the lock changes. The app itself goes in after, without dependencies.
+COPY deploy/requirements.lock.txt ./
+RUN pip install --require-hashes -r requirements.lock.txt && rm requirements.lock.txt
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN pip install '.[web,live]' && rm -rf /app/src
+RUN pip install --no-deps '.[web,live]' && rm -rf /app/src /app/build
 COPY --from=web /web/dist /app/web
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /data/runs /data/cache /data/uploads /data/evals /data/gold \

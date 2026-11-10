@@ -180,10 +180,23 @@ def test_no_secret_value_is_written_into_any_deployment_file():
 def test_dockerfile_is_unprivileged_and_never_copies_env_files():
     text = (ROOT / "deploy" / "Dockerfile").read_text()
     assert "USER app" in text and not re.search(r"COPY[^\n]*\.env", text)
-    assert "npm ci" in text and "AS web" in text and "'.[web,live]'" in text
+    assert "npm ci" in text and "AS web" in text and "--no-deps '.[web,live]'" in text
+    assert "--require-hashes -r requirements.lock.txt" in text
     assert "PYTHON_DOTENV_DISABLED=1" in text and "RESEARCH_WEB_STATIC_DIR=/app/web" in text
     ignore = (ROOT / ".dockerignore").read_text().split()
     assert {".env", ".venv", ".git", "runs", "evals", "gold", ".web-dev"} <= set(ignore)
+
+
+def test_the_deploy_lock_pins_every_web_and_live_dependency():
+    import tomllib
+
+    lock = (DEPLOY / "requirements.lock.txt").read_text().lower()
+    pins = {line.split("==")[0].strip() for line in lock.splitlines() if "==" in line and not line.startswith("#")}
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    wanted = project["dependencies"] + project["optional-dependencies"]["web"] + project["optional-dependencies"]["live"]
+    names = {re.split(r"[<>=!~\[; ]", spec, maxsplit=1)[0].lower().replace("_", "-") for spec in wanted}
+    assert names <= pins, f"regenerate deploy/requirements.lock.txt: missing {sorted(names - pins)}"
+    assert "deploy/requirements.lock.txt" not in (ROOT / ".dockerignore").read_text().split()
 
 
 def test_caddy_terminates_tls_and_proxies_only_the_api():
