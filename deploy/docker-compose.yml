@@ -15,9 +15,20 @@ x-app-env: &app-env
   RESEARCH_WEB_ALLOW_DEMO: "false"
   RESEARCH_WEB_COOKIE_SECURE: "true"
 
+# The app containers: read-only root, no Linux capabilities, no privilege gain. They write only to their
+# volumes and to a small /tmp.
+x-hardened: &hardened
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
 services:
   db:
     image: postgres:16
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 256m
     environment:
       POSTGRES_DB: research
       POSTGRES_USER: research
@@ -34,7 +45,7 @@ services:
   # One-shot: migrations under a PostgreSQL advisory lock, then the first admin, sign-up domains and contact
   # address (only while none is set). Safe to repeat; api and worker start only after it succeeded.
   migrate:
-    <<: *image
+    <<: [*image, *hardened]
     command: ["research-web", "bootstrap"]
     environment:
       <<: *app-env
@@ -50,9 +61,14 @@ services:
     restart: "no"
 
   api:
-    <<: *image
+    <<: [*image, *hardened]
     command: ["research-web", "serve", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *app-env
+    environment:
+      <<: *app-env
+      # only Caddy, on the edge network, may set X-Forwarded-For (the per-IP sign-in limits use it)
+      RESEARCH_WEB_FORWARDED_ALLOW_IPS: ${EDGE_SUBNET:-172.31.250.0/24}
+    networks: [default, edge]
+    mem_limit: ${API_MEMORY:-1g}
     volumes:
       - runs:/data/runs:ro
       - uploads:/data/uploads  # uploaded PDFs (the API writes them)
@@ -72,8 +88,9 @@ services:
     restart: unless-stopped
 
   worker:
-    <<: *image
+    <<: [*image, *hardened]
     command: ["research-web", "worker"]
+    mem_limit: ${WORKER_MEMORY:-2g}
     init: true  # PID 1 forwards docker stop's SIGTERM, so the worker stops its child and requeues the job
     stop_grace_period: 30s
     environment:
@@ -103,6 +120,10 @@ services:
 
   proxy:
     image: caddy:2
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge]
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/.env}
       CADDY_TLS: ${CADDY_TLS:-internal}
@@ -123,6 +144,15 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  default: {}
+  # Caddy <-> API only, on a fixed subnet so the API can trust exactly this range for X-Forwarded-For.
+  # Change EDGE_SUBNET in deploy/.env if it clashes with a network on the host or the LAN.
+  edge:
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.31.250.0/24}
 
 volumes:
   dbdata: {}

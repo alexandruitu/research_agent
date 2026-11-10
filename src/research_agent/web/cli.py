@@ -278,7 +278,16 @@ def cmd_serve(args, settings):
 
     if not require_secrets_key(settings):
         return 1
-    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level="info")
+    # Behind the reverse proxy every request comes from the proxy's address. Trusting its X-Forwarded-*
+    # headers (and only its: see --forwarded-allow-ips) gives the per-IP rate limits the real client.
+    uvicorn.run(
+        create_app(settings),
+        host=args.host,
+        port=args.port,
+        log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips=args.forwarded_allow_ips,
+    )
     return 0
 
 
@@ -348,6 +357,12 @@ def build_parser():
     p = sub.add_parser("serve", help="run the API (behind a reverse proxy that terminates TLS)")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
+    p.add_argument(
+        "--forwarded-allow-ips",
+        default=os.environ.get("RESEARCH_WEB_FORWARDED_ALLOW_IPS") or "127.0.0.1",
+        help="addresses or networks (comma-separated) of the reverse proxy whose X-Forwarded-* headers are "
+        "trusted; default 127.0.0.1 or RESEARCH_WEB_FORWARDED_ALLOW_IPS",
+    )
     p.set_defaults(func=cmd_serve)
     p = sub.add_parser("worker", help="run the job worker (the only process that needs LLM provider keys)")
     p.add_argument("--once", action="store_true", help="process queued jobs, then exit")

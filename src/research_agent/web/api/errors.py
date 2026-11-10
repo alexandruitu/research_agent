@@ -46,6 +46,10 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
 }
 
+# The app uses no camera, microphone, location or the like; say so, so no injected script can ask.
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+SECURITY_HEADERS["Permissions-Policy"] = PERMISSIONS_POLICY
+
 
 # The built frontend (served by `serve` when RESEARCH_WEB_STATIC_DIR is set): same-origin only, nothing inline.
 FRONTEND_HEADERS = {
@@ -56,6 +60,7 @@ FRONTEND_HEADERS = {
     ),
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",
+    "Permissions-Policy": PERMISSIONS_POLICY,
 }
 
 

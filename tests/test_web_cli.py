@@ -129,6 +129,24 @@ def test_worker_once_drains_the_queue_and_exits(cli_settings, tmp_path):
     assert scalar(cli_settings.database_url, select(func.count()).select_from(Run)) == 1
 
 
+def test_serve_trusts_forwarded_headers_only_from_the_proxy(cli_settings, monkeypatch):
+    import uvicorn
+
+    from research_agent.web import cli
+
+    seen = []
+    monkeypatch.setattr(cli, "create_app", lambda settings: object())
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: seen.append(kwargs))
+    monkeypatch.delenv("RESEARCH_WEB_FORWARDED_ALLOW_IPS", raising=False)
+    assert main(["serve"], settings=cli_settings) == 0
+    assert seen[-1]["proxy_headers"] is True and seen[-1]["forwarded_allow_ips"] == "127.0.0.1"
+    monkeypatch.setenv("RESEARCH_WEB_FORWARDED_ALLOW_IPS", "172.31.250.0/24")
+    assert main(["serve"], settings=cli_settings) == 0
+    assert seen[-1]["forwarded_allow_ips"] == "172.31.250.0/24"
+    assert main(["serve", "--forwarded-allow-ips", "10.0.0.2"], settings=cli_settings) == 0
+    assert seen[-1]["forwarded_allow_ips"] == "10.0.0.2"
+
+
 def test_serve_and_dev_are_registered(capsys):
     from research_agent.web.cli import build_parser
 
@@ -331,6 +349,7 @@ def test_serve_serves_the_built_frontend_with_spa_fallback(cli_settings, tmp_pat
     assert (
         "script-src 'self'" in page.headers["content-security-policy"]
         and page.headers["x-frame-options"] == "DENY"
+        and "microphone=()" in page.headers["permissions-policy"]
     )
     assert (
         client.get("/api/v1/health").headers["content-security-policy"]

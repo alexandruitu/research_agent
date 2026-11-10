@@ -176,6 +176,7 @@ def test_security_headers_are_on_every_response(app, client, sign_in):
         assert response.headers["cache-control"] == "no-store"
         assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
         assert response.headers["referrer-policy"] == "no-referrer"
+        assert "camera=()" in response.headers["permissions-policy"]
 
 
 def test_secrets_never_appear_in_responses_logs_or_error_bodies(

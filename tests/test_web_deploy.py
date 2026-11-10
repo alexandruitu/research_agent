@@ -191,6 +191,21 @@ def test_caddy_terminates_tls_and_proxies_only_the_api():
     assert "tls {$CADDY_TLS}" in text and "Strict-Transport-Security" in text and "admin off" in text
     assert text.count("reverse_proxy api:8000") == 2 and text.count("reverse_proxy") == 2
     assert "max_size 31MB" in text and "max_size 1MB" in text
+    assert "encode zstd gzip" in text
+
+
+def test_app_containers_are_hardened_and_only_caddy_shares_the_edge_network(compose):
+    services = compose["services"]
+    for name in ("migrate", "api", "worker"):
+        service = services[name]
+        assert service["read_only"] is True and service["cap_drop"] == ["ALL"], name
+        assert "no-new-privileges:true" in service["security_opt"], name
+        assert any(t.startswith("/tmp") for t in service["tmpfs"]), name
+    assert services["proxy"]["cap_add"] == ["NET_BIND_SERVICE"] and services["proxy"]["networks"] == ["edge"]
+    assert [n for n, s in services.items() if "edge" in s.get("networks", [])] == ["api", "proxy"]
+    subnet = compose["networks"]["edge"]["ipam"]["config"][0]["subnet"]
+    # the API trusts X-Forwarded-For only from the edge network, so the per-IP limits see real clients
+    assert services["api"]["environment"]["RESEARCH_WEB_FORWARDED_ALLOW_IPS"] == subnet
 
 
 def test_the_web_package_data_files_ship_in_the_wheel():

@@ -79,7 +79,7 @@ def create_app(settings=None, session_factory=None):
 
 def mount_frontend(app, root):
     """Serve the built React app: real files under `root`, `index.html` for client-side routes. Unknown
-    /api paths stay 404 JSON. Security headers (CSP) are set by the reverse proxy in front."""
+    /api paths stay 404 JSON. Security headers (CSP) come from the `security_headers` middleware."""
     root = Path(root).resolve()
     index = root / "index.html"
     if not index.is_file():

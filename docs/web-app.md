@@ -9,7 +9,7 @@ frontend in `web/` (Papers, Library, Runs, Fields, Evals, System map, Settings) 
 ## Requirements
 
 ```bash
-pip install -e '.[dev,live,ui,web,web-dev]'
+pip install -e '.[dev,live,web,web-dev]'
 ```
 
 No Docker and no system PostgreSQL are needed for development: `research-web dev` starts an embedded

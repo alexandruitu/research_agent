@@ -14,6 +14,9 @@
 		-Server
 	}
 
+	# compressed JS, CSS and JSON (hashed assets are cached for a year, so this is mostly the first load)
+	encode zstd gzip
+
 	# full-text PDF uploads (the API caps them at 30 MB); every other request body stays at 1 MB
 	@uploads path_regexp ^/api/v1/papers/[^/]+/files$
 	handle @uploads {

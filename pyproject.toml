@@ -11,7 +11,7 @@ dependencies = ["langgraph>=1.0,<2", "langgraph-checkpoint-sqlite>=3,<4", "pydan
 
 [project.optional-dependencies]
 live = ["langchain-openai>=1,<2", "langchain-anthropic>=1,<2", "langchain-google-genai>=4,<5", "langchain-xai>=1,<2", "pypdf>=5,<7"]
-dev = ["pytest>=8,<10", "ruff>=0.11", "pypdf>=5,<7"]
+dev = ["pytest>=8,<10", "ruff>=0.11"]
 web = [
   "fastapi>=0.115,<1",
   "uvicorn>=0.30,<1",
@@ -21,7 +21,7 @@ web = [
   "argon2-cffi>=23,<26",
   "python-multipart>=0.0.18,<1",
   "pypdf>=5,<7",
-  "cryptography>=43",
+  "cryptography>=43,<51",
 ]
 web-dev = ["pgserver>=0.1.4,<1"]
 
